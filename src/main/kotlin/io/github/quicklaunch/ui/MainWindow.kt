@@ -167,11 +167,37 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
 
         val aiMenu = buildAiMenu()
 
+        val aboutItem = JMenuItem("About QuickLaunch...").apply {
+            addActionListener { showAbout() }
+        }
+        val helpMenu = JMenu("Help").apply {
+            add(aboutItem)
+        }
+
         return JMenuBar().apply {
             add(fileMenu)
             add(viewMenu)
             add(aiMenu)
+            add(helpMenu)
         }
+    }
+
+    private fun showAbout() {
+        val version = try {
+            val props = java.util.Properties()
+            props.load(javaClass.getResourceAsStream("/version.properties"))
+            props.getProperty("app.version", "unknown")
+        } catch (_: Exception) { "unknown" }
+
+        JOptionPane.showMessageDialog(
+            this,
+            "<html><b>QuickLaunch</b> v$version<br><br>" +
+            "A Swing-based project launcher for developers.<br><br>" +
+            "License: Apache 2.0<br>" +
+            "Source: github.com/rygel/quicklaunch</html>",
+            "About QuickLaunch",
+            JOptionPane.INFORMATION_MESSAGE,
+        )
     }
 
     private fun buildAiMenu(): JMenu {
