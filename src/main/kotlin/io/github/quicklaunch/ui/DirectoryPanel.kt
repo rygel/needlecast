@@ -6,6 +6,7 @@ import io.github.quicklaunch.model.DetectedProject
 import io.github.quicklaunch.model.GitStatus
 import io.github.quicklaunch.model.ProjectDirectory
 import io.github.quicklaunch.model.ProjectGroup
+import io.github.quicklaunch.scanner.BuildFileWatcher
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
@@ -61,6 +62,8 @@ class DirectoryPanel(
     }
 
     private var currentGroup: ProjectGroup? = null
+
+    private var buildFileWatcher = BuildFileWatcher { path -> rescheduleProjectScan(path) }
 
     private val activateButton = JButton("\u25B6").apply {
         toolTipText = "Activate terminal for this project"
@@ -172,6 +175,8 @@ class DirectoryPanel(
     }
 
     fun loadGroup(group: ProjectGroup?) {
+        buildFileWatcher.stop()
+        buildFileWatcher = BuildFileWatcher { path -> rescheduleProjectScan(path) }
         currentGroup = group
         model.clear()
         filteredModel.clear()
@@ -264,6 +269,30 @@ class DirectoryPanel(
                 model.addElement(result)
                 applyFilter(filterText)
                 fetchGitStatus(dir.path)
+                buildFileWatcher.watch(dir.path)
+            }
+        }.execute()
+    }
+
+    /**
+     * Re-scans the project at [path] after a build file change and updates the model entry
+     * in place so the command list stays current without a full group reload.
+     */
+    private fun rescheduleProjectScan(path: String) {
+        val dir = currentGroup?.directories?.firstOrNull { it.path == path } ?: return
+        object : SwingWorker<DetectedProject?, Void>() {
+            override fun doInBackground(): DetectedProject? =
+                try { ctx.scanner.scan(dir) } catch (_: Exception) { null }
+
+            override fun done() {
+                val result = try { get() } catch (_: Exception) { null } ?: return
+                val idx = (0 until model.size).firstOrNull { model.getElementAt(it).directory.path == path }
+                if (idx != null) {
+                    model.setElementAt(result, idx)
+                } else {
+                    model.addElement(result)
+                }
+                applyFilter(filterText)
             }
         }.execute()
     }
@@ -316,6 +345,8 @@ class DirectoryPanel(
 
     private fun rescanAll() {
         val group = currentGroup ?: return
+        buildFileWatcher.stop()
+        buildFileWatcher = BuildFileWatcher { path -> rescheduleProjectScan(path) }
         model.clear()
         filteredModel.clear()
         activePaths = emptySet()

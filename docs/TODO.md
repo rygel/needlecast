@@ -13,8 +13,8 @@
 - [x] **Auto OS theme** — follow OS dark/light preference automatically via FlatLaf
 - [x] **README preview** — show first lines of `README.md` below command list when a project is selected
 - [x] **Group color coding** — same left-stripe color mechanic applied to groups in the sidebar
-- [ ] **File watcher / auto-rescan** — use `WatchService` to auto-refresh command list when build files change
-- [ ] **Command queuing** — queue commands to run sequentially (e.g. clean → build → run)
+- [x] **File watcher / auto-rescan** — use `WatchService` to auto-refresh command list when build files change
+- [x] **Command queuing** — queue commands to run sequentially (e.g. clean → build → run)
 - [ ] **Git log viewer** — read-only `git log` tab with clickable commits showing `git show` in the editor
 
 ## File Explorer / Editor

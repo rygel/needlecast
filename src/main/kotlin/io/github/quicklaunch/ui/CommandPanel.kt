@@ -33,6 +33,9 @@ import javax.swing.SwingUtilities
 
 private const val HISTORY_MAX = 20
 
+/** Lightweight value type for a queued command. */
+private data class QueuedCommand(val label: String, val argv: List<String>, val workingDir: String)
+
 class CommandPanel(
     private val ctx: AppContext,
     private val consolePanel: ConsolePanel,
@@ -45,6 +48,9 @@ class CommandPanel(
     private val commandModel = DefaultListModel<CommandDescriptor>()
     private val historyModel = DefaultListModel<CommandHistoryEntry>()
 
+    private val commandQueue = ArrayDeque<QueuedCommand>()
+    private val queueModel = DefaultListModel<String>()
+
     private val commandList = JList(commandModel).apply {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
         setCellRenderer(CommandCellRenderer())
@@ -56,7 +62,24 @@ class CommandPanel(
 
     private val runButton    = JButton("\u25B6  Run").apply    { isEnabled = false }
     private val cancelButton = JButton("\u23F9  Cancel").apply { isEnabled = false }
+    private val queueButton  = JButton("\u23ED  Queue").apply  { isEnabled = false; toolTipText = "Add selected command to queue" }
     private val historyToggle = JToggleButton("\u2713 History").apply { isSelected = false }
+    private val queueToggle   = JToggleButton("\u23ED Queue").apply   { isSelected = false }
+
+    private val queueList = JList(queueModel).apply {
+        selectionMode = ListSelectionModel.SINGLE_SELECTION
+        font = Font(Font.MONOSPACED, Font.PLAIN, 10)
+        visibleRowCount = 4
+    }
+    private val clearQueueButton = JButton("Clear Queue").apply {
+        toolTipText = "Remove all queued commands"
+    }
+    private val queuePanel: JPanel = JPanel(BorderLayout(0, 2)).apply {
+        border = BorderFactory.createEmptyBorder(2, 0, 0, 0)
+        add(JScrollPane(queueList), BorderLayout.CENTER)
+        add(clearQueueButton, BorderLayout.SOUTH)
+        isVisible = false
+    }
 
     private var processResult: ProcessResult = ProcessResult.NotStarted
     private var currentProjectPath: String? = null
@@ -88,7 +111,9 @@ class CommandPanel(
         commandList.addListSelectionListener { e ->
             if (!e.valueIsAdjusting) {
                 val selected = commandList.selectedValue
-                runButton.isEnabled = selected?.isSupported == true && processResult !is ProcessResult.Running
+                val notRunning = processResult !is ProcessResult.Running
+                runButton.isEnabled = selected?.isSupported == true && notRunning
+                queueButton.isEnabled = selected?.isSupported == true
             }
         }
 
@@ -103,8 +128,10 @@ class CommandPanel(
             isFloatable = false
             add(runButton)
             add(cancelButton)
+            add(queueButton)
             addSeparator()
             add(historyToggle)
+            add(queueToggle)
         }
 
         val listPanel = JPanel(BorderLayout()).apply {
@@ -117,14 +144,26 @@ class CommandPanel(
             add(readmeScroll, BorderLayout.SOUTH)
         }
 
+        val southPanel = JPanel(BorderLayout()).apply {
+            add(buttonBar, BorderLayout.NORTH)
+            add(queuePanel, BorderLayout.SOUTH)
+        }
+
         add(centerPanel, BorderLayout.CENTER)
-        add(buttonBar, BorderLayout.SOUTH)
+        add(southPanel, BorderLayout.SOUTH)
 
         runButton.addActionListener    { runSelected() }
         cancelButton.addActionListener { cancelRunning() }
+        queueButton.addActionListener  { enqueueSelected() }
+        clearQueueButton.addActionListener { clearQueue() }
 
         historyToggle.addActionListener {
             historyScroll.isVisible = historyToggle.isSelected
+            revalidate(); repaint()
+        }
+
+        queueToggle.addActionListener {
+            queuePanel.isVisible = queueToggle.isSelected
             revalidate(); repaint()
         }
     }
@@ -135,6 +174,7 @@ class CommandPanel(
         currentProjectPath = project?.directory?.path
         currentProjectEnv = project?.directory?.env ?: emptyMap()
         runButton.isEnabled = false
+        queueButton.isEnabled = false
 
         loadReadme(project?.directory?.path)
 
@@ -212,6 +252,7 @@ class CommandPanel(
                         val type = if (exitCode == 0) TrayIcon.MessageType.INFO else TrayIcon.MessageType.ERROR
                         TrayNotifier.notify("QuickLaunch", msg, type)
                     }
+                    drainQueue()
                 }
             }
         }
@@ -238,6 +279,32 @@ class CommandPanel(
         cancelButton.isEnabled = false
         runButton.isEnabled = commandList.selectedValue?.isSupported == true
         statusBar.setStatus("Cancelled")
+    }
+
+    private fun enqueueSelected() {
+        val cmd = commandList.selectedValue ?: return
+        if (!cmd.isSupported) return
+        val queued = QueuedCommand(cmd.label, cmd.argv, cmd.workingDirectory)
+        commandQueue.addLast(queued)
+        queueModel.addElement(cmd.label)
+        // Auto-show the queue panel when something is added
+        if (!queueToggle.isSelected) {
+            queueToggle.isSelected = true
+            queuePanel.isVisible = true
+            revalidate(); repaint()
+        }
+    }
+
+    private fun clearQueue() {
+        commandQueue.clear()
+        queueModel.clear()
+    }
+
+    private fun drainQueue() {
+        if (commandQueue.isEmpty()) return
+        val next = commandQueue.removeFirst()
+        queueModel.removeElementAt(0)
+        executeCommand(next.label, next.argv, next.workingDir)
     }
 }
 
