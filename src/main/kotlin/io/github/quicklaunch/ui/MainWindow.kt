@@ -44,7 +44,7 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
             }
         },
         onActivate = { project ->
-            terminalPanel.activateProject(project.directory.path)
+            terminalPanel.activateProject(project.directory.path, project.directory.env)
             directoryPanel.setActivePaths(terminalPanel.activePaths())
         },
         onDeactivate = { project ->

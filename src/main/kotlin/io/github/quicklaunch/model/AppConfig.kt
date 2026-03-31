@@ -43,6 +43,8 @@ data class ProjectDirectory(
     val displayName: String? = null,
     /** Optional hex color string (e.g. "#FF5722") shown as a left-edge stripe in the project list. */
     val color: String? = null,
+    /** Per-project environment variable overrides injected into commands and terminals. */
+    val env: Map<String, String> = emptyMap(),
 ) {
     fun label(): String = displayName ?: path.substringAfterLast('/').substringAfterLast('\\').ifBlank { path }
 }

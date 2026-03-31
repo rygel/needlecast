@@ -6,10 +6,11 @@ import java.io.File
 class ProcessCommandRunner : CommandRunner {
 
     override fun run(descriptor: CommandDescriptor, listener: ProcessOutputListener): RunningProcess {
-        val process = ProcessBuilder(descriptor.argv)
+        val pb = ProcessBuilder(descriptor.argv)
             .directory(File(descriptor.workingDirectory))
             .redirectErrorStream(true)
-            .start()
+        if (descriptor.env.isNotEmpty()) pb.environment().putAll(descriptor.env)
+        val process = pb.start()
 
         val runningProcess = RunningProcess(process)
 

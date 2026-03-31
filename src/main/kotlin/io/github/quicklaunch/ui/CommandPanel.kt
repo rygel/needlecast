@@ -57,6 +57,7 @@ class CommandPanel(
 
     private var processResult: ProcessResult = ProcessResult.NotStarted
     private var currentProjectPath: String? = null
+    private var currentProjectEnv: Map<String, String> = emptyMap()
 
     private val commandScroll = JScrollPane(commandList)
     private val historyScroll = JScrollPane(historyList).apply { isVisible = false }
@@ -113,6 +114,7 @@ class CommandPanel(
         commandModel.clear()
         historyModel.clear()
         currentProjectPath = project?.directory?.path
+        currentProjectEnv = project?.directory?.env ?: emptyMap()
         runButton.isEnabled = false
 
         if (project == null) return
@@ -169,7 +171,7 @@ class CommandPanel(
             }
         }
 
-        val descriptor = CommandDescriptor(label, io.github.quicklaunch.model.BuildTool.MAVEN, argv, workingDir)
+        val descriptor = CommandDescriptor(label, io.github.quicklaunch.model.BuildTool.MAVEN, argv, workingDir, currentProjectEnv)
         val running = ctx.commandRunner.run(descriptor, listener)
         processResult = ProcessResult.Running(running)
     }

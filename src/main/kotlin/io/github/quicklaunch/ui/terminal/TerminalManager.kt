@@ -45,9 +45,9 @@ class TerminalManager : JPanel(CardLayout()) {
     }
 
     /** Create a terminal pane for [path] if missing, then show it. */
-    fun activateProject(path: String) {
+    fun activateProject(path: String, extraEnv: Map<String, String> = emptyMap()) {
         if (!terminals.containsKey(path)) {
-            val pane = ProjectTerminalPane(path, currentDark)
+            val pane = ProjectTerminalPane(path, currentDark, extraEnv)
             terminals[path] = pane
             add(pane, path)
         }
@@ -111,6 +111,7 @@ class TerminalManager : JPanel(CardLayout()) {
 private class ProjectTerminalPane(
     private val path: String,
     private var isDark: Boolean,
+    private val extraEnv: Map<String, String> = emptyMap(),
 ) : JPanel(BorderLayout()) {
 
     private val tabs = JTabbedPane()
@@ -143,7 +144,7 @@ private class ProjectTerminalPane(
 
     private fun addTerminalTab() {
         tabCounter++
-        val terminal = TerminalPanel(initialDir = path, dark = isDark)
+        val terminal = TerminalPanel(initialDir = path, dark = isDark, extraEnv = extraEnv)
         val title = "Terminal $tabCounter"
         val idx = tabs.tabCount
         tabs.addTab(title, terminal)

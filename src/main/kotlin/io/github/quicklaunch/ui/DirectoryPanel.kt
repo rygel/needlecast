@@ -327,6 +327,10 @@ class DirectoryPanel(
 
     private fun showProjectContextMenu(project: DetectedProject, x: Int, y: Int) {
         val menu = JPopupMenu()
+        menu.add(JMenuItem("Edit Environment\u2026").apply {
+            addActionListener { editEnv(project) }
+        })
+        menu.addSeparator()
         menu.add(JMenuItem("Set Color\u2026").apply {
             addActionListener { pickColor(project) }
         })
@@ -338,30 +342,41 @@ class DirectoryPanel(
         menu.show(list, x, y)
     }
 
+    private fun editEnv(project: DetectedProject) {
+        val owner = SwingUtilities.getWindowAncestor(this) ?: return
+        EnvEditorDialog(owner, project.directory.label(), project.directory.env) { newEnv ->
+            updateProjectDirectory(project) { it.copy(env = newEnv) }
+        }.isVisible = true
+    }
+
+    /** Applies [transform] to the matching [ProjectDirectory] and persists to config. */
+    private fun updateProjectDirectory(project: DetectedProject, transform: (ProjectDirectory) -> ProjectDirectory) {
+        val group = currentGroup ?: return
+        val updatedDirs = group.directories.map {
+            if (it.path == project.directory.path) transform(it) else it
+        }
+        val updatedGroup = group.copy(directories = updatedDirs)
+        saveGroupUpdate(updatedGroup)
+        val idx = (0 until model.size).firstOrNull { model.getElementAt(it).directory.path == project.directory.path }
+        if (idx != null) {
+            val newDir = transform(model.getElementAt(idx).directory)
+            model.setElementAt(model.getElementAt(idx).copy(directory = newDir), idx)
+        }
+        applyFilter(filterText)
+        list.repaint()
+    }
+
     private fun pickColor(project: DetectedProject) {
         val initial = project.directory.color?.let {
             try { Color.decode(it) } catch (_: Exception) { null }
         }
         val chosen = JColorChooser.showDialog(this, "Choose Project Color", initial) ?: return
         val hex = "#%02X%02X%02X".format(chosen.red, chosen.green, chosen.blue)
-        setProjectColor(project, hex)
+        updateProjectDirectory(project) { it.copy(color = hex) }
     }
 
     private fun setProjectColor(project: DetectedProject, hex: String?) {
-        val group = currentGroup ?: return
-        val updatedDirs = group.directories.map {
-            if (it.path == project.directory.path) it.copy(color = hex) else it
-        }
-        val updatedGroup = group.copy(directories = updatedDirs)
-        saveGroupUpdate(updatedGroup)
-        // Refresh the in-memory model entry
-        val idx = (0 until model.size).firstOrNull { model.getElementAt(it).directory.path == project.directory.path }
-        if (idx != null) {
-            val updated = model.getElementAt(idx).let { it.copy(directory = it.directory.copy(color = hex)) }
-            model.setElementAt(updated, idx)
-        }
-        applyFilter(filterText)
-        list.repaint()
+        updateProjectDirectory(project) { it.copy(color = hex) }
     }
 
     private fun saveGroupUpdate(updatedGroup: ProjectGroup) {

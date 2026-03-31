@@ -13,6 +13,7 @@ data class CommandDescriptor(
     val buildTool: BuildTool,
     val argv: List<String>,
     val workingDirectory: String,
+    val env: Map<String, String> = emptyMap(),
 ) {
     val isSupported: Boolean get() = !argv.firstOrNull().orEmpty().startsWith("<unsupported")
 }

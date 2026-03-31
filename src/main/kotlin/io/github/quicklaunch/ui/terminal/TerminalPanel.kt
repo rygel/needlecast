@@ -14,12 +14,14 @@ import javax.swing.JPanel
 class TerminalPanel(
     initialDir: String = System.getProperty("user.home"),
     dark: Boolean = true,
+    extraEnv: Map<String, String> = emptyMap(),
 ) : JPanel(BorderLayout()) {
 
     private val settingsProvider = QuickLaunchTerminalSettings(dark = dark)
     private val termWidget = JediTermWidget(settingsProvider)
     private var currentDir: String = initialDir
     private var ptyProcess: PtyProcess? = null
+    private val extraEnv: Map<String, String> = extraEnv
 
     init {
         add(termWidget, BorderLayout.CENTER)
@@ -73,6 +75,7 @@ class TerminalPanel(
                 val cmd = if (IS_WINDOWS) arrayOf("cmd.exe") else arrayOf("/bin/bash", "--login")
                 val env = System.getenv().toMutableMap().apply {
                     put("TERM", "xterm-256color")
+                    putAll(extraEnv)
                 }
                 ptyProcess = PtyProcessBuilder()
                     .setCommand(cmd)
