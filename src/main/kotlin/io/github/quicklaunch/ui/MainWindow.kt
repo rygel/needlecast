@@ -96,6 +96,7 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
             }
 
             override fun windowClosing(e: WindowEvent) {
+                if (!explorerPanel.checkAllUnsaved()) return
                 ctx.updateConfig(ctx.config.copy(
                     windowWidth = width,
                     windowHeight = height,

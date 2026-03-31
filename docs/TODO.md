@@ -12,7 +12,7 @@
 - [x] **Find & Replace** — wire up RSyntaxTextArea's built-in `SearchEngine` (Ctrl+F / Ctrl+H)
 - [x] **Right-click context menu** — create file, rename, delete in the file explorer
 - [x] **Hidden files toggle** — show/hide dot-files (`.env`, `.git`, etc.)
-- [ ] **Multiple editor tabs** — open more than one file at once
+- [x] **Multiple editor tabs** — open more than one file at once
 
 ## Terminal
 
