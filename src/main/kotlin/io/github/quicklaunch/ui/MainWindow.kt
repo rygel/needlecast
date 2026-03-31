@@ -140,6 +140,11 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
     }
 
     private fun buildMenuBar(): JMenuBar {
+        val settingsItem = JMenuItem("Settings...").apply {
+            addActionListener {
+                SettingsDialog(this@MainWindow, ctx) { cmd -> terminalPanel.sendInput(cmd) }.isVisible = true
+            }
+        }
         val importItem = JMenuItem("Import Config...").apply {
             addActionListener { importConfig() }
         }
@@ -152,6 +157,8 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
             }
         }
         val fileMenu = JMenu("File").apply {
+            add(settingsItem)
+            addSeparator()
             add(importItem)
             add(exportItem)
             addSeparator()
