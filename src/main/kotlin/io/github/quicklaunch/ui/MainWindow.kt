@@ -30,7 +30,7 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
     private val consolePanel = ConsolePanel()
     private val terminalPanel = TerminalManager()
     private val explorerPanel = ExplorerPanel(ctx)
-    private val commandPanel = CommandPanel(ctx, consolePanel, statusBar, showTitle = false)
+    private val commandPanel = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
     private val directoryPanel: DirectoryPanel = DirectoryPanel(
         ctx = ctx,
         compact = true,
@@ -365,6 +365,27 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         // Ctrl+3 — focus terminal
         im.put(KeyStroke.getKeyStroke("ctrl 3"), "focus-terminal")
         am.put("focus-terminal", action { terminalPanel.requestFocusOnActive() })
+
+        // Ctrl+P — global project switcher
+        im.put(KeyStroke.getKeyStroke("ctrl P"), "project-switcher")
+        am.put("project-switcher", action { showProjectSwitcher() })
+    }
+
+    private fun showProjectSwitcher() {
+        val dialog = ProjectSwitcherDialog(this, ctx) { groupId, path ->
+            switchToProject(groupId, path)
+        }
+        dialog.isVisible = true
+    }
+
+    private fun switchToProject(groupId: String, path: String) {
+        if (groupPanel.selectedGroupId() != groupId) {
+            groupPanel.selectGroup(groupId)
+            // loadGroup is triggered by the GroupPanel selection listener;
+            // directoryPanel will apply the pending selection once the scan completes
+        }
+        directoryPanel.selectByPath(path)
+        directoryPanel.requestFocusOnList()
     }
 
     private fun action(block: () -> Unit) = object : javax.swing.AbstractAction() {

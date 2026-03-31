@@ -10,6 +10,9 @@ import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
 import java.awt.Font
+import java.awt.SystemTray
+import java.awt.TrayIcon
+import java.awt.image.BufferedImage
 import java.text.SimpleDateFormat
 import java.util.Date
 import javax.swing.BorderFactory
@@ -32,6 +35,8 @@ class CommandPanel(
     private val consolePanel: ConsolePanel,
     private val statusBar: StatusBar,
     private val showTitle: Boolean = true,
+    /** Returns true when the owning window is focused; used to suppress tray notifications. */
+    private val isWindowFocused: () -> Boolean = { true },
 ) : JPanel(BorderLayout()) {
 
     private val commandModel = DefaultListModel<CommandDescriptor>()
@@ -155,6 +160,11 @@ class CommandPanel(
                     runButton.isEnabled = commandList.selectedValue?.isSupported == true
                     cancelButton.isEnabled = false
                     recordHistory(CommandHistoryEntry(label, argv, workingDir, exitCode, startTime))
+                    if (!isWindowFocused()) {
+                        val msg = if (exitCode == 0) "'$label' finished successfully" else "'$label' failed (exit $exitCode)"
+                        val type = if (exitCode == 0) TrayIcon.MessageType.INFO else TrayIcon.MessageType.ERROR
+                        TrayNotifier.notify("QuickLaunch", msg, type)
+                    }
                 }
             }
         }
@@ -181,6 +191,27 @@ class CommandPanel(
         cancelButton.isEnabled = false
         runButton.isEnabled = commandList.selectedValue?.isSupported == true
         statusBar.setStatus("Cancelled")
+    }
+}
+
+/**
+ * Sends a system-tray balloon notification when the OS supports it.
+ * Lazily installs a minimal tray icon on first use; no-ops silently if tray is unavailable.
+ */
+private object TrayNotifier {
+    private val trayIcon: TrayIcon? by lazy {
+        if (!SystemTray.isSupported()) return@lazy null
+        try {
+            // 16×16 transparent image — just enough for the OS to accept the icon
+            val img = BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
+            val icon = TrayIcon(img, "QuickLaunch")
+            SystemTray.getSystemTray().add(icon)
+            icon
+        } catch (_: Exception) { null }
+    }
+
+    fun notify(caption: String, text: String, type: TrayIcon.MessageType) {
+        try { trayIcon?.displayMessage(caption, text, type) } catch (_: Exception) {}
     }
 }
 

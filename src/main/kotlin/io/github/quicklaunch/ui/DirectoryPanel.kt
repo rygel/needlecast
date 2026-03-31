@@ -45,6 +45,8 @@ class DirectoryPanel(
     private var filterText = ""
     private var activePaths: Set<String> = emptySet()
     private val gitStatusCache = mutableMapOf<String, GitStatus>()
+    /** Set by [selectByPath] when the target project hasn't finished scanning yet. */
+    private var pendingSelectPath: String? = null
 
     private val list = object : JList<DetectedProject>(filteredModel) {
         override fun getToolTipText(event: java.awt.event.MouseEvent): String? {
@@ -198,9 +200,34 @@ class DirectoryPanel(
         (0 until model.size).map { model.getElementAt(it) }
             .filter { filterText.isEmpty() || it.directory.label().lowercase().contains(filterText) }
             .forEach { filteredModel.addElement(it) }
+        // Apply pending selection from switchToProject if the target has now been scanned
+        val pending = pendingSelectPath
+        if (pending != null) {
+            val idx = (0 until filteredModel.size).firstOrNull { filteredModel.getElementAt(it).directory.path == pending }
+            if (idx != null) {
+                list.selectedIndex = idx
+                list.ensureIndexIsVisible(idx)
+                pendingSelectPath = null
+            }
+        }
     }
 
     fun requestFocusOnList() = list.requestFocusInWindow()
+
+    /**
+     * Selects the project with [path] in the list. If not yet scanned, stores it and applies
+     * the selection when the project appears after the async scan completes.
+     */
+    fun selectByPath(path: String) {
+        val idx = (0 until filteredModel.size).firstOrNull { filteredModel.getElementAt(it).directory.path == path }
+        if (idx != null) {
+            list.selectedIndex = idx
+            list.ensureIndexIsVisible(idx)
+            pendingSelectPath = null
+        } else {
+            pendingSelectPath = path
+        }
+    }
 
     fun triggerRescan() = rescanAll()
 

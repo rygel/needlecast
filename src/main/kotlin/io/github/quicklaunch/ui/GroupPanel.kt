@@ -96,6 +96,11 @@ class GroupPanel(
 
     fun selectedGroupId(): String? = list.selectedValue?.id
 
+    fun selectGroup(id: String) {
+        val idx = (0 until model.size).firstOrNull { model.getElementAt(it).id == id } ?: return
+        list.selectedIndex = idx
+    }
+
     fun refreshGroups(groups: List<ProjectGroup>) {
         val selectedId = list.selectedValue?.id
         model.clear()
