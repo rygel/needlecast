@@ -15,6 +15,7 @@ import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.JButton
+import javax.swing.JTextField
 import javax.swing.JFileChooser
 import javax.swing.JLabel
 import javax.swing.JList
@@ -36,9 +37,11 @@ class DirectoryPanel(
 ) : JPanel(BorderLayout()) {
 
     private val model = DefaultListModel<DetectedProject>()
+    private val filteredModel = DefaultListModel<DetectedProject>()
+    private var filterText = ""
     private var activePaths: Set<String> = emptySet()
 
-    private val list = object : JList<DetectedProject>(model) {
+    private val list = object : JList<DetectedProject>(filteredModel) {
         override fun getToolTipText(event: java.awt.event.MouseEvent): String? {
             val idx = locationToIndex(event.point)
             if (idx < 0) return null
@@ -97,6 +100,15 @@ class DirectoryPanel(
             add(toolbar, BorderLayout.EAST)
         }
 
+        val filterField = JTextField().apply {
+            toolTipText = "Filter projects"
+            document.addDocumentListener(object : javax.swing.event.DocumentListener {
+                override fun insertUpdate(e: javax.swing.event.DocumentEvent) = applyFilter(text)
+                override fun removeUpdate(e: javax.swing.event.DocumentEvent) = applyFilter(text)
+                override fun changedUpdate(e: javax.swing.event.DocumentEvent) {}
+            })
+        }
+
         list.transferHandler = DirectoryDragHandler(
             getSourceGroupId = { currentGroup?.id },
             getSelectedProject = { list.selectedValue },
@@ -127,7 +139,12 @@ class DirectoryPanel(
             list.repaint()
         }
 
-        add(topPanel, BorderLayout.NORTH)
+        val northPanel = JPanel(BorderLayout(0, 2)).apply {
+            add(topPanel, BorderLayout.NORTH)
+            add(filterField, BorderLayout.SOUTH)
+        }
+
+        add(northPanel, BorderLayout.NORTH)
         add(JScrollPane(list), BorderLayout.CENTER)
 
         addButton.addActionListener { addDirectory() }
@@ -138,6 +155,7 @@ class DirectoryPanel(
     fun loadGroup(group: ProjectGroup?) {
         currentGroup = group
         model.clear()
+        filteredModel.clear()
         activePaths = emptySet()
         updateButtonStates(null)
         onProjectSelected(null)
@@ -152,7 +170,30 @@ class DirectoryPanel(
         currentGroup = currentGroup?.let { grp ->
             grp.copy(directories = grp.directories.filter { it.path != path })
         }
+        applyFilter(filterText)
         onProjectSelected(null)
+    }
+
+    private fun applyFilter(text: String) {
+        filterText = text.trim().lowercase()
+        filteredModel.clear()
+        (0 until model.size).map { model.getElementAt(it) }
+            .filter { filterText.isEmpty() || it.directory.label().lowercase().contains(filterText) }
+            .forEach { filteredModel.addElement(it) }
+    }
+
+    fun requestFocusOnList() = list.requestFocusInWindow()
+
+    fun triggerRescan() = rescanAll()
+
+    fun triggerActivateTerminal() {
+        val project = list.selectedValue ?: return
+        if (project.directory.path !in activePaths) {
+            onActivate(project)
+            activePaths = activePaths + project.directory.path
+            updateButtonStates(project)
+            list.repaint()
+        }
     }
 
     /** Called by MainWindow to sync active state after external changes. */
@@ -176,6 +217,7 @@ class DirectoryPanel(
             override fun done() {
                 val result = try { get() } catch (_: Exception) { null } ?: return
                 model.addElement(result)
+                applyFilter(filterText)
             }
         }.execute()
     }
@@ -210,6 +252,7 @@ class DirectoryPanel(
             )
             saveGroupUpdate(updatedGroup)
             model.removeElement(selected)
+            applyFilter(filterText)
             onProjectSelected(null)
         }
     }
@@ -217,6 +260,7 @@ class DirectoryPanel(
     private fun rescanAll() {
         val group = currentGroup ?: return
         model.clear()
+        filteredModel.clear()
         activePaths = emptySet()
         updateButtonStates(null)
         onProjectSelected(null)

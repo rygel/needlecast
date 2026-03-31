@@ -73,6 +73,10 @@ class TerminalManager : JPanel(CardLayout()) {
 
     fun activePaths(): Set<String> = terminals.keys.toSet()
 
+    fun requestFocusOnActive() {
+        shownKey?.let { terminals[it]?.requestFocusInWindow() }
+    }
+
     fun sendInput(text: String) {
         shownKey?.let { terminals[it]?.sendInput(text) }
     }

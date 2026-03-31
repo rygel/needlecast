@@ -12,6 +12,7 @@ import java.awt.Font
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
+import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JFrame
 import javax.swing.JMenu
@@ -19,6 +20,7 @@ import javax.swing.JMenuBar
 import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JSplitPane
+import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
 import javax.swing.filechooser.FileNameExtensionFilter
 
@@ -74,17 +76,19 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         contentPane = buildLayout()
         jMenuBar = buildMenuBar()
 
+        registerKeyboardShortcuts()
         centerOnScreen()
 
         addWindowListener(object : WindowAdapter() {
             override fun windowOpened(e: WindowEvent) {
-                leftSplit.dividerLocation = 130
-                middleSplit.dividerLocation = height - 260
-                rightSplit.dividerLocation = 180
-                mainSplit.dividerLocation = 200
-                middleRightSplit.dividerLocation = (width - 200) * 7 / 10
+                val cfg = ctx.config
+                leftSplit.dividerLocation        = cfg.dividerLeft        ?: 130
+                middleSplit.dividerLocation      = cfg.dividerMiddle      ?: (height - 260)
+                rightSplit.dividerLocation       = cfg.dividerRight       ?: 180
+                mainSplit.dividerLocation        = cfg.dividerMain        ?: 200
+                middleRightSplit.dividerLocation = cfg.dividerMiddleRight ?: ((width - 200) * 7 / 10)
 
-                val startDark = ctx.config.theme == "dark"
+                val startDark = cfg.theme == "dark"
                 explorerPanel.applyTheme(startDark)
                 terminalPanel.applyTheme(startDark)
 
@@ -96,6 +100,11 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
                     windowWidth = width,
                     windowHeight = height,
                     lastSelectedGroupId = groupPanel.selectedGroupId(),
+                    dividerLeft        = leftSplit.dividerLocation,
+                    dividerMiddle      = middleSplit.dividerLocation,
+                    dividerRight       = rightSplit.dividerLocation,
+                    dividerMain        = mainSplit.dividerLocation,
+                    dividerMiddleRight = middleRightSplit.dividerLocation,
                 ))
                 terminalPanel.dispose()
                 dispose()
@@ -329,6 +338,36 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         directoryPanel.removeProjectByPath(directory.path)
         groupPanel.refreshGroups(updatedGroups)
         statusBar.setStatus("Moved '${directory.label()}' \u2192 ${targetGroup.name}")
+    }
+
+    private fun registerKeyboardShortcuts() {
+        val root = rootPane
+        val im = root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+        val am = root.actionMap
+
+        // F5 — rescan all projects in the current group
+        im.put(KeyStroke.getKeyStroke("F5"), "rescan")
+        am.put("rescan", action { directoryPanel.triggerRescan() })
+
+        // Ctrl+T — activate terminal for the selected project
+        im.put(KeyStroke.getKeyStroke("ctrl T"), "activate-terminal")
+        am.put("activate-terminal", action { directoryPanel.triggerActivateTerminal() })
+
+        // Ctrl+1 — focus project list
+        im.put(KeyStroke.getKeyStroke("ctrl 1"), "focus-projects")
+        am.put("focus-projects", action { directoryPanel.requestFocusOnList() })
+
+        // Ctrl+2 — focus file explorer
+        im.put(KeyStroke.getKeyStroke("ctrl 2"), "focus-explorer")
+        am.put("focus-explorer", action { explorerPanel.requestFocusOnTree() })
+
+        // Ctrl+3 — focus terminal
+        im.put(KeyStroke.getKeyStroke("ctrl 3"), "focus-terminal")
+        am.put("focus-terminal", action { terminalPanel.requestFocusOnActive() })
+    }
+
+    private fun action(block: () -> Unit) = object : javax.swing.AbstractAction() {
+        override fun actionPerformed(e: java.awt.event.ActionEvent) = block()
     }
 
     private fun centerOnScreen() {

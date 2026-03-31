@@ -130,6 +130,8 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     fun applyTheme(dark: Boolean) = editorPanel.applyTheme(dark)
 
+    fun requestFocusOnTree() = table.requestFocusInWindow()
+
     private fun navigateTo(dir: File) {
         if (!dir.isDirectory) return
         currentDir = dir

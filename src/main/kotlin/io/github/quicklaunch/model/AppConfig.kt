@@ -18,6 +18,12 @@ data class AppConfig(
     val lastSelectedGroupId: String? = null,
     val theme: String = "dark",
     val externalEditors: List<ExternalEditor> = defaultEditors(),
+    // Split pane divider positions — null means use defaults
+    val dividerLeft: Int? = null,
+    val dividerMiddle: Int? = null,
+    val dividerRight: Int? = null,
+    val dividerMain: Int? = null,
+    val dividerMiddleRight: Int? = null,
 )
 
 data class ProjectGroup(
