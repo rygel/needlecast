@@ -3,6 +3,7 @@ package io.github.quicklaunch.ui
 import com.formdev.flatlaf.FlatDarkLaf
 import com.formdev.flatlaf.FlatLightLaf
 import io.github.quicklaunch.AppContext
+import io.github.quicklaunch.isOsDark
 import io.github.quicklaunch.model.ProjectGroup
 import io.github.quicklaunch.ui.explorer.ExplorerPanel
 import io.github.quicklaunch.ui.terminal.TerminalManager
@@ -22,6 +23,7 @@ import javax.swing.JOptionPane
 import javax.swing.JSplitPane
 import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
+import javax.swing.UIManager
 import javax.swing.filechooser.FileNameExtensionFilter
 
 class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
@@ -79,6 +81,11 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         registerKeyboardShortcuts()
         centerOnScreen()
 
+        // React to LAF changes (e.g. OS dark-mode toggle when theme == "system")
+        UIManager.addPropertyChangeListener { evt ->
+            if (evt.propertyName == "lookAndFeel") applyTheme(isOsDark())
+        }
+
         addWindowListener(object : WindowAdapter() {
             override fun windowOpened(e: WindowEvent) {
                 val cfg = ctx.config
@@ -88,9 +95,12 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
                 mainSplit.dividerLocation        = cfg.dividerMain        ?: 200
                 middleRightSplit.dividerLocation = cfg.dividerMiddleRight ?: ((width - 200) * 7 / 10)
 
-                val startDark = cfg.theme == "dark"
-                explorerPanel.applyTheme(startDark)
-                terminalPanel.applyTheme(startDark)
+                val startDark = when (cfg.theme) {
+                    "dark"   -> true
+                    "system" -> isOsDark()
+                    else     -> false
+                }
+                applyTheme(startDark)
 
                 groupPanel.restoreSelection()
             }
@@ -175,11 +185,13 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
             add(exitItem)
         }
 
-        val toggleThemeItem = JMenuItem("Toggle Dark/Light Theme").apply {
-            addActionListener { toggleTheme() }
-        }
+        val lightItem  = JMenuItem("Light Theme").apply  { addActionListener { setTheme("light") } }
+        val darkItem   = JMenuItem("Dark Theme").apply   { addActionListener { setTheme("dark")  } }
+        val systemItem = JMenuItem("System (auto)").apply { addActionListener { setTheme("system") } }
         val viewMenu = JMenu("View").apply {
-            add(toggleThemeItem)
+            add(lightItem)
+            add(darkItem)
+            add(systemItem)
         }
 
         val aiMenu = buildAiMenu()
@@ -306,15 +318,22 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         }
     }
 
-    private fun toggleTheme() {
-        val isDark = ctx.config.theme == "dark"
-        if (isDark) FlatLightLaf.setup()
-        else FlatDarkLaf.setup()
+    /** Applies the dark or light LAF-specific colours to sub-panels that manage their own theming. */
+    private fun applyTheme(dark: Boolean) {
+        explorerPanel.applyTheme(dark)
+        terminalPanel.applyTheme(dark)
+    }
+
+    /** Switches to the requested theme ("dark", "light", or "system") and persists the choice. */
+    private fun setTheme(theme: String) {
+        val dark = when (theme) {
+            "dark"   -> { FlatDarkLaf.setup();  true  }
+            "system" -> { if (isOsDark()) FlatDarkLaf.setup() else FlatLightLaf.setup(); isOsDark() }
+            else     -> { FlatLightLaf.setup(); false }
+        }
         SwingUtilities.updateComponentTreeUI(this)
-        val newTheme = if (isDark) "light" else "dark"
-        explorerPanel.applyTheme(!isDark)
-        terminalPanel.applyTheme(!isDark)
-        ctx.updateConfig(ctx.config.copy(theme = newTheme))
+        applyTheme(dark)
+        ctx.updateConfig(ctx.config.copy(theme = theme))
     }
 
     private fun moveDirectory(transfer: DirectoryTransfer, targetGroup: ProjectGroup) {

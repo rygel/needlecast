@@ -9,10 +9,12 @@ import io.github.quicklaunch.process.ProcessOutputListener
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
+import java.awt.Dimension
 import java.awt.Font
 import java.awt.SystemTray
 import java.awt.TrayIcon
 import java.awt.image.BufferedImage
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import javax.swing.BorderFactory
@@ -22,6 +24,7 @@ import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.JScrollPane
+import javax.swing.JTextArea
 import javax.swing.JToggleButton
 import javax.swing.JToolBar
 import javax.swing.ListCellRenderer
@@ -62,6 +65,17 @@ class CommandPanel(
     private val commandScroll = JScrollPane(commandList)
     private val historyScroll = JScrollPane(historyList).apply { isVisible = false }
 
+    private val readmeArea = JTextArea().apply {
+        isEditable = false
+        lineWrap = false
+        font = Font(Font.MONOSPACED, Font.PLAIN, 10)
+        border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
+    }
+    private val readmeScroll = JScrollPane(readmeArea).apply {
+        preferredSize = Dimension(0, 120)   // ~8 lines at 10pt mono; width is flexible
+        isVisible = false
+    }
+
     init {
         if (showTitle) {
             val header = JLabel("Commands").apply {
@@ -98,7 +112,12 @@ class CommandPanel(
             add(historyScroll, BorderLayout.SOUTH)
         }
 
-        add(listPanel, BorderLayout.CENTER)
+        val centerPanel = JPanel(BorderLayout()).apply {
+            add(listPanel, BorderLayout.CENTER)
+            add(readmeScroll, BorderLayout.SOUTH)
+        }
+
+        add(centerPanel, BorderLayout.CENTER)
         add(buttonBar, BorderLayout.SOUTH)
 
         runButton.addActionListener    { runSelected() }
@@ -117,6 +136,8 @@ class CommandPanel(
         currentProjectEnv = project?.directory?.env ?: emptyMap()
         runButton.isEnabled = false
 
+        loadReadme(project?.directory?.path)
+
         if (project == null) return
 
         project.commands.forEach { commandModel.addElement(it) }
@@ -125,6 +146,30 @@ class CommandPanel(
         // Load saved history for this project
         ctx.config.commandHistory[project.directory.path]
             ?.forEach { historyModel.addElement(it) }
+    }
+
+    private fun loadReadme(projectPath: String?) {
+        if (projectPath == null) {
+            readmeScroll.isVisible = false
+            readmeArea.text = ""
+            return
+        }
+        val readmeFile = listOf("README.md", "readme.md", "README.txt", "readme.txt")
+            .map { File(projectPath, it) }
+            .firstOrNull { it.exists() && it.isFile }
+        if (readmeFile == null) {
+            readmeScroll.isVisible = false
+            readmeArea.text = ""
+        } else {
+            val preview = readmeFile.bufferedReader().useLines { lines ->
+                lines.take(20).joinToString("\n")
+            }
+            readmeArea.text = preview
+            readmeArea.caretPosition = 0
+            readmeScroll.isVisible = true
+        }
+        revalidate()
+        repaint()
     }
 
     private fun runSelected() {

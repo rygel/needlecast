@@ -36,6 +36,8 @@ data class ProjectGroup(
     val id: String,
     val name: String,
     val directories: List<ProjectDirectory> = emptyList(),
+    /** Optional hex color string (e.g. "#FF5722") shown as a left-edge stripe in the group list. */
+    val color: String? = null,
 )
 
 data class ProjectDirectory(

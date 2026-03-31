@@ -10,9 +10,9 @@
 - [x] **Command output search** — Ctrl+F in the console panel to search/highlight build output
 - [x] **Desktop notifications** — system tray notification when a command finishes while window is in background
 - [x] **Environment variables per project** — key=value pairs stored in `ProjectDirectory`, injected into commands and terminals
-- [ ] **Auto OS theme** — follow OS dark/light preference automatically via FlatLaf
-- [ ] **README preview** — show first lines of `README.md` below command list when a project is selected
-- [ ] **Group color coding** — same left-stripe color mechanic applied to groups in the sidebar
+- [x] **Auto OS theme** — follow OS dark/light preference automatically via FlatLaf
+- [x] **README preview** — show first lines of `README.md` below command list when a project is selected
+- [x] **Group color coding** — same left-stripe color mechanic applied to groups in the sidebar
 - [ ] **File watcher / auto-rescan** — use `WatchService` to auto-refresh command list when build files change
 - [ ] **Command queuing** — queue commands to run sequentially (e.g. clean → build → run)
 - [ ] **Git log viewer** — read-only `git log` tab with clickable commits showing `git show` in the editor
