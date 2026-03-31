@@ -5,13 +5,13 @@
 - [x] **Keyboard shortcuts** — `Ctrl+T` activate terminal, `F5` rescan, `Ctrl+1/2/3` focus panels
 - [x] **Project filter** — search/filter box above the project list
 - [x] **Persistent layout** — save/restore split pane divider positions between sessions
-- [ ] **Command history** — remember last N commands run per project with output; allow re-run
+- [x] **Command history** — remember last N commands run per project with output; allow re-run
 
 ## File Explorer / Editor
 
-- [ ] **Find & Replace** — wire up RSyntaxTextArea's built-in `SearchEngine` (Ctrl+F / Ctrl+H)
-- [ ] **Right-click context menu** — create file, rename, delete in the file explorer
-- [ ] **Hidden files toggle** — show/hide dot-files (`.env`, `.git`, etc.)
+- [x] **Find & Replace** — wire up RSyntaxTextArea's built-in `SearchEngine` (Ctrl+F / Ctrl+H)
+- [x] **Right-click context menu** — create file, rename, delete in the file explorer
+- [x] **Hidden files toggle** — show/hide dot-files (`.env`, `.git`, etc.)
 - [ ] **Multiple editor tabs** — open more than one file at once
 
 ## Terminal

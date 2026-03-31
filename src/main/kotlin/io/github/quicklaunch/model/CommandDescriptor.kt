@@ -16,3 +16,11 @@ data class CommandDescriptor(
 ) {
     val isSupported: Boolean get() = !argv.firstOrNull().orEmpty().startsWith("<unsupported")
 }
+
+data class CommandHistoryEntry(
+    val label: String,
+    val argv: List<String>,
+    val workingDirectory: String,
+    val exitCode: Int,
+    val ranAt: Long = System.currentTimeMillis(),
+)

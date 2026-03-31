@@ -5,6 +5,7 @@ import io.github.quicklaunch.model.ExternalEditor
 import io.github.quicklaunch.scanner.IS_WINDOWS
 import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.Toolkit
 import java.awt.event.ComponentAdapter
@@ -36,6 +37,7 @@ import javax.swing.table.DefaultTableCellRenderer
 class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private var currentDir: File = File(System.getProperty("user.home"))
+    private var showHidden = false
     private val addressField = JTextField()
     private val tableModel = FileTableModel()
     private val table = JTable(tableModel).apply {
@@ -59,12 +61,26 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             toolTipText = "Refresh"
             addActionListener { loadDirectory(currentDir) }
         }
+        val hiddenButton = JButton("\u25CC").apply {
+            toolTipText = "Show hidden files"
+            addActionListener {
+                showHidden = !showHidden
+                toolTipText = if (showHidden) "Hide hidden files" else "Show hidden files"
+                foreground = if (showHidden) java.awt.Color(0x4CAF50) else null
+                loadDirectory(currentDir)
+            }
+        }
+
+        val rightButtons = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
+            add(hiddenButton)
+            add(refreshButton)
+        }
 
         val addressBar = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
             add(upButton, BorderLayout.WEST)
             add(addressField, BorderLayout.CENTER)
-            add(refreshButton, BorderLayout.EAST)
+            add(rightButtons, BorderLayout.EAST)
         }
 
         addressField.addActionListener { navigateTo(File(addressField.text)) }
@@ -146,6 +162,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private fun loadDirectory(dir: File) {
         val children = (dir.listFiles() ?: emptyArray())
+            .filter { showHidden || !it.isHidden }
             .sortedWith(compareBy({ it.isFile }, { it.name.lowercase() }))
 
         val entries = mutableListOf<FileEntry>()
@@ -179,6 +196,12 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             is FileEntry.Dir -> {
                 menu.add(JMenuItem("Open").apply { addActionListener { navigateTo(entry.file) } })
                 menu.addSeparator()
+                menu.add(JMenuItem("New File…").apply   { addActionListener { createFile(entry.file) } })
+                menu.add(JMenuItem("New Folder…").apply { addActionListener { createFolder(entry.file) } })
+                menu.addSeparator()
+                menu.add(JMenuItem("Rename…").apply { addActionListener { renameEntry(entry.file) } })
+                menu.add(JMenuItem("Delete").apply  { addActionListener { deleteEntry(entry.file) } })
+                menu.addSeparator()
                 menu.add(copyPathItem(entry.file))
             }
             is FileEntry.RegularFile -> {
@@ -195,10 +218,57 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                     }
                 }
                 menu.addSeparator()
+                menu.add(JMenuItem("Rename…").apply { addActionListener { renameEntry(entry.file) } })
+                menu.add(JMenuItem("Delete").apply  { addActionListener { deleteEntry(entry.file) } })
+                menu.addSeparator()
                 menu.add(copyPathItem(entry.file))
             }
         }
+        // New File / New Folder always available for current directory
+        if (entry is FileEntry.ParentDir) {
+            menu.addSeparator()
+            menu.add(JMenuItem("New File…").apply   { addActionListener { createFile(currentDir) } })
+            menu.add(JMenuItem("New Folder…").apply { addActionListener { createFolder(currentDir) } })
+        }
         menu.show(table, x, y)
+    }
+
+    private fun createFile(inDir: File) {
+        val name = JOptionPane.showInputDialog(this, "File name:", "New File", JOptionPane.PLAIN_MESSAGE) ?: return
+        if (name.isBlank()) return
+        val file = File(inDir, name.trim())
+        try {
+            if (!file.createNewFile()) { JOptionPane.showMessageDialog(this, "File already exists."); return }
+            loadDirectory(currentDir)
+            editorPanel.openFile(file)
+        } catch (e: Exception) {
+            JOptionPane.showMessageDialog(this, "Could not create file: ${e.message}", "Error", JOptionPane.ERROR_MESSAGE)
+        }
+    }
+
+    private fun createFolder(inDir: File) {
+        val name = JOptionPane.showInputDialog(this, "Folder name:", "New Folder", JOptionPane.PLAIN_MESSAGE) ?: return
+        if (name.isBlank()) return
+        val folder = File(inDir, name.trim())
+        if (!folder.mkdir()) JOptionPane.showMessageDialog(this, "Could not create folder.", "Error", JOptionPane.ERROR_MESSAGE)
+        else loadDirectory(currentDir)
+    }
+
+    private fun renameEntry(file: File) {
+        val newName = JOptionPane.showInputDialog(this, "Rename to:", file.name) ?: return
+        if (newName.isBlank() || newName == file.name) return
+        val dest = File(file.parentFile, newName.trim())
+        if (!file.renameTo(dest)) JOptionPane.showMessageDialog(this, "Rename failed.", "Error", JOptionPane.ERROR_MESSAGE)
+        else loadDirectory(currentDir)
+    }
+
+    private fun deleteEntry(file: File) {
+        val confirm = JOptionPane.showConfirmDialog(
+            this, "Delete '${file.name}'?", "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
+        )
+        if (confirm != JOptionPane.YES_OPTION) return
+        if (!file.deleteRecursively()) JOptionPane.showMessageDialog(this, "Delete failed.", "Error", JOptionPane.ERROR_MESSAGE)
+        else loadDirectory(currentDir)
     }
 
     private fun copyPathItem(file: File) = JMenuItem("Copy Path").apply {

@@ -2,12 +2,16 @@ package io.github.quicklaunch.ui
 
 import io.github.quicklaunch.AppContext
 import io.github.quicklaunch.model.CommandDescriptor
+import io.github.quicklaunch.model.CommandHistoryEntry
 import io.github.quicklaunch.model.DetectedProject
 import io.github.quicklaunch.model.ProcessResult
 import io.github.quicklaunch.process.ProcessOutputListener
 import java.awt.BorderLayout
+import java.awt.Color
 import java.awt.Component
 import java.awt.Font
+import java.text.SimpleDateFormat
+import java.util.Date
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.JButton
@@ -15,10 +19,13 @@ import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.JScrollPane
+import javax.swing.JToggleButton
 import javax.swing.JToolBar
 import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
+
+private const val HISTORY_MAX = 20
 
 class CommandPanel(
     private val ctx: AppContext,
@@ -27,15 +34,27 @@ class CommandPanel(
     private val showTitle: Boolean = true,
 ) : JPanel(BorderLayout()) {
 
-    private val model = DefaultListModel<CommandDescriptor>()
-    private val list = JList(model).apply {
+    private val commandModel = DefaultListModel<CommandDescriptor>()
+    private val historyModel = DefaultListModel<CommandHistoryEntry>()
+
+    private val commandList = JList(commandModel).apply {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
         setCellRenderer(CommandCellRenderer())
     }
-    private val runButton = JButton("\u25B6  Run").apply { isEnabled = false }
+    private val historyList = JList(historyModel).apply {
+        selectionMode = ListSelectionModel.SINGLE_SELECTION
+        setCellRenderer(HistoryCellRenderer())
+    }
+
+    private val runButton    = JButton("\u25B6  Run").apply    { isEnabled = false }
     private val cancelButton = JButton("\u23F9  Cancel").apply { isEnabled = false }
+    private val historyToggle = JToggleButton("\u2713 History").apply { isSelected = false }
 
     private var processResult: ProcessResult = ProcessResult.NotStarted
+    private var currentProjectPath: String? = null
+
+    private val commandScroll = JScrollPane(commandList)
+    private val historyScroll = JScrollPane(historyList).apply { isVisible = false }
 
     init {
         if (showTitle) {
@@ -46,47 +65,82 @@ class CommandPanel(
             add(header, BorderLayout.NORTH)
         }
 
-        list.addListSelectionListener { e ->
+        commandList.addListSelectionListener { e ->
             if (!e.valueIsAdjusting) {
-                val selected = list.selectedValue
+                val selected = commandList.selectedValue
                 runButton.isEnabled = selected?.isSupported == true && processResult !is ProcessResult.Running
             }
         }
+
+        // Double-click history entry to re-run
+        historyList.addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                if (e.clickCount == 2) rerunHistoryEntry()
+            }
+        })
 
         val buttonBar = JToolBar().apply {
             isFloatable = false
             add(runButton)
             add(cancelButton)
+            addSeparator()
+            add(historyToggle)
         }
 
-        add(JScrollPane(list), BorderLayout.CENTER)
+        val listPanel = JPanel(BorderLayout()).apply {
+            add(commandScroll, BorderLayout.CENTER)
+            add(historyScroll, BorderLayout.SOUTH)
+        }
+
+        add(listPanel, BorderLayout.CENTER)
         add(buttonBar, BorderLayout.SOUTH)
 
-        runButton.addActionListener { runSelected() }
+        runButton.addActionListener    { runSelected() }
         cancelButton.addActionListener { cancelRunning() }
+
+        historyToggle.addActionListener {
+            historyScroll.isVisible = historyToggle.isSelected
+            revalidate(); repaint()
+        }
     }
 
     fun loadProject(project: DetectedProject?) {
-        model.clear()
-        if (project == null) {
-            runButton.isEnabled = false
-            return
-        }
-        project.commands.forEach { model.addElement(it) }
-        if (model.size > 0) list.selectedIndex = 0
+        commandModel.clear()
+        historyModel.clear()
+        currentProjectPath = project?.directory?.path
+        runButton.isEnabled = false
+
+        if (project == null) return
+
+        project.commands.forEach { commandModel.addElement(it) }
+        if (commandModel.size > 0) commandList.selectedIndex = 0
+
+        // Load saved history for this project
+        ctx.config.commandHistory[project.directory.path]
+            ?.forEach { historyModel.addElement(it) }
     }
 
     private fun runSelected() {
-        val cmd = list.selectedValue ?: return
+        val cmd = commandList.selectedValue ?: return
         if (!cmd.isSupported) return
+        executeCommand(cmd.label, cmd.argv, cmd.workingDirectory)
+    }
 
+    private fun rerunHistoryEntry() {
+        val entry = historyList.selectedValue ?: return
+        executeCommand(entry.label, entry.argv, entry.workingDirectory)
+    }
+
+    private fun executeCommand(label: String, argv: List<String>, workingDir: String) {
         consolePanel.clear()
-        consolePanel.appendLine("> ${cmd.argv.joinToString(" ")}")
+        consolePanel.appendLine("> ${argv.joinToString(" ")}")
         consolePanel.appendLine("")
 
-        statusBar.setRunning(cmd.label)
+        statusBar.setRunning(label)
         runButton.isEnabled = false
         cancelButton.isEnabled = true
+
+        val startTime = System.currentTimeMillis()
 
         val listener = object : ProcessOutputListener {
             override fun onLine(line: String) {
@@ -98,21 +152,34 @@ class CommandPanel(
                     consolePanel.appendLine("[Process exited with code $exitCode]")
                     statusBar.setFinished(exitCode)
                     processResult = ProcessResult.Finished(exitCode)
-                    runButton.isEnabled = list.selectedValue?.isSupported == true
+                    runButton.isEnabled = commandList.selectedValue?.isSupported == true
                     cancelButton.isEnabled = false
+                    recordHistory(CommandHistoryEntry(label, argv, workingDir, exitCode, startTime))
                 }
             }
         }
 
-        val running = ctx.commandRunner.run(cmd, listener)
+        val descriptor = CommandDescriptor(label, io.github.quicklaunch.model.BuildTool.MAVEN, argv, workingDir)
+        val running = ctx.commandRunner.run(descriptor, listener)
         processResult = ProcessResult.Running(running)
+    }
+
+    private fun recordHistory(entry: CommandHistoryEntry) {
+        val path = currentProjectPath ?: return
+        historyModel.add(0, entry)
+        while (historyModel.size > HISTORY_MAX) historyModel.removeElementAt(HISTORY_MAX)
+
+        val updatedHistory = (0 until historyModel.size).map { historyModel.getElementAt(it) }
+        val newMap = ctx.config.commandHistory.toMutableMap()
+        newMap[path] = updatedHistory
+        ctx.updateConfig(ctx.config.copy(commandHistory = newMap))
     }
 
     private fun cancelRunning() {
         (processResult as? ProcessResult.Running)?.process?.cancel()
         processResult = ProcessResult.NotStarted
         cancelButton.isEnabled = false
-        runButton.isEnabled = list.selectedValue?.isSupported == true
+        runButton.isEnabled = commandList.selectedValue?.isSupported == true
         statusBar.setStatus("Cancelled")
     }
 }
@@ -123,24 +190,48 @@ private class CommandCellRenderer : ListCellRenderer<CommandDescriptor> {
     }
 
     override fun getListCellRendererComponent(
-        list: JList<out CommandDescriptor>,
-        value: CommandDescriptor?,
-        index: Int,
-        isSelected: Boolean,
-        cellHasFocus: Boolean,
+        list: JList<out CommandDescriptor>, value: CommandDescriptor?,
+        index: Int, isSelected: Boolean, cellHasFocus: Boolean,
     ): Component {
         label.text = value?.label ?: ""
         label.toolTipText = if (value?.isSupported == true) value.argv.joinToString(" ")
                             else "This run configuration type is not directly executable"
-
-        val fg = when {
+        label.foreground = when {
             isSelected -> list.selectionForeground
-            value?.isSupported == false -> java.awt.Color.GRAY
+            value?.isSupported == false -> Color.GRAY
             else -> list.foreground
         }
-        label.foreground = fg
         label.background = if (isSelected) list.selectionBackground else list.background
         label.isOpaque = true
         return label
+    }
+}
+
+private val timeFmt = SimpleDateFormat("HH:mm")
+
+private class HistoryCellRenderer : ListCellRenderer<CommandHistoryEntry> {
+    private val panel     = JPanel(BorderLayout(6, 0)).apply {
+        border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
+    }
+    private val nameLabel = JLabel().apply { font = font.deriveFont(Font.PLAIN, 11f) }
+    private val metaLabel = JLabel().apply { font = font.deriveFont(Font.PLAIN,  9f) }
+
+    init { panel.add(nameLabel, BorderLayout.CENTER); panel.add(metaLabel, BorderLayout.EAST) }
+
+    override fun getListCellRendererComponent(
+        list: JList<out CommandHistoryEntry>, value: CommandHistoryEntry?,
+        index: Int, isSelected: Boolean, cellHasFocus: Boolean,
+    ): Component {
+        nameLabel.text = value?.label ?: ""
+        metaLabel.text = value?.let {
+            val time = timeFmt.format(Date(it.ranAt))
+            val codeColor = if (it.exitCode == 0) "#4CAF50" else "#F44336"
+            "<html><font color='$codeColor'>exit ${it.exitCode}</font> $time</html>"
+        } ?: ""
+        val bg = if (isSelected) list.selectionBackground else list.background
+        nameLabel.foreground = if (isSelected) list.selectionForeground else list.foreground
+        panel.background = bg; nameLabel.background = bg; metaLabel.background = bg
+        panel.isOpaque = true
+        return panel
     }
 }

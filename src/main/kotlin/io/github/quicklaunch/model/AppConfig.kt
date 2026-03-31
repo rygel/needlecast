@@ -1,5 +1,7 @@
 package io.github.quicklaunch.model
 
+// CommandHistoryEntry is defined in CommandDescriptor.kt (same package)
+
 data class ExternalEditor(
     val name: String,
     val executable: String,
@@ -18,6 +20,8 @@ data class AppConfig(
     val lastSelectedGroupId: String? = null,
     val theme: String = "dark",
     val externalEditors: List<ExternalEditor> = defaultEditors(),
+    // Per-project command history keyed by working directory path (max 20 per project)
+    val commandHistory: Map<String, List<CommandHistoryEntry>> = emptyMap(),
     // Split pane divider positions — null means use defaults
     val dividerLeft: Int? = null,
     val dividerMiddle: Int? = null,
