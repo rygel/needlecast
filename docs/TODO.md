@@ -17,7 +17,7 @@
 ## Terminal
 
 - [x] **Font size** — Ctrl+scroll or +/− in settings to change terminal font size
-- [ ] **Multiple tabs per project** — support more than one shell per project
+- [x] **Multiple tabs per project** — support more than one shell per project
 
 ## Project Metadata
 
