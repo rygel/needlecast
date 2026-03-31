@@ -15,7 +15,7 @@
 - [x] **Group color coding** — same left-stripe color mechanic applied to groups in the sidebar
 - [x] **File watcher / auto-rescan** — use `WatchService` to auto-refresh command list when build files change
 - [x] **Command queuing** — queue commands to run sequentially (e.g. clean → build → run)
-- [ ] **Git log viewer** — read-only `git log` tab with clickable commits showing `git show` in the editor
+- [x] **Git log viewer** — read-only `git log` tab with clickable commits showing `git show` in the editor
 
 ## File Explorer / Editor
 
@@ -38,6 +38,6 @@
 
 - [x] **Auto-save layout on close** — divider positions currently reset from hardcoded values, ignoring actual window state
 - [x] **Graceful config migration** — migration layer to handle schema changes without silent data loss
-- [ ] **Scanner unit tests** — fixture-based tests for Maven, Gradle, npm detection to prevent regressions
-- [ ] **Structured logging** — SLF4J + Logback to `~/.quicklaunch/quicklaunch.log` with rotation; replace all `printStackTrace` calls
-- [ ] **Keyboard shortcut editor** — settings tab to rebind F5, Ctrl+T, Ctrl+1/2/3 and persist them
+- [x] **Scanner unit tests** — fixture-based tests for Maven, Gradle, npm detection to prevent regressions
+- [x] **Structured logging** — SLF4J + Logback to `~/.quicklaunch/quicklaunch.log` with rotation; replace all `printStackTrace` calls
+- [x] **Keyboard shortcut editor** — settings tab to rebind F5, Ctrl+T, Ctrl+1/2/3 and persist them

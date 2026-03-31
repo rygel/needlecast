@@ -30,6 +30,8 @@ data class AppConfig(
     val dividerRight: Int? = null,
     val dividerMain: Int? = null,
     val dividerMiddleRight: Int? = null,
+    /** Overridden keyboard shortcuts keyed by action name. Empty = use built-in defaults. */
+    val shortcuts: Map<String, String> = emptyMap(),
 )
 
 data class ProjectGroup(

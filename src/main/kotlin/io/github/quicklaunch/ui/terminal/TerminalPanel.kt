@@ -5,6 +5,7 @@ import com.jediterm.terminal.ui.JediTermWidget
 import com.pty4j.PtyProcess
 import com.pty4j.PtyProcessBuilder
 import io.github.quicklaunch.scanner.IS_WINDOWS
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.event.MouseWheelEvent
 import java.awt.event.MouseWheelListener
@@ -16,6 +17,8 @@ class TerminalPanel(
     dark: Boolean = true,
     extraEnv: Map<String, String> = emptyMap(),
 ) : JPanel(BorderLayout()) {
+
+    private val logger = LoggerFactory.getLogger(TerminalPanel::class.java)
 
     private val settingsProvider = QuickLaunchTerminalSettings(dark = dark)
     private val termWidget = JediTermWidget(settingsProvider)
@@ -88,7 +91,7 @@ class TerminalPanel(
                 val session = termWidget.createTerminalSession(connector)
                 session.start()
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error("Failed to start shell process in terminal", e)
             }
         }.also { it.isDaemon = true }.start()
     }

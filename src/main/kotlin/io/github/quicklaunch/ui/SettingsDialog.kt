@@ -30,17 +30,19 @@ class SettingsDialog(
     owner: JFrame,
     private val ctx: AppContext,
     private val sendToTerminal: (String) -> Unit,
+    private val onShortcutsChanged: () -> Unit = {},
 ) : JDialog(owner, "Settings", true) {
 
     init {
-        size = Dimension(560, 420)
-        minimumSize = Dimension(480, 360)
+        size = Dimension(600, 460)
+        minimumSize = Dimension(520, 380)
         setLocationRelativeTo(owner)
         defaultCloseOperation = DISPOSE_ON_CLOSE
 
         val tabs = JTabbedPane()
         tabs.addTab("External Editors", buildEditorsTab())
         tabs.addTab("Renovate", buildRenovateTab())
+        tabs.addTab("Shortcuts", buildShortcutsTab())
 
         contentPane = tabs
     }
@@ -218,5 +220,86 @@ class SettingsDialog(
         if (!IS_WINDOWS) add("Homebrew" to "brew install renovate")
         if (IS_WINDOWS) add("Scoop" to "scoop install renovate")
         if (IS_WINDOWS) add("Chocolatey" to "choco install renovate")
+    }
+
+    // ── Shortcuts tab ─────────────────────────────────────────────────────
+
+    private val defaultShortcuts = linkedMapOf(
+        "rescan"            to "F5",
+        "activate-terminal" to "ctrl T",
+        "focus-projects"    to "ctrl 1",
+        "focus-explorer"    to "ctrl 2",
+        "focus-terminal"    to "ctrl 3",
+        "project-switcher"  to "ctrl P",
+    )
+    private val actionLabels = mapOf(
+        "rescan"            to "Rescan projects (F5)",
+        "activate-terminal" to "Activate terminal",
+        "focus-projects"    to "Focus project list",
+        "focus-explorer"    to "Focus file explorer",
+        "focus-terminal"    to "Focus terminal",
+        "project-switcher"  to "Global project switcher",
+    )
+
+    private fun buildShortcutsTab(): JPanel {
+        val current = ctx.config.shortcuts.toMutableMap()
+        // Map of actionId → recording field
+        val fields = mutableMapOf<String, JTextField>()
+
+        val grid = JPanel(GridBagLayout()).apply {
+            border = BorderFactory.createEmptyBorder(12, 12, 12, 12)
+        }
+        val gc = GridBagConstraints().apply { insets = Insets(3, 4, 3, 4) }
+
+        defaultShortcuts.entries.forEachIndexed { row, (id, default) ->
+            gc.gridy = row
+
+            gc.gridx = 0; gc.weightx = 0.4; gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.WEST
+            grid.add(JLabel(actionLabels[id] ?: id), gc)
+
+            val field = JTextField(current[id] ?: default, 16).apply {
+                toolTipText = "Click and press a key combination to record"
+                addKeyListener(object : java.awt.event.KeyAdapter() {
+                    override fun keyPressed(e: java.awt.event.KeyEvent) {
+                        val ks = javax.swing.KeyStroke.getKeyStrokeForEvent(e)
+                        val txt = ks.toString()
+                            .replace("pressed ", "")
+                            .replace("released ", "")
+                            .trim()
+                        if (txt.isNotEmpty()) { text = txt; e.consume() }
+                    }
+                })
+            }
+            fields[id] = field
+            gc.gridx = 1; gc.weightx = 0.6; gc.fill = GridBagConstraints.HORIZONTAL
+            grid.add(field, gc)
+
+            gc.gridx = 2; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
+            grid.add(JButton("Reset").apply {
+                addActionListener { field.text = default }
+            }, gc)
+        }
+
+        val saveButton = JButton("Save Shortcuts").apply {
+            addActionListener {
+                val updated = fields.mapValues { (id, f) ->
+                    val v = f.text.trim()
+                    if (v == defaultShortcuts[id]) null else v
+                }.filterValues { it != null }.mapValues { it.value!! }
+                ctx.updateConfig(ctx.config.copy(shortcuts = updated))
+                onShortcutsChanged()
+                JOptionPane.showMessageDialog(this@SettingsDialog,
+                    "Shortcuts saved. They take effect immediately.", "Saved", JOptionPane.INFORMATION_MESSAGE)
+            }
+        }
+
+        return JPanel(BorderLayout(0, 8)).apply {
+            border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
+            add(JLabel("<html><i>Click a field and press a key combination to record it. Reset restores the default.</i></html>").apply {
+                border = BorderFactory.createEmptyBorder(6, 8, 2, 8)
+            }, BorderLayout.NORTH)
+            add(JScrollPane(grid).apply { border = BorderFactory.createEmptyBorder() }, BorderLayout.CENTER)
+            add(JPanel(FlowLayout(FlowLayout.RIGHT)).apply { add(saveButton) }, BorderLayout.SOUTH)
+        }
     }
 }

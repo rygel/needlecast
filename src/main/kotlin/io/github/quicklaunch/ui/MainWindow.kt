@@ -33,11 +33,13 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
     private val terminalPanel = TerminalManager()
     private val explorerPanel = ExplorerPanel(ctx)
     private val commandPanel = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
+    private val gitLogPanel = GitLogPanel()
     private val directoryPanel: DirectoryPanel = DirectoryPanel(
         ctx = ctx,
         compact = true,
         onProjectSelected = { project ->
             commandPanel.loadProject(project)
+            gitLogPanel.loadProject(project?.directory?.path)
             if (project != null) {
                 explorerPanel.setRootDirectory(File(project.directory.path))
                 terminalPanel.showProject(project.directory.path)
@@ -59,6 +61,7 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         onGroupSelected = { group ->
             directoryPanel.loadGroup(group)
             commandPanel.loadProject(null)
+            gitLogPanel.loadProject(null)
             terminalPanel.deactivate()
         },
         onDirectoryDropped = { transfer, targetGroup -> moveDirectory(transfer, targetGroup) },
@@ -134,8 +137,12 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
             resizeWeight = 0.65
         }
 
-        // Right column: commands (top) + console (bottom)
-        rightSplit = JSplitPane(JSplitPane.VERTICAL_SPLIT, commandPanel, consolePanel).apply {
+        // Right column: commands+git-log tabs (top) + console (bottom)
+        val commandTabs = javax.swing.JTabbedPane().apply {
+            addTab("Commands", commandPanel)
+            addTab("Git Log", gitLogPanel)
+        }
+        rightSplit = JSplitPane(JSplitPane.VERTICAL_SPLIT, commandTabs, consolePanel).apply {
             resizeWeight = 0.3
         }
 
@@ -162,7 +169,10 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
     private fun buildMenuBar(): JMenuBar {
         val settingsItem = JMenuItem("Settings...").apply {
             addActionListener {
-                SettingsDialog(this@MainWindow, ctx) { cmd -> terminalPanel.sendInput(cmd) }.isVisible = true
+                SettingsDialog(this@MainWindow, ctx,
+                    sendToTerminal = { cmd -> terminalPanel.sendInput(cmd) },
+                    onShortcutsChanged = { reloadShortcuts() },
+                ).isVisible = true
             }
         }
         val importItem = JMenuItem("Import Config...").apply {
@@ -364,31 +374,24 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         val root = rootPane
         val im = root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
         val am = root.actionMap
+        val overrides = ctx.config.shortcuts
 
-        // F5 — rescan all projects in the current group
-        im.put(KeyStroke.getKeyStroke("F5"), "rescan")
-        am.put("rescan", action { directoryPanel.triggerRescan() })
+        fun bind(defaultKey: String, actionId: String, block: () -> Unit) {
+            val key = overrides[actionId] ?: defaultKey
+            im.put(KeyStroke.getKeyStroke(key), actionId)
+            am.put(actionId, action(block))
+        }
 
-        // Ctrl+T — activate terminal for the selected project
-        im.put(KeyStroke.getKeyStroke("ctrl T"), "activate-terminal")
-        am.put("activate-terminal", action { directoryPanel.triggerActivateTerminal() })
-
-        // Ctrl+1 — focus project list
-        im.put(KeyStroke.getKeyStroke("ctrl 1"), "focus-projects")
-        am.put("focus-projects", action { directoryPanel.requestFocusOnList() })
-
-        // Ctrl+2 — focus file explorer
-        im.put(KeyStroke.getKeyStroke("ctrl 2"), "focus-explorer")
-        am.put("focus-explorer", action { explorerPanel.requestFocusOnTree() })
-
-        // Ctrl+3 — focus terminal
-        im.put(KeyStroke.getKeyStroke("ctrl 3"), "focus-terminal")
-        am.put("focus-terminal", action { terminalPanel.requestFocusOnActive() })
-
-        // Ctrl+P — global project switcher
-        im.put(KeyStroke.getKeyStroke("ctrl P"), "project-switcher")
-        am.put("project-switcher", action { showProjectSwitcher() })
+        bind("F5",     "rescan")           { directoryPanel.triggerRescan() }
+        bind("ctrl T", "activate-terminal"){ directoryPanel.triggerActivateTerminal() }
+        bind("ctrl 1", "focus-projects")   { directoryPanel.requestFocusOnList() }
+        bind("ctrl 2", "focus-explorer")   { explorerPanel.requestFocusOnTree() }
+        bind("ctrl 3", "focus-terminal")   { terminalPanel.requestFocusOnActive() }
+        bind("ctrl P", "project-switcher") { showProjectSwitcher() }
     }
+
+    /** Re-registers all keyboard shortcuts (called after the user saves new bindings). */
+    fun reloadShortcuts() = registerKeyboardShortcuts()
 
     private fun showProjectSwitcher() {
         val dialog = ProjectSwitcherDialog(this, ctx) { groupId, path ->
