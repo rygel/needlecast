@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "baseBranches": ["develop"],
+  "labels": ["dependencies"],
+  "schedule": ["before 6am on monday"],
+  "pinDigests": true,
+  "prConcurrentLimit": 3,
+  "packageRules": [
+    {
+      "description": "Group all GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "automerge": false
+    },
+    {
+      "description": "Group Maven build plugins",
+      "matchManagers": ["maven"],
+      "matchDepTypes": ["plugin"],
+      "groupName": "maven-plugins"
+    },
+    {
+      "description": "Group Maven runtime/test dependencies (patch + minor)",
+      "matchManagers": ["maven"],
+      "matchDepTypes": ["dependency"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "maven-dependencies"
+    },
+    {
+      "description": "Pin Kotlin — only update manually",
+      "matchManagers": ["maven"],
+      "matchPackagePatterns": ["^org\\.jetbrains\\.kotlin:"],
+      "enabled": false
+    }
+  ]
+}
