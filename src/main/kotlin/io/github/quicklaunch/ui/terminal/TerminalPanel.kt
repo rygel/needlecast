@@ -6,6 +6,8 @@ import com.pty4j.PtyProcess
 import com.pty4j.PtyProcessBuilder
 import io.github.quicklaunch.scanner.IS_WINDOWS
 import java.awt.BorderLayout
+import java.awt.event.MouseWheelEvent
+import java.awt.event.MouseWheelListener
 import java.nio.charset.Charset
 import javax.swing.JPanel
 
@@ -21,7 +23,21 @@ class TerminalPanel(
 
     init {
         add(termWidget, BorderLayout.CENTER)
+        // Ctrl+scroll to change font size
+        termWidget.addMouseWheelListener(object : MouseWheelListener {
+            override fun mouseWheelMoved(e: MouseWheelEvent) {
+                if (e.isControlDown) {
+                    changeFontSize(if (e.wheelRotation < 0) +1 else -1)
+                    e.consume()
+                }
+            }
+        })
         startShell()
+    }
+
+    fun changeFontSize(delta: Int) {
+        settingsProvider.changeFontSize(delta)
+        termWidget.repaint()
     }
 
     fun setDirectory(dir: String) {
