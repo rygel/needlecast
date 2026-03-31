@@ -3,6 +3,7 @@ package io.github.quicklaunch.ui
 import io.github.quicklaunch.AppContext
 import io.github.quicklaunch.model.BuildTool
 import io.github.quicklaunch.model.DetectedProject
+import io.github.quicklaunch.model.GitStatus
 import io.github.quicklaunch.model.ProjectDirectory
 import io.github.quicklaunch.model.ProjectGroup
 import java.awt.BorderLayout
@@ -15,12 +16,15 @@ import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.JButton
+import javax.swing.JColorChooser
 import javax.swing.JTextField
 import javax.swing.JFileChooser
 import javax.swing.JLabel
 import javax.swing.JList
+import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JPanel
+import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JToolBar
 import javax.swing.ListCellRenderer
@@ -40,6 +44,7 @@ class DirectoryPanel(
     private val filteredModel = DefaultListModel<DetectedProject>()
     private var filterText = ""
     private var activePaths: Set<String> = emptySet()
+    private val gitStatusCache = mutableMapOf<String, GitStatus>()
 
     private val list = object : JList<DetectedProject>(filteredModel) {
         override fun getToolTipText(event: java.awt.event.MouseEvent): String? {
@@ -50,7 +55,7 @@ class DirectoryPanel(
     }.apply {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
         if (compact) fixedCellHeight = 28
-        setCellRenderer(CompactProjectDirectoryRenderer { activePaths })
+        setCellRenderer(CompactProjectDirectoryRenderer({ activePaths }) { path -> gitStatusCache[path] })
     }
 
     private var currentGroup: ProjectGroup? = null
@@ -123,6 +128,18 @@ class DirectoryPanel(
             }
         }
 
+        list.addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mousePressed(e: java.awt.event.MouseEvent) {
+                if (SwingUtilities.isRightMouseButton(e)) {
+                    val idx = list.locationToIndex(e.point)
+                    if (idx >= 0) {
+                        list.selectedIndex = idx
+                        showProjectContextMenu(list.model.getElementAt(idx), e.x, e.y)
+                    }
+                }
+            }
+        })
+
         activateButton.addActionListener {
             val project = list.selectedValue ?: return@addActionListener
             onActivate(project)
@@ -157,6 +174,7 @@ class DirectoryPanel(
         model.clear()
         filteredModel.clear()
         activePaths = emptySet()
+        gitStatusCache.clear()
         updateButtonStates(null)
         onProjectSelected(null)
         group?.directories?.forEach { dir -> scanAndAdd(dir) }
@@ -218,6 +236,18 @@ class DirectoryPanel(
                 val result = try { get() } catch (_: Exception) { null } ?: return
                 model.addElement(result)
                 applyFilter(filterText)
+                fetchGitStatus(dir.path)
+            }
+        }.execute()
+    }
+
+    private fun fetchGitStatus(path: String) {
+        object : SwingWorker<GitStatus, Void>() {
+            override fun doInBackground(): GitStatus = GitStatus.read(path)
+            override fun done() {
+                val status = try { get() } catch (_: Exception) { return }
+                gitStatusCache[path] = status
+                list.repaint()
             }
         }.execute()
     }
@@ -262,9 +292,49 @@ class DirectoryPanel(
         model.clear()
         filteredModel.clear()
         activePaths = emptySet()
+        gitStatusCache.clear()
         updateButtonStates(null)
         onProjectSelected(null)
         group.directories.forEach { dir -> scanAndAdd(dir) }
+    }
+
+    private fun showProjectContextMenu(project: DetectedProject, x: Int, y: Int) {
+        val menu = JPopupMenu()
+        menu.add(JMenuItem("Set Color\u2026").apply {
+            addActionListener { pickColor(project) }
+        })
+        if (project.directory.color != null) {
+            menu.add(JMenuItem("Clear Color").apply {
+                addActionListener { setProjectColor(project, null) }
+            })
+        }
+        menu.show(list, x, y)
+    }
+
+    private fun pickColor(project: DetectedProject) {
+        val initial = project.directory.color?.let {
+            try { Color.decode(it) } catch (_: Exception) { null }
+        }
+        val chosen = JColorChooser.showDialog(this, "Choose Project Color", initial) ?: return
+        val hex = "#%02X%02X%02X".format(chosen.red, chosen.green, chosen.blue)
+        setProjectColor(project, hex)
+    }
+
+    private fun setProjectColor(project: DetectedProject, hex: String?) {
+        val group = currentGroup ?: return
+        val updatedDirs = group.directories.map {
+            if (it.path == project.directory.path) it.copy(color = hex) else it
+        }
+        val updatedGroup = group.copy(directories = updatedDirs)
+        saveGroupUpdate(updatedGroup)
+        // Refresh the in-memory model entry
+        val idx = (0 until model.size).firstOrNull { model.getElementAt(it).directory.path == project.directory.path }
+        if (idx != null) {
+            val updated = model.getElementAt(idx).let { it.copy(directory = it.directory.copy(color = hex)) }
+            model.setElementAt(updated, idx)
+        }
+        applyFilter(filterText)
+        list.repaint()
     }
 
     private fun saveGroupUpdate(updatedGroup: ProjectGroup) {
@@ -276,10 +346,23 @@ class DirectoryPanel(
 
 private class CompactProjectDirectoryRenderer(
     private val activePaths: () -> Set<String>,
+    private val gitStatus: (String) -> GitStatus?,
 ) : ListCellRenderer<DetectedProject> {
 
+    private val colorStripe = JPanel().apply {
+        preferredSize = Dimension(4, 0)
+        isOpaque = true
+    }
     private val panel = JPanel(BorderLayout(4, 0)).apply {
         border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
+    }
+    private val outerPanel = JPanel(BorderLayout()).apply {
+        isOpaque = true
+    }
+
+    init {
+        outerPanel.add(colorStripe, BorderLayout.WEST)
+        outerPanel.add(panel, BorderLayout.CENTER)
     }
     private val nameLabel = JLabel().apply {
         font = font.deriveFont(Font.BOLD, 12f)
@@ -289,13 +372,23 @@ private class CompactProjectDirectoryRenderer(
         foreground = Color(0x4CAF50)
         border = BorderFactory.createEmptyBorder(0, 0, 0, 4)
     }
+    private val branchLabel = JLabel().apply {
+        font = Font(Font.MONOSPACED, Font.PLAIN, 10)
+        foreground = Color(0x888888)
+        border = BorderFactory.createEmptyBorder(0, 4, 0, 0)
+    }
     private val tagsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
         isOpaque = false
+    }
+    private val nameRow = JPanel(BorderLayout(0, 0)).apply {
+        isOpaque = false
+        add(nameLabel, BorderLayout.CENTER)
+        add(branchLabel, BorderLayout.EAST)
     }
     private val leftPanel = JPanel(BorderLayout(2, 0)).apply {
         isOpaque = false
         add(activeDot, BorderLayout.WEST)
-        add(nameLabel, BorderLayout.CENTER)
+        add(nameRow, BorderLayout.CENTER)
     }
 
     init {
@@ -314,6 +407,16 @@ private class CompactProjectDirectoryRenderer(
         val isActive = value != null && value.directory.path in activePaths()
         activeDot.isVisible = isActive
 
+        val gs = value?.let { gitStatus(it.directory.path) }
+        if (gs != null && gs.branch != null) {
+            val dirtyMark = if (gs.isDirty) "*" else ""
+            branchLabel.text = "\uE0A0 ${gs.branch}$dirtyMark"  // nerd-font branch glyph, falls back gracefully
+            branchLabel.foreground = if (gs.isDirty) Color(0xE6A817) else Color(0x888888)
+            branchLabel.isVisible = true
+        } else {
+            branchLabel.isVisible = false
+        }
+
         tagsPanel.removeAll()
         if (value != null) {
             val tools = value.buildTools
@@ -321,15 +424,19 @@ private class CompactProjectDirectoryRenderer(
             tags.forEach { tool -> tagsPanel.add(buildTagLabel(tool)) }
         }
 
-        if (isSelected) {
-            panel.background = list.selectionBackground
-            nameLabel.foreground = list.selectionForeground
-        } else {
-            panel.background = list.background
-            nameLabel.foreground = list.foreground
-        }
+        val bg = if (isSelected) list.selectionBackground else list.background
+        outerPanel.background = bg
+        panel.background = bg
+        nameLabel.foreground = if (isSelected) list.selectionForeground else list.foreground
         panel.isOpaque = true
-        return panel
+
+        val colorHex = value?.directory?.color
+        colorStripe.isVisible = colorHex != null
+        if (colorHex != null) {
+            colorStripe.background = try { Color.decode(colorHex) } catch (_: Exception) { Color.GRAY }
+        }
+
+        return outerPanel
     }
 
     private fun buildTagLabel(tool: BuildTool?): JLabel {

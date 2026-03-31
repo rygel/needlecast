@@ -21,10 +21,10 @@
 
 ## Project Metadata
 
-- [ ] **Git status** — show current branch and dirty indicator in the project list
-- [ ] **Project color / label** — color-code groups or projects for quick visual scanning
+- [x] **Git status** — show current branch and dirty indicator in the project list
+- [x] **Project color / label** — color-code groups or projects for quick visual scanning
 
 ## Infrastructure
 
-- [ ] **Auto-save layout on close** — divider positions currently reset from hardcoded values, ignoring actual window state
-- [ ] **Graceful config migration** — migration layer to handle schema changes without silent data loss
+- [x] **Auto-save layout on close** — divider positions currently reset from hardcoded values, ignoring actual window state
+- [x] **Graceful config migration** — migration layer to handle schema changes without silent data loss

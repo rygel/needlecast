@@ -8,6 +8,7 @@ import io.github.quicklaunch.model.AppConfig
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.time.Instant
 
 class JsonConfigStore(
     private val configPath: Path = defaultConfigPath(),
@@ -23,7 +24,23 @@ class JsonConfigStore(
         return try {
             mapper.readValue(configPath.toFile(), AppConfig::class.java)
         } catch (e: Exception) {
+            // Preserve the unreadable file before returning defaults so user data isn't silently lost.
+            preserveCorruptConfig()
             AppConfig()
+        }
+    }
+
+    /**
+     * Copies the current config file to a timestamped backup (e.g. config.json.corrupt.1714000000)
+     * so the user can inspect or recover it. The next [save] will write a fresh valid config.
+     */
+    private fun preserveCorruptConfig() {
+        try {
+            val ts = Instant.now().epochSecond
+            val backup = configPath.resolveSibling("${configPath.fileName}.corrupt.$ts")
+            Files.copy(configPath, backup, StandardCopyOption.REPLACE_EXISTING)
+        } catch (_: Exception) {
+            // Best-effort; ignore if backup fails
         }
     }
 

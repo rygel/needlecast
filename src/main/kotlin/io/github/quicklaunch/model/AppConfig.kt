@@ -14,6 +14,8 @@ private fun defaultEditors() = listOf(
 )
 
 data class AppConfig(
+    /** Incremented when a breaking schema change requires migration. Current: 1. */
+    val configVersion: Int = 1,
     val groups: List<ProjectGroup> = emptyList(),
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,
@@ -39,6 +41,8 @@ data class ProjectGroup(
 data class ProjectDirectory(
     val path: String,
     val displayName: String? = null,
+    /** Optional hex color string (e.g. "#FF5722") shown as a left-edge stripe in the project list. */
+    val color: String? = null,
 ) {
     fun label(): String = displayName ?: path.substringAfterLast('/').substringAfterLast('\\').ifBlank { path }
 }
