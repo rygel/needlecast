@@ -5,23 +5,44 @@ import com.jediterm.terminal.ui.JediTermWidget
 import com.pty4j.PtyProcess
 import com.pty4j.PtyProcessBuilder
 import io.github.quicklaunch.scanner.IS_WINDOWS
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
+import java.awt.event.MouseWheelEvent
+import java.awt.event.MouseWheelListener
 import java.nio.charset.Charset
 import javax.swing.JPanel
 
 class TerminalPanel(
     initialDir: String = System.getProperty("user.home"),
     dark: Boolean = true,
+    extraEnv: Map<String, String> = emptyMap(),
 ) : JPanel(BorderLayout()) {
+
+    private val logger = LoggerFactory.getLogger(TerminalPanel::class.java)
 
     private val settingsProvider = QuickLaunchTerminalSettings(dark = dark)
     private val termWidget = JediTermWidget(settingsProvider)
     private var currentDir: String = initialDir
     private var ptyProcess: PtyProcess? = null
+    private val extraEnv: Map<String, String> = extraEnv
 
     init {
         add(termWidget, BorderLayout.CENTER)
+        // Ctrl+scroll to change font size
+        termWidget.addMouseWheelListener(object : MouseWheelListener {
+            override fun mouseWheelMoved(e: MouseWheelEvent) {
+                if (e.isControlDown) {
+                    changeFontSize(if (e.wheelRotation < 0) +1 else -1)
+                    e.consume()
+                }
+            }
+        })
         startShell()
+    }
+
+    fun changeFontSize(delta: Int) {
+        settingsProvider.changeFontSize(delta)
+        termWidget.repaint()
     }
 
     fun setDirectory(dir: String) {
@@ -57,6 +78,7 @@ class TerminalPanel(
                 val cmd = if (IS_WINDOWS) arrayOf("cmd.exe") else arrayOf("/bin/bash", "--login")
                 val env = System.getenv().toMutableMap().apply {
                     put("TERM", "xterm-256color")
+                    putAll(extraEnv)
                 }
                 ptyProcess = PtyProcessBuilder()
                     .setCommand(cmd)
@@ -69,7 +91,7 @@ class TerminalPanel(
                 val session = termWidget.createTerminalSession(connector)
                 session.start()
             } catch (e: Exception) {
-                e.printStackTrace()
+                logger.error("Failed to start shell process in terminal", e)
             }
         }.also { it.isDaemon = true }.start()
     }

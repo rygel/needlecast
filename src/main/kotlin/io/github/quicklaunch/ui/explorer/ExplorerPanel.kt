@@ -5,6 +5,7 @@ import io.github.quicklaunch.model.ExternalEditor
 import io.github.quicklaunch.scanner.IS_WINDOWS
 import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.Toolkit
 import java.awt.event.ComponentAdapter
@@ -25,6 +26,7 @@ import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JSplitPane
+import javax.swing.JTabbedPane
 import javax.swing.JTable
 import javax.swing.JTextField
 import javax.swing.ListSelectionModel
@@ -36,6 +38,7 @@ import javax.swing.table.DefaultTableCellRenderer
 class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private var currentDir: File = File(System.getProperty("user.home"))
+    private var showHidden = false
     private val addressField = JTextField()
     private val tableModel = FileTableModel()
     private val table = JTable(tableModel).apply {
@@ -45,7 +48,12 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         setDefaultRenderer(Any::class.java, FileTableCellRenderer())
         tableHeader.reorderingAllowed = false
     }
-    private val editorPanel = EditorPanel(ctx)
+
+    private val tabs = JTabbedPane()
+    /** Canonical file path → editor panel, so we can switch to an already-open tab */
+    private val openFiles = LinkedHashMap<String, EditorPanel>()
+
+    private var isDark: Boolean = ctx.config.theme == "dark"
     private val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm")
     private var contentSplitInitialized = false
     private lateinit var contentSplit: JSplitPane
@@ -59,12 +67,26 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             toolTipText = "Refresh"
             addActionListener { loadDirectory(currentDir) }
         }
+        val hiddenButton = JButton("\u25CC").apply {
+            toolTipText = "Show hidden files"
+            addActionListener {
+                showHidden = !showHidden
+                toolTipText = if (showHidden) "Hide hidden files" else "Show hidden files"
+                foreground = if (showHidden) java.awt.Color(0x4CAF50) else null
+                loadDirectory(currentDir)
+            }
+        }
+
+        val rightButtons = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
+            add(hiddenButton)
+            add(refreshButton)
+        }
 
         val addressBar = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
             add(upButton, BorderLayout.WEST)
             add(addressField, BorderLayout.CENTER)
-            add(refreshButton, BorderLayout.EAST)
+            add(rightButtons, BorderLayout.EAST)
         }
 
         addressField.addActionListener { navigateTo(File(addressField.text)) }
@@ -94,14 +116,14 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                     return
                 }
                 if (e.clickCount == 1 && entry is FileEntry.RegularFile) {
-                    if (editorPanel.checkUnsaved()) editorPanel.openFile(entry.file)
+                    openFileInTab(entry.file)
                 } else if (e.clickCount == 2) {
                     handleActivate(entry)
                 }
             }
         })
 
-        contentSplit = JSplitPane(JSplitPane.VERTICAL_SPLIT, JScrollPane(table), editorPanel).apply {
+        contentSplit = JSplitPane(JSplitPane.VERTICAL_SPLIT, JScrollPane(table), tabs).apply {
             resizeWeight = 0.5
         }
 
@@ -128,7 +150,15 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         if (dir.isDirectory) navigateTo(dir)
     }
 
-    fun applyTheme(dark: Boolean) = editorPanel.applyTheme(dark)
+    fun applyTheme(dark: Boolean) {
+        isDark = dark
+        openFiles.values.forEach { it.applyTheme(dark) }
+    }
+
+    fun requestFocusOnTree() = table.requestFocusInWindow()
+
+    /** Check all open editors for unsaved changes before the app closes. */
+    fun checkAllUnsaved(): Boolean = openFiles.values.all { it.checkUnsaved() }
 
     private fun navigateTo(dir: File) {
         if (!dir.isDirectory) return
@@ -139,11 +169,12 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private fun navigateUp() {
         val parent = currentDir.parentFile ?: return
-        if (editorPanel.checkUnsaved()) navigateTo(parent)
+        navigateTo(parent)
     }
 
     private fun loadDirectory(dir: File) {
         val children = (dir.listFiles() ?: emptyArray())
+            .filter { showHidden || !it.isHidden }
             .sortedWith(compareBy({ it.isFile }, { it.name.lowercase() }))
 
         val entries = mutableListOf<FileEntry>()
@@ -156,10 +187,34 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private fun handleActivate(entry: FileEntry) {
         when (entry) {
-            is FileEntry.ParentDir -> navigateUp()
-            is FileEntry.Dir -> if (editorPanel.checkUnsaved()) navigateTo(entry.file)
-            is FileEntry.RegularFile -> if (editorPanel.checkUnsaved()) editorPanel.openFile(entry.file)
+            is FileEntry.ParentDir  -> navigateUp()
+            is FileEntry.Dir        -> navigateTo(entry.file)
+            is FileEntry.RegularFile -> openFileInTab(entry.file)
         }
+    }
+
+    private fun openFileInTab(file: File) {
+        val key = try { file.canonicalPath } catch (_: Exception) { file.absolutePath }
+        val existing = openFiles[key]
+        if (existing != null) {
+            tabs.selectedComponent = existing
+            return
+        }
+        val editor = EditorPanel(ctx).also { it.applyTheme(isDark) }
+        editor.openFile(file)
+        openFiles[key] = editor
+        val idx = tabs.tabCount
+        tabs.addTab(file.name, editor)
+        tabs.setTabComponentAt(idx, TabHeader(file.name) { closeTab(key) })
+        tabs.selectedIndex = idx
+    }
+
+    private fun closeTab(key: String) {
+        val editor = openFiles[key] ?: return
+        if (!editor.checkUnsaved()) return
+        val idx = tabs.indexOfComponent(editor)
+        if (idx >= 0) tabs.removeTabAt(idx)
+        openFiles.remove(key)
     }
 
     private fun selectedEntry(): FileEntry? {
@@ -177,11 +232,17 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             is FileEntry.Dir -> {
                 menu.add(JMenuItem("Open").apply { addActionListener { navigateTo(entry.file) } })
                 menu.addSeparator()
+                menu.add(JMenuItem("New File\u2026").apply   { addActionListener { createFile(entry.file) } })
+                menu.add(JMenuItem("New Folder\u2026").apply { addActionListener { createFolder(entry.file) } })
+                menu.addSeparator()
+                menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameEntry(entry.file) } })
+                menu.add(JMenuItem("Delete").apply  { addActionListener { deleteEntry(entry.file) } })
+                menu.addSeparator()
                 menu.add(copyPathItem(entry.file))
             }
             is FileEntry.RegularFile -> {
                 menu.add(JMenuItem("Open in Editor").apply {
-                    addActionListener { if (editorPanel.checkUnsaved()) editorPanel.openFile(entry.file) }
+                    addActionListener { openFileInTab(entry.file) }
                 })
                 val editors = ctx.config.externalEditors
                 if (editors.isNotEmpty()) {
@@ -193,10 +254,57 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                     }
                 }
                 menu.addSeparator()
+                menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameEntry(entry.file) } })
+                menu.add(JMenuItem("Delete").apply  { addActionListener { deleteEntry(entry.file) } })
+                menu.addSeparator()
                 menu.add(copyPathItem(entry.file))
             }
         }
+        // New File / New Folder always available for current directory
+        if (entry is FileEntry.ParentDir) {
+            menu.addSeparator()
+            menu.add(JMenuItem("New File\u2026").apply   { addActionListener { createFile(currentDir) } })
+            menu.add(JMenuItem("New Folder\u2026").apply { addActionListener { createFolder(currentDir) } })
+        }
         menu.show(table, x, y)
+    }
+
+    private fun createFile(inDir: File) {
+        val name = JOptionPane.showInputDialog(this, "File name:", "New File", JOptionPane.PLAIN_MESSAGE) ?: return
+        if (name.isBlank()) return
+        val file = File(inDir, name.trim())
+        try {
+            if (!file.createNewFile()) { JOptionPane.showMessageDialog(this, "File already exists."); return }
+            loadDirectory(currentDir)
+            openFileInTab(file)
+        } catch (e: Exception) {
+            JOptionPane.showMessageDialog(this, "Could not create file: ${e.message}", "Error", JOptionPane.ERROR_MESSAGE)
+        }
+    }
+
+    private fun createFolder(inDir: File) {
+        val name = JOptionPane.showInputDialog(this, "Folder name:", "New Folder", JOptionPane.PLAIN_MESSAGE) ?: return
+        if (name.isBlank()) return
+        val folder = File(inDir, name.trim())
+        if (!folder.mkdir()) JOptionPane.showMessageDialog(this, "Could not create folder.", "Error", JOptionPane.ERROR_MESSAGE)
+        else loadDirectory(currentDir)
+    }
+
+    private fun renameEntry(file: File) {
+        val newName = JOptionPane.showInputDialog(this, "Rename to:", file.name) ?: return
+        if (newName.isBlank() || newName == file.name) return
+        val dest = File(file.parentFile, newName.trim())
+        if (!file.renameTo(dest)) JOptionPane.showMessageDialog(this, "Rename failed.", "Error", JOptionPane.ERROR_MESSAGE)
+        else loadDirectory(currentDir)
+    }
+
+    private fun deleteEntry(file: File) {
+        val confirm = JOptionPane.showConfirmDialog(
+            this, "Delete '${file.name}'?", "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
+        )
+        if (confirm != JOptionPane.YES_OPTION) return
+        if (!file.deleteRecursively()) JOptionPane.showMessageDialog(this, "Delete failed.", "Error", JOptionPane.ERROR_MESSAGE)
+        else loadDirectory(currentDir)
     }
 
     private fun copyPathItem(file: File) = JMenuItem("Copy Path").apply {
@@ -285,6 +393,23 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             }
             return c
         }
+    }
+}
+
+/** Tab header component with a label and a close (✕) button. */
+private class TabHeader(title: String, onClose: () -> Unit) : JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)) {
+    init {
+        isOpaque = false
+        border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
+        add(JLabel(title))
+        add(JButton("\u2715").apply {
+            toolTipText = "Close tab"
+            isFocusable = false
+            isBorderPainted = false
+            isContentAreaFilled = false
+            font = font.deriveFont(9f)
+            addActionListener { onClose() }
+        })
     }
 }
 

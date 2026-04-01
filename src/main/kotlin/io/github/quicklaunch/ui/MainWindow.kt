@@ -3,6 +3,7 @@ package io.github.quicklaunch.ui
 import com.formdev.flatlaf.FlatDarkLaf
 import com.formdev.flatlaf.FlatLightLaf
 import io.github.quicklaunch.AppContext
+import io.github.quicklaunch.isOsDark
 import io.github.quicklaunch.model.ProjectGroup
 import io.github.quicklaunch.ui.explorer.ExplorerPanel
 import io.github.quicklaunch.ui.terminal.TerminalManager
@@ -12,6 +13,7 @@ import java.awt.Font
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
+import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JFrame
 import javax.swing.JMenu
@@ -19,7 +21,9 @@ import javax.swing.JMenuBar
 import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JSplitPane
+import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
+import javax.swing.UIManager
 import javax.swing.filechooser.FileNameExtensionFilter
 
 class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
@@ -28,12 +32,14 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
     private val consolePanel = ConsolePanel()
     private val terminalPanel = TerminalManager()
     private val explorerPanel = ExplorerPanel(ctx)
-    private val commandPanel = CommandPanel(ctx, consolePanel, statusBar, showTitle = false)
+    private val commandPanel = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
+    private val gitLogPanel = GitLogPanel()
     private val directoryPanel: DirectoryPanel = DirectoryPanel(
         ctx = ctx,
         compact = true,
         onProjectSelected = { project ->
             commandPanel.loadProject(project)
+            gitLogPanel.loadProject(project?.directory?.path)
             if (project != null) {
                 explorerPanel.setRootDirectory(File(project.directory.path))
                 terminalPanel.showProject(project.directory.path)
@@ -42,7 +48,7 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
             }
         },
         onActivate = { project ->
-            terminalPanel.activateProject(project.directory.path)
+            terminalPanel.activateProject(project.directory.path, project.directory.env)
             directoryPanel.setActivePaths(terminalPanel.activePaths())
         },
         onDeactivate = { project ->
@@ -55,6 +61,7 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         onGroupSelected = { group ->
             directoryPanel.loadGroup(group)
             commandPanel.loadProject(null)
+            gitLogPanel.loadProject(null)
             terminalPanel.deactivate()
         },
         onDirectoryDropped = { transfer, targetGroup -> moveDirectory(transfer, targetGroup) },
@@ -74,28 +81,44 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         contentPane = buildLayout()
         jMenuBar = buildMenuBar()
 
+        registerKeyboardShortcuts()
         centerOnScreen()
+
+        // React to LAF changes (e.g. OS dark-mode toggle when theme == "system")
+        UIManager.addPropertyChangeListener { evt ->
+            if (evt.propertyName == "lookAndFeel") applyTheme(isOsDark())
+        }
 
         addWindowListener(object : WindowAdapter() {
             override fun windowOpened(e: WindowEvent) {
-                leftSplit.dividerLocation = 130
-                middleSplit.dividerLocation = height - 260
-                rightSplit.dividerLocation = 180
-                mainSplit.dividerLocation = 200
-                middleRightSplit.dividerLocation = (width - 200) * 7 / 10
+                val cfg = ctx.config
+                leftSplit.dividerLocation        = cfg.dividerLeft        ?: 130
+                middleSplit.dividerLocation      = cfg.dividerMiddle      ?: (height - 260)
+                rightSplit.dividerLocation       = cfg.dividerRight       ?: 180
+                mainSplit.dividerLocation        = cfg.dividerMain        ?: 200
+                middleRightSplit.dividerLocation = cfg.dividerMiddleRight ?: ((width - 200) * 7 / 10)
 
-                val startDark = ctx.config.theme == "dark"
-                explorerPanel.applyTheme(startDark)
-                terminalPanel.applyTheme(startDark)
+                val startDark = when (cfg.theme) {
+                    "dark"   -> true
+                    "system" -> isOsDark()
+                    else     -> false
+                }
+                applyTheme(startDark)
 
                 groupPanel.restoreSelection()
             }
 
             override fun windowClosing(e: WindowEvent) {
+                if (!explorerPanel.checkAllUnsaved()) return
                 ctx.updateConfig(ctx.config.copy(
                     windowWidth = width,
                     windowHeight = height,
                     lastSelectedGroupId = groupPanel.selectedGroupId(),
+                    dividerLeft        = leftSplit.dividerLocation,
+                    dividerMiddle      = middleSplit.dividerLocation,
+                    dividerRight       = rightSplit.dividerLocation,
+                    dividerMain        = mainSplit.dividerLocation,
+                    dividerMiddleRight = middleRightSplit.dividerLocation,
                 ))
                 terminalPanel.dispose()
                 dispose()
@@ -114,8 +137,12 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
             resizeWeight = 0.65
         }
 
-        // Right column: commands (top) + console (bottom)
-        rightSplit = JSplitPane(JSplitPane.VERTICAL_SPLIT, commandPanel, consolePanel).apply {
+        // Right column: commands+git-log tabs (top) + console (bottom)
+        val commandTabs = javax.swing.JTabbedPane().apply {
+            addTab("Commands", commandPanel)
+            addTab("Git Log", gitLogPanel)
+        }
+        rightSplit = JSplitPane(JSplitPane.VERTICAL_SPLIT, commandTabs, consolePanel).apply {
             resizeWeight = 0.3
         }
 
@@ -142,7 +169,10 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
     private fun buildMenuBar(): JMenuBar {
         val settingsItem = JMenuItem("Settings...").apply {
             addActionListener {
-                SettingsDialog(this@MainWindow, ctx) { cmd -> terminalPanel.sendInput(cmd) }.isVisible = true
+                SettingsDialog(this@MainWindow, ctx,
+                    sendToTerminal = { cmd -> terminalPanel.sendInput(cmd) },
+                    onShortcutsChanged = { reloadShortcuts() },
+                ).isVisible = true
             }
         }
         val importItem = JMenuItem("Import Config...").apply {
@@ -165,11 +195,13 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
             add(exitItem)
         }
 
-        val toggleThemeItem = JMenuItem("Toggle Dark/Light Theme").apply {
-            addActionListener { toggleTheme() }
-        }
+        val lightItem  = JMenuItem("Light Theme").apply  { addActionListener { setTheme("light") } }
+        val darkItem   = JMenuItem("Dark Theme").apply   { addActionListener { setTheme("dark")  } }
+        val systemItem = JMenuItem("System (auto)").apply { addActionListener { setTheme("system") } }
         val viewMenu = JMenu("View").apply {
-            add(toggleThemeItem)
+            add(lightItem)
+            add(darkItem)
+            add(systemItem)
         }
 
         val aiMenu = buildAiMenu()
@@ -296,15 +328,22 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         }
     }
 
-    private fun toggleTheme() {
-        val isDark = ctx.config.theme == "dark"
-        if (isDark) FlatLightLaf.setup()
-        else FlatDarkLaf.setup()
+    /** Applies the dark or light LAF-specific colours to sub-panels that manage their own theming. */
+    private fun applyTheme(dark: Boolean) {
+        explorerPanel.applyTheme(dark)
+        terminalPanel.applyTheme(dark)
+    }
+
+    /** Switches to the requested theme ("dark", "light", or "system") and persists the choice. */
+    private fun setTheme(theme: String) {
+        val dark = when (theme) {
+            "dark"   -> { FlatDarkLaf.setup();  true  }
+            "system" -> { if (isOsDark()) FlatDarkLaf.setup() else FlatLightLaf.setup(); isOsDark() }
+            else     -> { FlatLightLaf.setup(); false }
+        }
         SwingUtilities.updateComponentTreeUI(this)
-        val newTheme = if (isDark) "light" else "dark"
-        explorerPanel.applyTheme(!isDark)
-        terminalPanel.applyTheme(!isDark)
-        ctx.updateConfig(ctx.config.copy(theme = newTheme))
+        applyTheme(dark)
+        ctx.updateConfig(ctx.config.copy(theme = theme))
     }
 
     private fun moveDirectory(transfer: DirectoryTransfer, targetGroup: ProjectGroup) {
@@ -329,6 +368,50 @@ class MainWindow(private val ctx: AppContext) : JFrame("QuickLaunch") {
         directoryPanel.removeProjectByPath(directory.path)
         groupPanel.refreshGroups(updatedGroups)
         statusBar.setStatus("Moved '${directory.label()}' \u2192 ${targetGroup.name}")
+    }
+
+    private fun registerKeyboardShortcuts() {
+        val root = rootPane
+        val im = root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+        val am = root.actionMap
+        val overrides = ctx.config.shortcuts
+
+        fun bind(defaultKey: String, actionId: String, block: () -> Unit) {
+            val key = overrides[actionId] ?: defaultKey
+            im.put(KeyStroke.getKeyStroke(key), actionId)
+            am.put(actionId, action(block))
+        }
+
+        bind("F5",     "rescan")           { directoryPanel.triggerRescan() }
+        bind("ctrl T", "activate-terminal"){ directoryPanel.triggerActivateTerminal() }
+        bind("ctrl 1", "focus-projects")   { directoryPanel.requestFocusOnList() }
+        bind("ctrl 2", "focus-explorer")   { explorerPanel.requestFocusOnTree() }
+        bind("ctrl 3", "focus-terminal")   { terminalPanel.requestFocusOnActive() }
+        bind("ctrl P", "project-switcher") { showProjectSwitcher() }
+    }
+
+    /** Re-registers all keyboard shortcuts (called after the user saves new bindings). */
+    fun reloadShortcuts() = registerKeyboardShortcuts()
+
+    private fun showProjectSwitcher() {
+        val dialog = ProjectSwitcherDialog(this, ctx) { groupId, path ->
+            switchToProject(groupId, path)
+        }
+        dialog.isVisible = true
+    }
+
+    private fun switchToProject(groupId: String, path: String) {
+        if (groupPanel.selectedGroupId() != groupId) {
+            groupPanel.selectGroup(groupId)
+            // loadGroup is triggered by the GroupPanel selection listener;
+            // directoryPanel will apply the pending selection once the scan completes
+        }
+        directoryPanel.selectByPath(path)
+        directoryPanel.requestFocusOnList()
+    }
+
+    private fun action(block: () -> Unit) = object : javax.swing.AbstractAction() {
+        override fun actionPerformed(e: java.awt.event.ActionEvent) = block()
     }
 
     private fun centerOnScreen() {
