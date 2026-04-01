@@ -5,10 +5,17 @@ import com.jediterm.terminal.TextStyle
 import com.jediterm.terminal.emulator.ColorPalette
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider
 import java.awt.Color
+import java.awt.Font
 
 class QuickLaunchTerminalSettings(dark: Boolean = true) : DefaultSettingsProvider() {
 
     private var isDark: Boolean = dark
+    var fontSize: Int = 13
+        private set
+
+    fun changeFontSize(delta: Int) {
+        fontSize = (fontSize + delta).coerceIn(8, 36)
+    }
 
     // VSCode dark ANSI palette (16 colors: Black, Red, Green, Yellow, Blue, Magenta, Cyan, White,
     // BrightBlack, BrightRed, BrightGreen, BrightYellow, BrightBlue, BrightMagenta, BrightCyan, BrightWhite)
@@ -41,6 +48,8 @@ class QuickLaunchTerminalSettings(dark: Boolean = true) : DefaultSettingsProvide
         isDark = dark
         currentPalette = makePalette(if (dark) darkAnsi else lightAnsi)
     }
+
+    override fun getTerminalFont(): Font = Font(Font.MONOSPACED, Font.PLAIN, fontSize)
 
     override fun getTerminalColorPalette(): ColorPalette = currentPalette
 

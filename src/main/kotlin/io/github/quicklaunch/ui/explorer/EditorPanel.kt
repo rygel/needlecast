@@ -61,6 +61,7 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         isCodeFoldingEnabled = true
     }
     private val scrollPane = RTextScrollPane(editor)
+    private val findBar = FindBar(editor)
 
     init {
         val saveButton = JButton("Save").apply {
@@ -99,8 +100,24 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             }
         })
 
+        // Ctrl+F — find
+        val ctrlF = KeyStroke.getKeyStroke(KeyEvent.VK_F, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
+        editor.inputMap.put(ctrlF, "show-find")
+        editor.actionMap.put("show-find", object : javax.swing.AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent) = findBar.showBar(replaceMode = false)
+        })
+
+        // Ctrl+H — find & replace
+        val ctrlH = KeyStroke.getKeyStroke(KeyEvent.VK_H, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
+        editor.inputMap.put(ctrlH, "show-replace")
+        editor.actionMap.put("show-replace", object : javax.swing.AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent) = findBar.showBar(replaceMode = true)
+        })
+
         add(toolbar, BorderLayout.NORTH)
         add(scrollPane, BorderLayout.CENTER)
+        findBar.isVisible = false
+        add(findBar, BorderLayout.SOUTH)
 
         applyTheme(ctx.config.theme == "dark")
     }

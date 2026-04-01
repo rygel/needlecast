@@ -3,18 +3,26 @@ package io.github.quicklaunch.ui
 import io.github.quicklaunch.AppContext
 import io.github.quicklaunch.model.ProjectGroup
 import java.awt.BorderLayout
+import java.awt.Color
+import java.awt.Component
+import java.awt.Dimension
 import java.awt.Font
 import java.util.UUID
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.JButton
+import javax.swing.JColorChooser
 import javax.swing.JLabel
 import javax.swing.JList
+import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JPanel
+import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JToolBar
+import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
+import javax.swing.SwingUtilities
 
 class GroupPanel(
     private val ctx: AppContext,
@@ -25,16 +33,7 @@ class GroupPanel(
     private val model = DefaultListModel<ProjectGroup>()
     private val list = JList(model).apply {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
-        setCellRenderer { _, value, _, isSelected, cellHasFocus ->
-            val label = JLabel(if (value != null) "${value.name}  (${value.directories.size})" else "")
-            label.border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
-            if (isSelected) {
-                label.isOpaque = true
-                label.background = javax.swing.UIManager.getColor("List.selectionBackground")
-                label.foreground = javax.swing.UIManager.getColor("List.selectionForeground")
-            }
-            label
-        }
+        setCellRenderer(GroupCellRenderer())
     }
 
     init {
@@ -92,9 +91,26 @@ class GroupPanel(
 
         addButton.addActionListener { addGroup() }
         removeButton.addActionListener { removeGroup() }
+
+        list.addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mousePressed(e: java.awt.event.MouseEvent) {
+                if (SwingUtilities.isRightMouseButton(e)) {
+                    val idx = list.locationToIndex(e.point)
+                    if (idx >= 0) {
+                        list.selectedIndex = idx
+                        showGroupContextMenu(model.getElementAt(idx), e.x, e.y)
+                    }
+                }
+            }
+        })
     }
 
     fun selectedGroupId(): String? = list.selectedValue?.id
+
+    fun selectGroup(id: String) {
+        val idx = (0 until model.size).firstOrNull { model.getElementAt(it).id == id } ?: return
+        list.selectedIndex = idx
+    }
 
     fun refreshGroups(groups: List<ProjectGroup>) {
         val selectedId = list.selectedValue?.id
@@ -138,5 +154,78 @@ class GroupPanel(
     private fun persistGroups() {
         val groups = (0 until model.size).map { model.getElementAt(it) }
         ctx.updateConfig(ctx.config.copy(groups = groups))
+    }
+
+    private fun showGroupContextMenu(group: ProjectGroup, x: Int, y: Int) {
+        val menu = JPopupMenu()
+        menu.add(JMenuItem("Set Color\u2026").apply {
+            addActionListener { pickColor(group) }
+        })
+        if (group.color != null) {
+            menu.add(JMenuItem("Clear Color").apply {
+                addActionListener { setGroupColor(group, null) }
+            })
+        }
+        menu.show(list, x, y)
+    }
+
+    private fun pickColor(group: ProjectGroup) {
+        val initial = group.color?.let {
+            try { Color.decode(it) } catch (_: Exception) { null }
+        }
+        val chosen = JColorChooser.showDialog(this, "Choose Group Color", initial) ?: return
+        val hex = "#%02X%02X%02X".format(chosen.red, chosen.green, chosen.blue)
+        setGroupColor(group, hex)
+    }
+
+    private fun setGroupColor(group: ProjectGroup, hex: String?) {
+        val idx = (0 until model.size).firstOrNull { model.getElementAt(it).id == group.id } ?: return
+        val updated = model.getElementAt(idx).copy(color = hex)
+        model.setElementAt(updated, idx)
+        persistGroups()
+        list.repaint()
+    }
+}
+
+private class GroupCellRenderer : ListCellRenderer<ProjectGroup> {
+
+    private val colorStripe = JPanel().apply {
+        preferredSize = Dimension(4, 0)
+        isOpaque = true
+    }
+    private val label = JLabel().apply {
+        border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
+    }
+    private val outerPanel = JPanel(BorderLayout()).apply {
+        isOpaque = true
+    }
+
+    init {
+        outerPanel.add(colorStripe, BorderLayout.WEST)
+        outerPanel.add(label, BorderLayout.CENTER)
+    }
+
+    override fun getListCellRendererComponent(
+        list: JList<out ProjectGroup>,
+        value: ProjectGroup?,
+        index: Int,
+        isSelected: Boolean,
+        cellHasFocus: Boolean,
+    ): Component {
+        label.text = if (value != null) "${value.name}  (${value.directories.size})" else ""
+
+        val bg = if (isSelected) list.selectionBackground else list.background
+        outerPanel.background = bg
+        label.background = bg
+        label.foreground = if (isSelected) list.selectionForeground else list.foreground
+        label.isOpaque = true
+
+        val colorHex = value?.color
+        colorStripe.isVisible = colorHex != null
+        if (colorHex != null) {
+            colorStripe.background = try { Color.decode(colorHex) } catch (_: Exception) { Color.GRAY }
+        }
+
+        return outerPanel
     }
 }

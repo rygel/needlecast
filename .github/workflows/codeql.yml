@@ -1,0 +1,39 @@
+name: CodeQL
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@b0565cb28b456da32509aef995361ffcc63f40b0 # v3.28.15
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
+      - name: Build
+        run: mvn compile -q -T 4
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@b0565cb28b456da32509aef995361ffcc63f40b0 # v3.28.15
+        with:
+          category: '/language:java-kotlin'
