@@ -182,7 +182,9 @@ class DirectoryPanel(
 
     private fun addDirectory() {
         val group = currentGroup ?: return
-        val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
+        val startDir = list.selectedValue?.directory?.path?.let { File(it).parentFile }
+            ?: File(System.getProperty("user.home"))
+        val chooser = JFileChooser(startDir).apply {
             dialogTitle = "Select Project Directory"
             fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
         }
