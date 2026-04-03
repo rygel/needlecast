@@ -217,3 +217,72 @@ jobs:
 
           # Upload as a release asset (replaces if already exists)
           gh release upload "$RELEASE_TAG" appcast.xml --clobber
+
+  verify-update:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: update-appcast
+    permissions:
+      contents: read
+    steps:
+      - name: Verify appcast and download URLs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          REPO="rygel/needlecast"
+          ERRORS=0
+
+          echo "=== Downloading appcast.xml from release ==="
+          gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "appcast.xml" --dir .
+          cat appcast.xml
+
+          echo ""
+          echo "=== Validating XML structure ==="
+          xmllint --noout appcast.xml
+          echo "XML is well-formed"
+
+          echo ""
+          echo "=== Checking version in appcast ==="
+          APPCAST_VERSION=$(xmllint --xpath "string(//*[local-name()='version'])" appcast.xml)
+          if [[ "$APPCAST_VERSION" != "$VERSION" ]]; then
+            echo "FAIL: appcast version '$APPCAST_VERSION' does not match release '$VERSION'"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "OK: version matches ($VERSION)"
+          fi
+
+          echo ""
+          echo "=== Checking download URLs ==="
+          for URL in $(xmllint --xpath "//*[local-name()='enclosure']/@url" appcast.xml | grep -oP 'url="\K[^"]+'); do
+            echo -n "  $URL ... "
+            STATUS=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 30 "$URL")
+            if [[ "$STATUS" == "200" ]]; then
+              echo "OK ($STATUS)"
+            else
+              echo "FAIL ($STATUS)"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+
+          echo ""
+          echo "=== Checking expected assets exist ==="
+          ASSETS=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json assets --jq '.assets[].name')
+          for PATTERN in "needlecast-${VERSION}.jar" "needlecast-${VERSION}-windows.exe" "needlecast-${VERSION}-macos.dmg" "needlecast-${VERSION}-linux-amd64.deb" "appcast.xml"; do
+            if echo "$ASSETS" | grep -q "$PATTERN"; then
+              echo "  OK: $PATTERN found"
+            else
+              echo "  FAIL: $PATTERN missing"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+
+          echo ""
+          if [[ $ERRORS -gt 0 ]]; then
+            echo "FAILED: $ERRORS errors found"
+            exit 1
+          else
+            echo "ALL CHECKS PASSED"
+          fi
