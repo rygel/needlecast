@@ -31,7 +31,7 @@ jobs:
           build-mode: manual
 
       - name: Build
-        run: mvn -pl desktop -am compile -q -T 4
+        run: mvn -pl needlecast-desktop -am compile -q -T 4
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@45775bd8235c68ba998cffa5171334d58593da47 # v3.28.15

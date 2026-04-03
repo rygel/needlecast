@@ -31,11 +31,11 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mvn -pl desktop -am package -DskipTests -T 4
+        run: mvn -pl needlecast-desktop -am package -DskipTests -T 4
 
       - name: Generate checksum
         run: |
-          cd desktop/target
+          cd needlecast-desktop/target
           sha256sum needlecast.jar > needlecast.jar.sha256
           cat needlecast.jar.sha256
 
@@ -44,8 +44,8 @@ jobs:
         with:
           name: needlecast-jar
           path: |
-            desktop/target/needlecast.jar
-            desktop/target/needlecast.jar.sha256
+            needlecast-desktop/target/needlecast.jar
+            needlecast-desktop/target/needlecast.jar.sha256
           retention-days: 90
 
       - name: Attach JAR to GitHub release
@@ -56,8 +56,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           gh release upload "$RELEASE_TAG" \
-            desktop/target/needlecast.jar \
-            desktop/target/needlecast.jar.sha256
+            needlecast-desktop/target/needlecast.jar \
+            needlecast-desktop/target/needlecast.jar.sha256
 
   package-native:
     runs-on: ${{ matrix.os }}
@@ -83,7 +83,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: needlecast-jar
-          path: desktop/target/
+          path: needlecast-desktop/target/
 
       - name: Build installer (Linux / macOS)
         if: runner.os != 'Windows'
