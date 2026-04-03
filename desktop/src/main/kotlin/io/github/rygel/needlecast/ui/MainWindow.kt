@@ -416,10 +416,17 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val windowsMenu = buildWindowsMenu()
         val aiMenu   = buildAiMenu()
 
+        val checkUpdateItem = JMenuItem("Check for Updates...").apply {
+            addActionListener { checkForUpdatesManual() }
+        }
         val aboutItem = JMenuItem(i18n.translate("menu.help.about")).apply {
             addActionListener { showAbout() }
         }
-        val helpMenu = JMenu(i18n.translate("menu.help")).apply { add(aboutItem) }
+        val helpMenu = JMenu(i18n.translate("menu.help")).apply {
+            add(checkUpdateItem)
+            addSeparator()
+            add(aboutItem)
+        }
 
         return JMenuBar().apply {
             add(fileMenu); add(viewMenu); add(windowsMenu); add(aiMenu); add(helpMenu)
@@ -427,15 +434,45 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private fun showAbout() {
-        val version = try {
-            val props = java.util.Properties()
-            props.load(javaClass.getResourceAsStream("/version.properties"))
-            props.getProperty("app.version", "unknown")
-        } catch (_: Exception) { "unknown" }
-        JOptionPane.showMessageDialog(this,
-            ctx.i18n.translate("app.about.text", version),
-            ctx.i18n.translate("app.about.title"),
-            JOptionPane.INFORMATION_MESSAGE)
+        val version = currentVersion() ?: "dev"
+        val repoUrl = "https://github.com/rygel/needlecast"
+
+        val icon = javaClass.getResource("/icons/needlecast.png")?.let {
+            javax.swing.ImageIcon(javax.imageio.ImageIO.read(it).getScaledInstance(64, 64, java.awt.Image.SCALE_SMOOTH))
+        }
+
+        val linkLabel = javax.swing.JLabel("<html><a href=''>$repoUrl</a></html>").apply {
+            cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+            addMouseListener(object : java.awt.event.MouseAdapter() {
+                override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                    try { java.awt.Desktop.getDesktop().browse(java.net.URI(repoUrl)) } catch (_: Exception) {}
+                }
+            })
+        }
+
+        val content = JPanel(java.awt.GridBagLayout()).apply {
+            val gbc = java.awt.GridBagConstraints().apply {
+                gridx = 0; gridy = 0; insets = java.awt.Insets(0, 0, 12, 0)
+                anchor = java.awt.GridBagConstraints.CENTER
+            }
+            add(javax.swing.JLabel("Needlecast $version", javax.swing.SwingConstants.CENTER).apply {
+                font = font.deriveFont(java.awt.Font.BOLD, 16f)
+            }, gbc)
+            gbc.gridy++; gbc.insets = java.awt.Insets(0, 0, 4, 0)
+            add(javax.swing.JLabel("A project launcher for developers"), gbc)
+            gbc.gridy++; gbc.insets = java.awt.Insets(0, 0, 12, 0)
+            add(javax.swing.JLabel("by Alexander Brandt"), gbc)
+            gbc.gridy++; gbc.insets = java.awt.Insets(0, 0, 4, 0)
+            add(linkLabel, gbc)
+            gbc.gridy++; gbc.insets = java.awt.Insets(8, 0, 0, 0)
+            add(javax.swing.JLabel("<html><center>MIT License<br>Java ${System.getProperty("java.version")}</center></html>",
+                javax.swing.SwingConstants.CENTER).apply {
+                foreground = java.awt.Color.GRAY
+            }, gbc)
+        }
+
+        JOptionPane.showMessageDialog(this, content, "About Needlecast",
+            JOptionPane.PLAIN_MESSAGE, icon)
     }
 
     // Both fields are only read/written on the EDT (background thread posts via invokeLater)
@@ -764,19 +801,51 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         highlightedDockable = null
     }
 
-    private fun checkForUpdates() {
-        val version = currentVersion() ?: return
-        try {
+    private fun sparkle4jInstance(): io.github.sparkle4j.Sparkle4jInstance? {
+        val version = currentVersion() ?: return null
+        return try {
             io.github.sparkle4j.Sparkle4j.configure {
-                appcastUrl     = "https://github.com/rygel/needlecast/releases/latest/download/appcast.xml"
-                currentVersion = version
-                appName        = "Needlecast"
+                appcastUrl      = "https://github.com/rygel/needlecast/releases/latest/download/appcast.xml"
+                currentVersion  = version
+                appName         = "Needlecast"
                 parentComponent = this@MainWindow
-            }.checkInBackground()
+            }
         } catch (e: Exception) {
-            // Update check is best-effort — never crash the app
+            org.slf4j.LoggerFactory.getLogger(MainWindow::class.java)
+                .warn("Failed to configure update checker", e)
+            null
+        }
+    }
+
+    private fun checkForUpdates() {
+        try {
+            sparkle4jInstance()?.checkInBackground()
+        } catch (e: Exception) {
             org.slf4j.LoggerFactory.getLogger(MainWindow::class.java)
                 .warn("Update check failed", e)
+        }
+    }
+
+    private fun checkForUpdatesManual() {
+        try {
+            val instance = sparkle4jInstance()
+            if (instance == null) {
+                JOptionPane.showMessageDialog(this,
+                    "Update checking is not available (version unknown).",
+                    "Check for Updates", JOptionPane.WARNING_MESSAGE)
+                return
+            }
+            val item = instance.checkNow()
+            if (item == null) {
+                JOptionPane.showMessageDialog(this,
+                    "You are running the latest version of Needlecast.",
+                    "Check for Updates", JOptionPane.INFORMATION_MESSAGE)
+            }
+            // If an update is found, sparkle4j shows its own dialog
+        } catch (e: Exception) {
+            JOptionPane.showMessageDialog(this,
+                "Could not check for updates: ${e.message}",
+                "Check for Updates", JOptionPane.ERROR_MESSAGE)
         }
     }
 
