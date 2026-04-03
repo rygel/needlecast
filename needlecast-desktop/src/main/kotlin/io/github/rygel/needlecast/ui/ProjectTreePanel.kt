@@ -28,6 +28,7 @@ import javax.swing.JColorChooser
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JLabel
+import javax.swing.JMenu
 import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JPanel
@@ -633,8 +634,13 @@ class ProjectTreePanel(
                     menu.add(JMenuItem("Clear Color").apply { addActionListener { setFolderColor(node, entry, null) } })
                 }
                 menu.addSeparator()
-                menu.add(JMenuItem("Remove from list\u2026").apply { addActionListener { removeNode(node) } })
-                menu.add(JMenuItem("Delete from disk\u2026").apply { addActionListener { deleteFolderFromDisk(node, entry) } })
+                menu.add(JMenuItem("Remove").apply { addActionListener { removeNode(node) } })
+                menu.add(JMenu("Advanced").apply {
+                    add(JMenuItem("Delete from disk\u2026").apply {
+                        foreground = Color(0xE53935)
+                        addActionListener { deleteFolderFromDisk(node, entry) }
+                    })
+                })
             }
             is ProjectTreeEntry.Project -> {
                 val detected = scanResults[entry.directory.path]
@@ -673,10 +679,15 @@ class ProjectTreePanel(
                     menu.add(JMenuItem("Clear Color").apply { addActionListener { setProjectColor(node, entry, null) } })
                 }
                 menu.addSeparator()
-                menu.add(JMenuItem("Remove from list\u2026").apply { addActionListener { removeNode(node) } })
+                menu.add(JMenuItem("Remove").apply { addActionListener { removeNode(node) } })
                 val dir = File(entry.directory.path)
                 if (dir.exists()) {
-                    menu.add(JMenuItem("Delete from disk\u2026").apply { addActionListener { deleteProjectFromDisk(node, entry) } })
+                    menu.add(JMenu("Advanced").apply {
+                        add(JMenuItem("Delete from disk\u2026").apply {
+                            foreground = Color(0xE53935)
+                            addActionListener { deleteProjectFromDisk(node, entry) }
+                        })
+                    })
                 }
             }
         }
