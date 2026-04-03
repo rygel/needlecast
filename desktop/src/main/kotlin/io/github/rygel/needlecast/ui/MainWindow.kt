@@ -768,7 +768,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val version = currentVersion() ?: return
         try {
             io.github.sparkle4j.Sparkle4j.configure {
-                appcastUrl     = "https://rygel.github.io/needlecast/appcast.xml"
+                appcastUrl     = "https://github.com/rygel/needlecast/releases/latest/download/appcast.xml"
                 currentVersion = version
                 appName        = "Needlecast"
                 parentComponent = this@MainWindow
