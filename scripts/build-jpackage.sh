@@ -6,7 +6,7 @@ APP_NAME="Needlecast"
 # APP_VERSION can be set by CI (e.g. "0.7.0"). Falls back to root pom.xml.
 APP_VERSION="${APP_VERSION:-$(grep -m1 '<version>' "$ROOT_DIR/pom.xml" | sed 's/.*<version>\(.*\)<\/version>.*/\1/')}"
 if [[ -z "$APP_VERSION" ]]; then echo "Could not determine app version"; exit 1; fi
-JAR_PATH="$ROOT_DIR/desktop/target/needlecast.jar"
+JAR_PATH="$ROOT_DIR/needlecast-desktop/target/needlecast.jar"
 BUILD_DIR="$ROOT_DIR/build"
 RUNTIME_DIR="$BUILD_DIR/runtime"
 APP_CDS_DIR="$BUILD_DIR/appcds"
@@ -15,7 +15,7 @@ ARCHIVE="$APP_CDS_DIR/appcds.jsa"
 
 if [[ ! -f "$JAR_PATH" ]]; then
   echo "Missing jar: $JAR_PATH"
-  echo "Build it with: mvn -pl desktop -am package -DskipTests"
+  echo "Build it with: mvn -pl needlecast-desktop -am package -DskipTests"
   exit 1
 fi
 
@@ -47,7 +47,7 @@ jlink \
 mkdir -p "$RUNTIME_DIR/lib/server"
 cp "$ARCHIVE" "$RUNTIME_DIR/lib/server/appcds.jsa"
 
-ICON_PATH="$ROOT_DIR/desktop/src/main/resources/icons/needlecast.png"
+ICON_PATH="$ROOT_DIR/needlecast-desktop/src/main/resources/icons/needlecast.png"
 
 # macOS jpackage requires major version >= 1; map 0.x.y to 1.x.y for the native package only
 JPACKAGE_VERSION="$APP_VERSION"

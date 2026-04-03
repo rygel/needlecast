@@ -29,13 +29,13 @@ RUN mkdir -p /root/.m2 && printf '<settings><servers><server><id>github-sparkle4
 
 # Resolve dependencies as a cached layer
 COPY pom.xml .
-COPY desktop/pom.xml desktop/pom.xml
-COPY web/pom.xml web/pom.xml
-RUN mvn -B -pl desktop -am dependency:resolve dependency:resolve-plugins -q
+COPY needlecast-desktop/pom.xml needlecast-desktop/pom.xml
+COPY needlecast-web/pom.xml needlecast-web/pom.xml
+RUN mvn -B -pl needlecast-desktop -am dependency:resolve dependency:resolve-plugins -q
 
 # Build fat JAR (skip tests — this image is only for screenshots)
 COPY . .
-RUN mvn -pl desktop -am package -DskipTests -T 4 -q
+RUN mvn -pl needlecast-desktop -am package -DskipTests -T 4 -q
 
 # Run the screenshot tour inside Xvfb and copy results to /screenshots
 CMD ["sh", "-c", "\
@@ -47,7 +47,7 @@ CMD ["sh", "-c", "\
         -Djava.awt.headless=false \
         -Dawt.useSystemAAFontSettings=lcd \
         -Dswing.aatext=true \
-        -cp desktop/target/needlecast.jar \
+        -cp needlecast-desktop/target/needlecast.jar \
         io.github.rygel.needlecast.tools.ScreenshotTourKt \
         /screenshots ; \
     STATUS=$? ; \

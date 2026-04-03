@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="desktop/src/main/resources/icons/needlecast.png" alt="Needlecast" width="128">
+  <img src="needlecast-desktop/src/main/resources/icons/needlecast.png" alt="Needlecast" width="128">
 </p>
 
 <h1 align="center">Needlecast</h1>
@@ -76,14 +76,14 @@ Screenshots are auto-generated in CI on every push. Download the latest from the
 ## Running
 
 ```bash
-mvn -pl desktop compile exec:java -Dexec.mainClass=io.github.rygel.needlecast.MainKt
+mvn -pl needlecast-desktop compile exec:java -Dexec.mainClass=io.github.rygel.needlecast.MainKt
 ```
 
 Or build a JAR first:
 
 ```bash
-mvn -pl desktop -am package -DskipTests
-java -jar desktop/target/needlecast-desktop-0.6.1.jar
+mvn -pl needlecast-desktop -am package -DskipTests
+java -jar needlecast-desktop/target/needlecast-desktop-0.6.1.jar
 ```
 
 ## Building from source
@@ -91,13 +91,13 @@ java -jar desktop/target/needlecast-desktop-0.6.1.jar
 ```bash
 git clone https://github.com/rygel/needlecast.git
 cd needlecast
-mvn -pl desktop -am package -DskipTests
+mvn -pl needlecast-desktop -am package -DskipTests
 ```
 
 Run the full test suite (non-UI tests only — UI tests require Xvfb):
 
 ```bash
-mvn -pl desktop test -T 4 -Dexcludes="**/*UiTest.java,**/*UiTest.kt"
+mvn -pl needlecast-desktop test -T 4 -Dexcludes="**/*UiTest.java,**/*UiTest.kt"
 ```
 
 > Full Swing/desktop UI tests require Xvfb — see [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the container-based setup.

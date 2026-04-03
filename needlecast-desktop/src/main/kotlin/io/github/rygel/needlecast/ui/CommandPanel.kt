@@ -117,6 +117,13 @@ class CommandPanel(
             }
         }
 
+        // Double-click command to run it
+        commandList.addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                if (e.clickCount == 2) runSelected()
+            }
+        })
+
         // Double-click history entry to re-run
         historyList.addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mouseClicked(e: java.awt.event.MouseEvent) {

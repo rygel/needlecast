@@ -40,7 +40,7 @@ jobs:
         if: failure()
         run: |
           docker create --name uitest-artifacts needlecast-uitest
-          docker cp uitest-artifacts:/app/desktop/target/surefire-reports ./uitest-reports || true
+          docker cp uitest-artifacts:/app/needlecast-desktop/target/surefire-reports ./uitest-reports || true
           docker rm uitest-artifacts
 
       - name: Upload test reports
