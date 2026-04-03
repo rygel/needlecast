@@ -1,0 +1,54 @@
+name: Screenshots
+
+# Generates up-to-date UI screenshots on every push to develop/main.
+# Screenshots are uploaded as a workflow artifact so they can be downloaded
+# or used in documentation without needing a local dev environment.
+#
+# To regenerate manually: Actions → Screenshots → Run workflow.
+
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  take-screenshots:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Build screenshot image
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker build -f Dockerfile.screenshots \
+            --build-arg GITHUB_ACTOR="$GITHUB_ACTOR" \
+            --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" \
+            -t needlecast-screenshots .
+
+      - name: Run screenshot tour
+        run: |
+          mkdir -p screenshots
+          docker run --rm \
+            -v "${{ github.workspace }}/screenshots:/screenshots" \
+            needlecast-screenshots
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: needlecast-screenshots-${{ github.sha }}
+          path: screenshots/
+          retention-days: 30

@@ -17,13 +17,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: Build UI test image
-        run: docker build -f Dockerfile.uitest -t needlecast-uitest .
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker build -f Dockerfile.uitest \
+            --build-arg GITHUB_ACTOR="$GITHUB_ACTOR" \
+            --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" \
+            -t needlecast-uitest .
 
       - name: Run UI tests
         run: docker run --rm needlecast-uitest

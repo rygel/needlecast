@@ -1,10 +1,18 @@
-# Needlecast
+<p align="center">
+  <img src="desktop/src/main/resources/icons/needlecast.png" alt="Needlecast" width="128">
+</p>
 
-A Swing-based project launcher for developers. Organize projects into groups, run build commands, open terminals, browse files, and track git status — all from one window.
+<h1 align="center">Needlecast</h1>
 
-[![CI](https://github.com/rygel/needlecast/actions/workflows/ci.yml/badge.svg)](https://github.com/rygel/needlecast/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-stable-green.svg)]()
+<p align="center">
+  A Swing-based project launcher for developers. Organize projects into groups, run build commands, open terminals, browse files, and track git status — all from one window.
+</p>
+
+<p align="center">
+  <a href="https://github.com/rygel/needlecast/actions/workflows/ci.yml"><img src="https://github.com/rygel/needlecast/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <img src="https://img.shields.io/badge/status-stable-green.svg" alt="Status">
+</p>
 
 ## Features
 
@@ -53,6 +61,10 @@ A Swing-based project launcher for developers. Organize projects into groups, ru
 - README preview below the command list when a project is selected
 - Git log viewer with `git show` on click
 - Keyboard shortcut editor — rebind any default shortcut
+
+## Screenshots
+
+Screenshots are auto-generated in CI on every push. Download the latest from the [Screenshots workflow](https://github.com/rygel/needlecast/actions/workflows/screenshots.yml) artifacts.
 
 ## Requirements
 
