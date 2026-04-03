@@ -43,6 +43,7 @@ jobs:
 
       - name: Attach JAR to GitHub release
         if: github.event_name == 'release'
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
@@ -111,6 +112,7 @@ jobs:
 
       - name: Attach app image to GitHub release
         if: github.event_name == 'release'
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
