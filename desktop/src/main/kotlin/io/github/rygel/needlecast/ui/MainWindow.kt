@@ -434,15 +434,45 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private fun showAbout() {
-        val version = try {
-            val props = java.util.Properties()
-            props.load(javaClass.getResourceAsStream("/version.properties"))
-            props.getProperty("app.version", "unknown")
-        } catch (_: Exception) { "unknown" }
-        JOptionPane.showMessageDialog(this,
-            ctx.i18n.translate("app.about.text", version),
-            ctx.i18n.translate("app.about.title"),
-            JOptionPane.INFORMATION_MESSAGE)
+        val version = currentVersion() ?: "dev"
+        val repoUrl = "https://github.com/rygel/needlecast"
+
+        val icon = javaClass.getResource("/icons/needlecast.png")?.let {
+            javax.swing.ImageIcon(javax.imageio.ImageIO.read(it).getScaledInstance(64, 64, java.awt.Image.SCALE_SMOOTH))
+        }
+
+        val linkLabel = javax.swing.JLabel("<html><a href=''>$repoUrl</a></html>").apply {
+            cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+            addMouseListener(object : java.awt.event.MouseAdapter() {
+                override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                    try { java.awt.Desktop.getDesktop().browse(java.net.URI(repoUrl)) } catch (_: Exception) {}
+                }
+            })
+        }
+
+        val content = JPanel(java.awt.GridBagLayout()).apply {
+            val gbc = java.awt.GridBagConstraints().apply {
+                gridx = 0; gridy = 0; insets = java.awt.Insets(0, 0, 12, 0)
+                anchor = java.awt.GridBagConstraints.CENTER
+            }
+            add(javax.swing.JLabel("Needlecast $version", javax.swing.SwingConstants.CENTER).apply {
+                font = font.deriveFont(java.awt.Font.BOLD, 16f)
+            }, gbc)
+            gbc.gridy++; gbc.insets = java.awt.Insets(0, 0, 4, 0)
+            add(javax.swing.JLabel("A project launcher for developers"), gbc)
+            gbc.gridy++; gbc.insets = java.awt.Insets(0, 0, 12, 0)
+            add(javax.swing.JLabel("by Alexander Brandt"), gbc)
+            gbc.gridy++; gbc.insets = java.awt.Insets(0, 0, 4, 0)
+            add(linkLabel, gbc)
+            gbc.gridy++; gbc.insets = java.awt.Insets(8, 0, 0, 0)
+            add(javax.swing.JLabel("<html><center>MIT License<br>Java ${System.getProperty("java.version")}</center></html>",
+                javax.swing.SwingConstants.CENTER).apply {
+                foreground = java.awt.Color.GRAY
+            }, gbc)
+        }
+
+        JOptionPane.showMessageDialog(this, content, "About Needlecast",
+            JOptionPane.PLAIN_MESSAGE, icon)
     }
 
     // Both fields are only read/written on the EDT (background thread posts via invokeLater)
