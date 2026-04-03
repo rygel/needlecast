@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="Needlecast"
-# APP_VERSION can be set by CI (e.g. "0.7.0"). Falls back to pom.xml.
-APP_VERSION="${APP_VERSION:-$(grep -m1 '<version>' "$ROOT_DIR/desktop/pom.xml" | sed 's/.*<version>\(.*\)<\/version>.*/\1/')}"
+# APP_VERSION can be set by CI (e.g. "0.7.0"). Falls back to root pom.xml.
+APP_VERSION="${APP_VERSION:-$(grep -m1 '<version>' "$ROOT_DIR/pom.xml" | sed 's/.*<version>\(.*\)<\/version>.*/\1/')}"
+if [[ -z "$APP_VERSION" ]]; then echo "Could not determine app version"; exit 1; fi
 JAR_PATH="$ROOT_DIR/desktop/target/needlecast.jar"
 BUILD_DIR="$ROOT_DIR/build"
 RUNTIME_DIR="$BUILD_DIR/runtime"

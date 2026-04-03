@@ -3,9 +3,10 @@ $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $appName    = "Needlecast"
 $appVersion = if ($env:APP_VERSION) { $env:APP_VERSION } else {
-    # Fall back to reading from pom.xml when not set by CI
-    ([xml](Get-Content (Join-Path $root "desktop/pom.xml"))).project.version
+    # Fall back to reading from root pom.xml (desktop/pom.xml inherits version from parent)
+    ([xml](Get-Content (Join-Path $root "pom.xml"))).project.version
 }
+if (-not $appVersion) { Write-Error "Could not determine app version"; exit 1 }
 $jarPath    = Join-Path $root "desktop/target/needlecast.jar"
 $buildDir   = Join-Path $root "build"
 $runtimeDir = Join-Path $buildDir "runtime"
