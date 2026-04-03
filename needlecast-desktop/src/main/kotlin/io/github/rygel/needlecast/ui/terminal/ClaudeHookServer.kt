@@ -141,6 +141,52 @@ class ClaudeHookServer(
             rules.add(rule)
         }
 
+        /**
+         * Removes all Needlecast hook entries from `~/.claude/settings.json`.
+         * Called on startup when [claudeHooksEnabled] is false to clean up
+         * hooks left behind by a previous run.
+         */
+        fun uninstallHooks() {
+            try {
+                val settingsPath = Path.of(System.getProperty("user.home"), ".claude", "settings.json")
+                if (!Files.exists(settingsPath)) return
+
+                val mapper = ObjectMapper()
+                val root = try { mapper.readTree(settingsPath.toFile()) as? ObjectNode ?: return }
+                           catch (_: Exception) { return }
+
+                val hooksNode = root.get("hooks") as? ObjectNode ?: return
+                val serverUrl = "localhost:$PORT"
+                var modified = false
+
+                for (eventName in listOf("UserPromptSubmit", "Stop", "Notification")) {
+                    val rules = hooksNode.get(eventName) as? ArrayNode ?: continue
+                    val filtered = rules.filterNot { rule ->
+                        (rule.get("hooks") as? ArrayNode)?.any { h ->
+                            h.get("command")?.asText()?.contains(serverUrl) == true
+                        } == true
+                    }
+                    if (filtered.size < rules.size()) {
+                        modified = true
+                        if (filtered.isEmpty()) {
+                            hooksNode.remove(eventName)
+                        } else {
+                            hooksNode.putArray(eventName).addAll(filtered.map { it as ObjectNode })
+                        }
+                    }
+                }
+
+                if (modified) {
+                    val tmp = settingsPath.parent.resolve("settings.json.tmp")
+                    mapper.writerWithDefaultPrettyPrinter().writeValue(tmp.toFile(), root)
+                    Files.move(tmp, settingsPath, StandardCopyOption.REPLACE_EXISTING)
+                    logger.info("Needlecast hooks removed from {}", settingsPath)
+                }
+            } catch (e: Exception) {
+                logger.warn("Failed to uninstall Claude hooks: {}", e.message)
+            }
+        }
+
         private fun curlCmd(port: Int, event: String): String {
             val url = "http://localhost:$port/hook/claude/$event"
             return if (IS_WINDOWS)

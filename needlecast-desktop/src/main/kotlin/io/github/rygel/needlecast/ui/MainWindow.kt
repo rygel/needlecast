@@ -134,6 +134,10 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             Thread({ ClaudeHookServer.installHooks(claudeHookServer.port) }, "claude-hooks-installer")
                 .apply { isDaemon = true; start() }
             terminalPanel.setUseHooksForStatus(true)
+        } else {
+            // Clean up hooks from previous runs when hooks are disabled
+            Thread({ ClaudeHookServer.uninstallHooks() }, "claude-hooks-cleanup")
+                .apply { isDaemon = true; start() }
         }
 
         // Application icon (taskbar, title bar, Alt+Tab)
