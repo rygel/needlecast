@@ -1,0 +1,70 @@
+name: Open release PR
+
+# Opens (or updates the body of) a develop → main PR whenever develop is pushed.
+# The PR is the gate before a release: ci.yml + native-check.yml must pass on it.
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  open-release-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build commit summary (develop commits not yet in main)
+        id: summary
+        run: |
+          COMMITS=$(git log origin/main..origin/develop --oneline --no-merges | head -40)
+          if [[ -z "$COMMITS" ]]; then
+            COMMITS="(develop is already up to date with main)"
+          fi
+          # Write to a file to avoid shell quoting issues
+          {
+            echo "## What's in this release"
+            echo ""
+            echo "Commits on develop not yet in main:"
+            echo ""
+            echo '```'
+            echo "$COMMITS"
+            echo '```'
+            echo ""
+            echo "## Release checklist"
+            echo ""
+            echo "- [ ] \`ci.yml\` passes (build + unit tests)"
+            echo "- [ ] \`ui-tests.yml\` passes (Swing UI tests in Docker)"
+            echo "- [ ] \`native-check.yml\` passes (jlink + jpackage on Linux, macOS, Windows)"
+            echo "- [ ] CHANGELOG.md is up to date"
+            echo "- [ ] Version in \`pom.xml\` matches the intended release"
+            echo ""
+            echo "After merging, create a git tag on main and publish a GitHub release to trigger the release workflow."
+          } > /tmp/pr-body.md
+
+      - name: Create or update release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if a develop→main PR already exists
+          EXISTING=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number')
+
+          if [[ -n "$EXISTING" ]]; then
+            echo "PR #$EXISTING already exists — updating body"
+            gh pr edit "$EXISTING" --body-file /tmp/pr-body.md
+          else
+            echo "No open PR found — creating one"
+            gh pr create \
+              --base main \
+              --head develop \
+              --title "chore: release — develop → main" \
+              --body-file /tmp/pr-body.md
+          fi

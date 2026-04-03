@@ -1,0 +1,40 @@
+# UI test runner image.
+# Includes Xvfb so AssertJ Swing tests have a virtual display to draw into.
+# Usage:
+#   docker build -f Dockerfile.uitest -t needlecast-uitest .
+#   docker run --rm needlecast-uitest
+
+FROM maven:3.9-eclipse-temurin-21-jammy
+
+# X11 / virtual framebuffer dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        xvfb \
+        libxtst6 \
+        libxrender1 \
+        libxi6 \
+        libx11-6 \
+        libxext6 \
+        fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Resolve Maven dependencies as a separate layer so they are cached
+# across source-only changes.
+COPY pom.xml .
+COPY desktop/pom.xml desktop/pom.xml
+COPY web/pom.xml web/pom.xml
+RUN mvn -B -pl desktop -am dependency:resolve dependency:resolve-plugins -q
+
+# Copy full source and run the UI test suite
+COPY . .
+
+CMD ["sh", "-c", "\
+    Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & \
+    XVFB_PID=$! ; \
+    sleep 1 ; \
+    DISPLAY=:99 mvn -pl desktop verify -Ptest-desktop -T 4 ; \
+    STATUS=$? ; \
+    kill \"$XVFB_PID\" 2>/dev/null ; \
+    exit $STATUS \
+"]
