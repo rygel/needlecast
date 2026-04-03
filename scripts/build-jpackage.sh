@@ -48,12 +48,18 @@ cp "$ARCHIVE" "$RUNTIME_DIR/lib/server/appcds.jsa"
 
 ICON_PATH="$ROOT_DIR/desktop/src/main/resources/icons/needlecast.png"
 
+# macOS jpackage requires major version >= 1; map 0.x.y to 1.x.y for the native package only
+JPACKAGE_VERSION="$APP_VERSION"
+if [[ "$JPACKAGE_VERSION" == 0.* ]]; then
+    JPACKAGE_VERSION="1${JPACKAGE_VERSION#0}"
+fi
+
 jpackage \
   --type app-image \
   --dest "$BUILD_DIR/jpackage" \
   --input "$(dirname "$JAR_PATH")" \
   --name "$APP_NAME" \
-  --app-version "$APP_VERSION" \
+  --app-version "$JPACKAGE_VERSION" \
   --icon "$ICON_PATH" \
   --main-jar "$(basename "$JAR_PATH")" \
   --main-class io.github.rygel.needlecast.MainKt \
@@ -66,24 +72,24 @@ echo "App image created under $BUILD_DIR/jpackage"
 OS="$(uname -s)"
 
 if [[ "$OS" == "Darwin" ]]; then
-    echo "Building macOS DMG (version $APP_VERSION)..."
+    echo "Building macOS DMG (version $JPACKAGE_VERSION)..."
     jpackage \
       --type dmg \
       --app-image "$BUILD_DIR/jpackage/$APP_NAME.app" \
       --dest "$BUILD_DIR" \
       --name "$APP_NAME" \
-      --app-version "$APP_VERSION"
-    echo "DMG: $BUILD_DIR/$APP_NAME-$APP_VERSION.dmg"
+      --app-version "$JPACKAGE_VERSION"
+    echo "DMG created in $BUILD_DIR/"
 
 elif [[ "$OS" == "Linux" ]]; then
-    echo "Building Linux .deb (version $APP_VERSION)..."
+    echo "Building Linux .deb (version $JPACKAGE_VERSION)..."
     jpackage \
       --type deb \
       --app-image "$BUILD_DIR/jpackage/$APP_NAME" \
       --dest "$BUILD_DIR" \
       --name "$APP_NAME" \
-      --app-version "$APP_VERSION" \
+      --app-version "$JPACKAGE_VERSION" \
       --linux-shortcut \
       --linux-menu-group "Development"
-    echo "deb: $BUILD_DIR/needlecast_${APP_VERSION}_amd64.deb"
+    echo "deb created in $BUILD_DIR/"
 fi

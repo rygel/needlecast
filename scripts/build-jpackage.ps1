@@ -42,14 +42,18 @@ Copy-Item $archive "$runtimeDir\lib\server\appcds.jsa" -Force
 
 $javaOpts = "-XX:SharedArchiveFile=`$APPDIR\runtime\lib\server\appcds.jsa"
 
-$iconPath = Join-Path $root "desktop\src\main\resources\icons\needlecast.ico"
+$iconPath = Join-Path $root "desktop" "src" "main" "resources" "icons" "needlecast.ico"
+
+# jpackage requires major version >= 1; map 0.x.y to 1.x.y for the native package only
+$jpackageVersion = $appVersion
+if ($jpackageVersion -match '^0\.') { $jpackageVersion = '1' + $jpackageVersion.Substring(1) }
 
 & jpackage `
   --type app-image `
   --dest (Join-Path $buildDir "jpackage") `
   --input (Split-Path $jarPath) `
   --name $appName `
-  --app-version $appVersion `
+  --app-version $jpackageVersion `
   --icon $iconPath `
   --main-jar (Split-Path $jarPath -Leaf) `
   --main-class io.github.rygel.needlecast.MainKt `
@@ -59,12 +63,12 @@ $iconPath = Join-Path $root "desktop\src\main\resources\icons\needlecast.ico"
 Write-Host "App image created under $buildDir\jpackage"
 
 # ── Inno Setup installer ──────────────────────────────────────────────────────
-$iscc = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
+$iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\iscc.exe"
 if (-not (Test-Path $iscc)) {
-    Write-Warning "Inno Setup not found at $iscc — skipping installer build."
+    Write-Warning "Inno Setup not found -- skipping installer build."
     Write-Warning "Install from https://jrsoftware.org/isinfo.php or run in CI."
 } else {
-    $issScript = Join-Path $root "scripts\needlecast.iss"
+    $issScript = Join-Path $root "scripts" "needlecast.iss"
     Write-Host "Building Inno Setup installer (version $appVersion)..."
     & $iscc "/DAppVersion=$appVersion" $issScript
     $installer = Join-Path $buildDir "needlecast-$appVersion-windows.exe"
