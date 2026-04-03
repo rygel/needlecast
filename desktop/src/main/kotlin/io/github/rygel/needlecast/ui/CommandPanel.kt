@@ -312,9 +312,10 @@ private object TrayNotifier {
     private val trayIcon: TrayIcon? by lazy {
         if (!SystemTray.isSupported()) return@lazy null
         try {
-            // 16×16 transparent image — just enough for the OS to accept the icon
-            val img = BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
-            val icon = TrayIcon(img, "QuickLaunch")
+            val img = TrayNotifier::class.java.getResource("/icons/needlecast.png")
+                ?.let { javax.imageio.ImageIO.read(it).getScaledInstance(16, 16, java.awt.Image.SCALE_SMOOTH) }
+                ?: BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
+            val icon = TrayIcon(img, "Needlecast")
             SystemTray.getSystemTray().add(icon)
             icon
         } catch (_: Exception) { null }

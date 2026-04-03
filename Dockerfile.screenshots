@@ -1,0 +1,50 @@
+# Screenshot tour image.
+# Builds the fat JAR, starts Xvfb, runs ScreenshotTour, and copies PNGs to /screenshots.
+#
+# Usage (outputs PNGs to ./screenshots on the host):
+#   docker build -f Dockerfile.screenshots -t needlecast-screenshots .
+#   docker run --rm -v "$(pwd)/screenshots:/screenshots" needlecast-screenshots
+
+FROM maven:3.9-eclipse-temurin-21-jammy
+
+# X11 / virtual framebuffer + font dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        xvfb \
+        libxtst6 \
+        libxrender1 \
+        libxi6 \
+        libx11-6 \
+        libxext6 \
+        fonts-dejavu-core \
+        fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Resolve dependencies as a cached layer
+COPY pom.xml .
+COPY desktop/pom.xml desktop/pom.xml
+COPY web/pom.xml web/pom.xml
+RUN mvn -B -pl desktop -am dependency:resolve dependency:resolve-plugins -q
+
+# Build fat JAR (skip tests — this image is only for screenshots)
+COPY . .
+RUN mvn -pl desktop -am package -DskipTests -T 4 -q
+
+# Run the screenshot tour inside Xvfb and copy results to /screenshots
+CMD ["sh", "-c", "\
+    mkdir -p /screenshots && \
+    Xvfb :99 -screen 0 1280x900x24 -nolisten tcp & \
+    XVFB_PID=$! ; \
+    sleep 1 ; \
+    DISPLAY=:99 java \
+        -Djava.awt.headless=false \
+        -Dawt.useSystemAAFontSettings=lcd \
+        -Dswing.aatext=true \
+        -cp desktop/target/needlecast.jar \
+        io.github.rygel.needlecast.tools.ScreenshotTourKt \
+        /screenshots ; \
+    STATUS=$? ; \
+    kill \"$XVFB_PID\" 2>/dev/null ; \
+    exit $STATUS \
+"]

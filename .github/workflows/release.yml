@@ -78,43 +78,54 @@ jobs:
           name: needlecast-jar
           path: desktop/target/
 
-      - name: Build app image (Linux / macOS)
+      - name: Build installer (Linux / macOS)
         if: runner.os != 'Windows'
-        run: bash scripts/build-jpackage.sh
+        env:
+          APP_VERSION: ${{ github.ref_name != '' && github.ref_name || '0.0.0-dev' }}
+        run: |
+          # Strip leading 'v' from tag (v0.7.0 → 0.7.0)
+          export APP_VERSION="${APP_VERSION#v}"
+          bash scripts/build-jpackage.sh
 
-      - name: Build app image (Windows)
+      - name: Build installer (Windows)
         if: runner.os == 'Windows'
-        run: powershell -File scripts/build-jpackage.ps1
-
-      - name: Archive app image (Linux)
-        if: runner.os == 'Linux'
+        env:
+          APP_VERSION: ${{ github.ref_name != '' && github.ref_name || '0.0.0-dev' }}
         run: |
-          cd build/jpackage
-          zip -r ../needlecast-linux-app-image.zip ./*
+          $env:APP_VERSION = $env:APP_VERSION -replace '^v', ''
+          powershell -File scripts/build-jpackage.ps1
 
-      - name: Archive app image (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          cd build/jpackage
-          ditto -c -k --sequesterRsrc --keepParent Needlecast.app ../needlecast-macos-app-image.zip
-
-      - name: Archive app image (Windows)
+      - name: Upload installer artifact (Windows)
         if: runner.os == 'Windows'
-        run: |
-          Compress-Archive -Path build\\jpackage\\Needlecast -DestinationPath build\\needlecast-windows-app-image.zip -Force
-
-      - name: Upload app image artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: needlecast-${{ matrix.os }}-app-image
-          path: build/*-app-image.zip
+          name: needlecast-windows-installer
+          path: build/needlecast-*-windows.exe
           retention-days: 90
 
-      - name: Attach app image to GitHub release
+      - name: Upload installer artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: needlecast-macos-installer
+          path: build/Needlecast-*.dmg
+          retention-days: 90
+
+      - name: Upload installer artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: needlecast-linux-installer
+          path: build/needlecast_*_amd64.deb
+          retention-days: 90
+
+      - name: Attach installer to GitHub release
         if: github.event_name == 'release'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release upload "$RELEASE_TAG" build/*-app-image.zip
+          # Upload whichever installer this platform produced
+          find build/ \( -name "*.exe" -o -name "*.dmg" -o -name "*.deb" \) \
+            -maxdepth 1 -exec gh release upload "$RELEASE_TAG" {} \;

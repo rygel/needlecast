@@ -131,6 +131,12 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Thread({ ClaudeHookServer.installHooks(claudeHookServer.port) }, "claude-hooks-installer")
             .apply { isDaemon = true; start() }
 
+        // Application icon (taskbar, title bar, Alt+Tab)
+        val iconUrl = MainWindow::class.java.getResource("/icons/needlecast.png")
+        if (iconUrl != null) {
+            iconImage = javax.imageio.ImageIO.read(iconUrl)
+        }
+
         size = Dimension(ctx.config.windowWidth, ctx.config.windowHeight)
         defaultCloseOperation = DO_NOTHING_ON_CLOSE
         minimumSize = Dimension(1000, 600)
