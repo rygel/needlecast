@@ -2,6 +2,38 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.1] — 2026-04-03
+
+### Added
+
+#### Windows Installer
+- Inno Setup installer (`scripts/needlecast.iss`) wraps jpackage app-image into a proper `.exe` with Start Menu shortcut, uninstaller, and `/PASSIVE` mode for silent updates
+- macOS DMG and Linux `.deb` package generation in build scripts
+
+#### App Icon
+- Application icon (teal geometric needle on dark background) displayed in title bar, taskbar, system tray, and native installer
+- Multi-size `.ico` (16-256px), 1024px `.png`, Inno Setup wizard `.bmp`
+
+#### In-App Update Checking
+- Integrated sparkle4j 0.5.0 for automatic update checking on startup
+- Checks appcast feed in background, shows update dialog when new version is available
+
+#### CI Screenshots
+- `ScreenshotTour` tool generates UI screenshots automatically in CI
+- `Dockerfile.screenshots` + `screenshots.yml` workflow uploads screenshots as artifacts on every push
+
+### Fixed
+- Maven resource filtering no longer corrupts binary files (`.ico`, `.png`, `.bmp`)
+- jpackage `--app-version` mapped from `0.x.y` to `1.x.y` on macOS (Apple requires major version >= 1)
+- GitHub Packages auth for sparkle4j dependency in all CI workflows
+- PowerShell 5.1 compatibility for `Join-Path` in build scripts
+- System tray notification icon uses real app icon instead of blank 16x16
+
+### Dependencies
+- Added `io.github.sparkle4j:sparkle4j:0.5.0` — in-app update checking
+
+---
+
 ## [0.6.0] — 2026-04-03
 
 ### Added

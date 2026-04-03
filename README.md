@@ -81,7 +81,7 @@ Or build a JAR first:
 
 ```bash
 mvn -pl desktop -am package -DskipTests
-java -jar desktop/target/needlecast-desktop-0.6.0.jar
+java -jar desktop/target/needlecast-desktop-0.6.1.jar
 ```
 
 ## Building from source
