@@ -33,19 +33,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: mvn -pl needlecast-desktop -am package -DskipTests -T 4
 
-      - name: Generate checksum
+      - name: Rename JAR with version and generate checksum
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          VERSION="${RELEASE_TAG#v}"
+          VERSION="${VERSION:-0.0.0-dev}"
           cd needlecast-desktop/target
-          sha256sum needlecast.jar > needlecast.jar.sha256
-          cat needlecast.jar.sha256
+          cp needlecast.jar "needlecast-${VERSION}.jar"
+          sha256sum "needlecast-${VERSION}.jar" > "needlecast-${VERSION}.jar.sha256"
+          cat "needlecast-${VERSION}.jar.sha256"
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: needlecast-jar
           path: |
-            needlecast-desktop/target/needlecast.jar
-            needlecast-desktop/target/needlecast.jar.sha256
+            needlecast-desktop/target/needlecast*.jar
+            needlecast-desktop/target/needlecast*.jar.sha256
           retention-days: 90
 
       - name: Attach JAR to GitHub release
@@ -55,9 +60,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          VERSION="${RELEASE_TAG#v}"
           gh release upload "$RELEASE_TAG" \
-            needlecast-desktop/target/needlecast.jar \
-            needlecast-desktop/target/needlecast.jar.sha256
+            "needlecast-desktop/target/needlecast-${VERSION}.jar" \
+            "needlecast-desktop/target/needlecast-${VERSION}.jar.sha256"
 
   package-native:
     runs-on: ${{ matrix.os }}
@@ -103,6 +109,24 @@ jobs:
           $env:APP_VERSION = $env:APP_VERSION -replace '^v', ''
           & scripts/build-jpackage.ps1
 
+      - name: Rename installers with version
+        shell: bash
+        env:
+          APP_VERSION: ${{ github.ref_name != '' && github.ref_name || '0.0.0-dev' }}
+        run: |
+          VERSION="${APP_VERSION#v}"
+          cd build
+          # Windows: already named needlecast-VERSION-windows.exe by Inno Setup
+          # macOS: jpackage uses 1.x.y — rename to real version
+          for f in Needlecast-*.dmg; do
+            [ -f "$f" ] && mv "$f" "needlecast-${VERSION}-macos.dmg"
+          done
+          # Linux: jpackage uses 1.x.y — rename to real version
+          for f in needlecast_*_amd64.deb; do
+            [ -f "$f" ] && mv "$f" "needlecast-${VERSION}-linux-amd64.deb"
+          done
+          ls -la needlecast-* 2>/dev/null || true
+
       - name: Upload installer artifact (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -116,7 +140,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: needlecast-macos-installer
-          path: build/Needlecast-*.dmg
+          path: build/needlecast-*-macos.dmg
           retention-days: 90
 
       - name: Upload installer artifact (Linux)
@@ -124,7 +148,7 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: needlecast-linux-installer
-          path: build/needlecast_*_amd64.deb
+          path: build/needlecast-*-linux-amd64.deb
           retention-days: 90
 
       - name: Attach installer to GitHub release
@@ -134,7 +158,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          # Upload whichever installer this platform produced
           find build/ \( -name "*.exe" -o -name "*.dmg" -o -name "*.deb" \) \
             -maxdepth 1 -exec gh release upload "$RELEASE_TAG" {} \;
 
