@@ -2,6 +2,19 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.3] — 2026-04-03
+
+### Added
+- **End-to-end update verification** — release workflow validates appcast.xml, download URLs, and asset inventory after each release
+- **UI regression tests** — 5 new AssertJ Swing tests for project tree: visibility, null displayName, tag preservation after DnD, layout stability
+- **Versioned release assets** — all downloads now include version number (e.g. `needlecast-0.6.3-windows.exe`)
+
+### Fixed
+- **Projects invisible in project tree** — `projectPanel.getPreferredSize()` returned zero-width before viewport was available, making project rows invisible while folders still showed
+- **Inno Setup icon paths** after module rename
+
+---
+
 ## [0.6.2] — 2026-04-03
 
 ### Added
