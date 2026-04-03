@@ -27,17 +27,11 @@ $deps = & jdeps --multi-release 21 --ignore-missing-deps --print-module-deps $ja
   --compress=zip-6 `
   --output $runtimeDir
 
-& "$runtimeDir\bin\java.exe" `
-  -Djava.awt.headless=true `
-  -Xshare:off `
-  "-XX:DumpLoadedClassList=$classlist" `
-  -cp $jarPath `
-  io.github.rygel.needlecast.tools.CdsTraining
+$javaExe = "$runtimeDir\bin\java.exe"
 
-& "$runtimeDir\bin\java.exe" `
-  -Xshare:dump `
-  "-XX:SharedClassListFile=$classlist" `
-  "-XX:SharedArchiveFile=$archive"
+& $javaExe "-Djava.awt.headless=true" -Xshare:off "-XX:DumpLoadedClassList=$classlist" -cp $jarPath io.github.rygel.needlecast.tools.CdsTraining
+
+& $javaExe -Xshare:dump "-XX:SharedClassListFile=$classlist" "-XX:SharedArchiveFile=$archive"
 
 New-Item -ItemType Directory -Force "$runtimeDir\lib\server" | Out-Null
 Copy-Item $archive "$runtimeDir\lib\server\appcds.jsa" -Force
