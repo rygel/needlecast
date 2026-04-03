@@ -2,9 +2,7 @@
 
 All notable changes to Needlecast are documented here.
 
-## [0.6.0-alpha] — 2026-04-03
-
-> **Alpha release.** Core functionality is working but the app is still under active development. Expect rough edges, missing polish, and breaking config changes between alpha releases.
+## [0.6.0] — 2026-04-03
 
 ### Added
 

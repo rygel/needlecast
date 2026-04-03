@@ -4,9 +4,7 @@ A Swing-based project launcher for developers. Organize projects into groups, ru
 
 [![CI](https://github.com/rygel/needlecast/actions/workflows/ci.yml/badge.svg)](https://github.com/rygel/needlecast/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-alpha-orange.svg)]()
-
-> **Alpha software.** Needlecast is functional and actively used, but APIs, config format, and features are still evolving. Expect rough edges between releases.
+[![Status](https://img.shields.io/badge/status-stable-green.svg)]()
 
 ## Features
 

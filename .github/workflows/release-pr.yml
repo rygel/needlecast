@@ -47,7 +47,7 @@ jobs:
             echo "- [ ] CHANGELOG.md is up to date"
             echo "- [ ] Version in \`pom.xml\` matches the intended release"
             echo ""
-            echo "After merging, create a git tag on main and publish a GitHub release to trigger the release workflow."
+            echo "After merging, create a git tag on main (e.g. \`v0.7.0\`) and publish a GitHub release to trigger the release workflow."
           } > /tmp/pr-body.md
 
       - name: Create or update release PR
