@@ -742,10 +742,9 @@ class ProjectTreePanel(
         private val projectPanel = object : JPanel(BorderLayout()) {
             override fun getPreferredSize(): Dimension {
                 val base = super.getPreferredSize()
-                val vp = tree.parent as? javax.swing.JViewport
-                val w = vp?.width ?: tree.width
-                // Always match the viewport width — never wider (prevents horizontal scroll)
-                return Dimension(w.coerceAtLeast(100), base.height)
+                // Strictly use viewport width — never tree.width (which grows in a feedback loop)
+                val vp = tree.parent as? javax.swing.JViewport ?: return base
+                return Dimension(vp.width, base.height)
             }
         }.apply { isOpaque = true }
 
