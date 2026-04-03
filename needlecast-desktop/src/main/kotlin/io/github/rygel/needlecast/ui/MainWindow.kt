@@ -45,7 +45,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private val statusBar      = StatusBar()
     private val consolePanel   = ConsolePanel()
-    private val claudeHookServer = ClaudeHookServer { cwd, status -> terminalPanel.onHookEvent(cwd, status) }
+    private val claudeHookServer: ClaudeHookServer? =
+        if (ctx.config.claudeHooksEnabled) ClaudeHookServer { cwd, status -> terminalPanel.onHookEvent(cwd, status) }
+        else null
     private val terminalPanel  = TerminalManager()
     private val explorerPanel  = ExplorerPanel(ctx)
     private val promptInputPanel  = PromptInputPanel(ctx, sendToTerminal = { terminalPanel.sendInput(it) })
@@ -127,9 +129,16 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             ctx.updateConfig(ctx.config.copy(terminalFontSize = size))
         }
 
-        claudeHookServer.start()
-        Thread({ ClaudeHookServer.installHooks(claudeHookServer.port) }, "claude-hooks-installer")
-            .apply { isDaemon = true; start() }
+        if (claudeHookServer != null) {
+            claudeHookServer.start()
+            Thread({ ClaudeHookServer.installHooks(claudeHookServer.port) }, "claude-hooks-installer")
+                .apply { isDaemon = true; start() }
+            terminalPanel.setUseHooksForStatus(true)
+        } else {
+            // Clean up hooks from previous runs when hooks are disabled
+            Thread({ ClaudeHookServer.uninstallHooks() }, "claude-hooks-cleanup")
+                .apply { isDaemon = true; start() }
+        }
 
         // Application icon (taskbar, title bar, Alt+Tab)
         val iconUrl = MainWindow::class.java.getResource("/icons/needlecast.png")
@@ -193,7 +202,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     AppState.setPaused(true)
                     ctx.disposeAll()
                     terminalPanel.dispose()
-                    claudeHookServer.stop()
+                    claudeHookServer?.stop()
                     dispose()
                 } finally {
                     System.exit(0)
@@ -804,12 +813,12 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private fun sparkle4jInstance(): io.github.sparkle4j.Sparkle4jInstance? {
         val version = currentVersion() ?: return null
         return try {
-            io.github.sparkle4j.Sparkle4j.configure {
-                appcastUrl      = "https://github.com/rygel/needlecast/releases/latest/download/appcast.xml"
-                currentVersion  = version
-                appName         = "Needlecast"
-                parentComponent = this@MainWindow
-            }
+            io.github.sparkle4j.Sparkle4j.builder()
+                .appcastUrl("https://github.com/rygel/needlecast/releases/latest/download/appcast.xml")
+                .currentVersion(version)
+                .appName("Needlecast")
+                .parentComponent(this@MainWindow)
+                .build()
         } catch (e: Exception) {
             org.slf4j.LoggerFactory.getLogger(MainWindow::class.java)
                 .warn("Failed to configure update checker", e)

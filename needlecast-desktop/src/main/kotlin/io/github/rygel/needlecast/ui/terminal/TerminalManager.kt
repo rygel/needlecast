@@ -67,6 +67,10 @@ class TerminalManager : JPanel(CardLayout()) {
         terminals[path]?.forceStatusOnClaudeTabs(status)
     }
 
+    fun setUseHooksForStatus(enabled: Boolean) {
+        terminals.values.forEach { it.setUseHooksForStatus(enabled) }
+    }
+
     private val placeholderLabel = JLabel(MSG_IDLE, SwingConstants.CENTER).apply {
         foreground = Color(0x6A737D)
         font = Font(Font.MONOSPACED, Font.PLAIN, 12)
@@ -362,6 +366,12 @@ private class ProjectTerminalPane(
         for (i in 0 until tabs.tabCount) {
             val t = tabs.getComponentAt(i) as? TerminalPanel ?: continue
             if (t.isClaudeSession) t.forceStatus(status)
+        }
+    }
+
+    fun setUseHooksForStatus(enabled: Boolean) {
+        for (i in 0 until tabs.tabCount) {
+            (tabs.getComponentAt(i) as? TerminalPanel)?.useHooksForStatus = enabled
         }
     }
 

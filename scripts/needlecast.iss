@@ -45,7 +45,7 @@ DisableProgramGroupPage=yes
 ; ── Output ────────────────────────────────────────────────────────────────────
 OutputDir={#OutputDir}
 OutputBaseFilename=needlecast-{#AppVersion}-windows
-SetupIconFile=..\desktop\src\main\resources\icons\needlecast.ico
+SetupIconFile=..\needlecast-desktop\src\main\resources\icons\needlecast.ico
 
 ; ── Compression ───────────────────────────────────────────────────────────────
 Compression=lzma2/ultra64
@@ -54,7 +54,7 @@ LZMAUseSeparateProcess=yes
 
 ; ── Appearance ────────────────────────────────────────────────────────────────
 WizardStyle=modern
-WizardSmallImageFile=..\desktop\src\main\resources\icons\installer-small.bmp
+WizardSmallImageFile=..\needlecast-desktop\src\main\resources\icons\installer-small.bmp
 
 ; ── Versioning ────────────────────────────────────────────────────────────────
 VersionInfoVersion={#AppVersion}
