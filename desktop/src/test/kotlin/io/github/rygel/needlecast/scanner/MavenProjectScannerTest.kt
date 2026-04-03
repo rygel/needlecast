@@ -111,4 +111,118 @@ class MavenProjectScannerTest {
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(6, result.commands.size, "Plain pom should produce exactly 6 lifecycle commands")
     }
+
+    // ── Submodule detection ──────────────────────────────────────────────────
+
+    @Test
+    fun `detects submodules from modules element`(@TempDir dir: Path) {
+        File(dir.toFile(), "pom.xml").writeText("""
+            <project>
+              <modules>
+                <module>desktop</module>
+                <module>web</module>
+              </modules>
+            </project>
+        """.trimIndent())
+
+        val desktop = File(dir.toFile(), "desktop").also { it.mkdirs() }
+        File(desktop, "pom.xml").writeText("""
+            <project>
+              <build><plugins>
+                <plugin><artifactId>exec-maven-plugin</artifactId></plugin>
+              </plugins></build>
+            </project>
+        """.trimIndent())
+
+        val web = File(dir.toFile(), "web").also { it.mkdirs() }
+        File(web, "pom.xml").writeText("<project/>")
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        val labels = result.commands.map { it.label }
+
+        // Desktop submodule with exec-maven-plugin
+        assertTrue(labels.any { it.contains("-pl desktop -am compile") }, "Missing -pl desktop compile, got: $labels")
+        assertTrue(labels.any { it.contains("-pl desktop -am package") }, "Missing -pl desktop package, got: $labels")
+        assertTrue(labels.any { it.contains("-pl desktop") && it.contains("exec:java") }, "Missing -pl desktop exec:java, got: $labels")
+
+        // Web submodule without plugins — only compile/package/test
+        assertTrue(labels.any { it.contains("-pl web -am compile") }, "Missing -pl web compile, got: $labels")
+        assertFalse(labels.any { it.contains("-pl web") && it.contains("exec:java") }, "Unexpected exec:java for web, got: $labels")
+    }
+
+    @Test
+    fun `detects Spring Boot plugin`(@TempDir dir: Path) {
+        File(dir.toFile(), "pom.xml").writeText("""
+            <project>
+              <build><plugins>
+                <plugin>
+                  <groupId>org.springframework.boot</groupId>
+                  <artifactId>spring-boot-maven-plugin</artifactId>
+                </plugin>
+              </plugins></build>
+            </project>
+        """.trimIndent())
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        val labels = result.commands.map { it.label }
+        assertTrue(labels.contains("mvn spring-boot:run"), "Missing spring-boot:run, got: $labels")
+    }
+
+    @Test
+    fun `detects Quarkus plugin`(@TempDir dir: Path) {
+        File(dir.toFile(), "pom.xml").writeText("""
+            <project>
+              <build><plugins>
+                <plugin>
+                  <groupId>io.quarkus</groupId>
+                  <artifactId>quarkus-maven-plugin</artifactId>
+                </plugin>
+              </plugins></build>
+            </project>
+        """.trimIndent())
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        val labels = result.commands.map { it.label }
+        assertTrue(labels.contains("mvn quarkus:dev"), "Missing quarkus:dev, got: $labels")
+    }
+
+    @Test
+    fun `detects Spring Boot in submodule`(@TempDir dir: Path) {
+        File(dir.toFile(), "pom.xml").writeText("""
+            <project>
+              <modules><module>api</module></modules>
+            </project>
+        """.trimIndent())
+
+        val api = File(dir.toFile(), "api").also { it.mkdirs() }
+        File(api, "pom.xml").writeText("""
+            <project>
+              <build><plugins>
+                <plugin>
+                  <groupId>org.springframework.boot</groupId>
+                  <artifactId>spring-boot-maven-plugin</artifactId>
+                </plugin>
+              </plugins></build>
+            </project>
+        """.trimIndent())
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        val labels = result.commands.map { it.label }
+        assertTrue(labels.any { it.contains("-pl api") && it.contains("spring-boot:run") },
+            "Missing -pl api spring-boot:run, got: $labels")
+    }
+
+    @Test
+    fun `ignores submodule with no pom`(@TempDir dir: Path) {
+        File(dir.toFile(), "pom.xml").writeText("""
+            <project>
+              <modules><module>ghost</module></modules>
+            </project>
+        """.trimIndent())
+        // No ghost/ directory
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        val labels = result.commands.map { it.label }
+        assertFalse(labels.any { it.contains("ghost") }, "Ghost module should be ignored, got: $labels")
+    }
 }
