@@ -43,6 +43,10 @@
             <id>jetbrains-intellij-dependencies</id>
             <url>https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/</url>
         </repository>
+        <repository>
+            <id>github-sparkle4j</id>
+            <url>https://maven.pkg.github.com/rygel/sparkle4j</url>
+        </repository>
     </repositories>
 
     <dependencyManagement>
@@ -166,6 +170,11 @@
                 <groupId>io.javalin</groupId>
                 <artifactId>javalin</artifactId>
                 <version>${javalin.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.sparkle4j</groupId>
+                <artifactId>sparkle4j</artifactId>
+                <version>0.5.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

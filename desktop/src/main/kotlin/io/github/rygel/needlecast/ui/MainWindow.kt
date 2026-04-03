@@ -175,6 +175,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             override fun windowOpened(e: WindowEvent) {
                 applyDockingLayout()
                 applyTheme(ThemeRegistry.isDark(ctx.config.theme))
+                checkForUpdates()
             }
 
             override fun windowClosing(e: WindowEvent) {
@@ -763,13 +764,31 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         highlightedDockable = null
     }
 
+    private fun checkForUpdates() {
+        val version = currentVersion() ?: return
+        try {
+            io.github.sparkle4j.Sparkle4j.configure {
+                appcastUrl     = "https://rygel.github.io/needlecast/appcast.xml"
+                currentVersion = version
+                appName        = "Needlecast"
+                parentComponent = this@MainWindow
+            }.checkInBackground()
+        } catch (e: Exception) {
+            // Update check is best-effort — never crash the app
+            org.slf4j.LoggerFactory.getLogger(MainWindow::class.java)
+                .warn("Update check failed", e)
+        }
+    }
+
     companion object {
+        private fun currentVersion(): String? = try {
+            val props = java.util.Properties()
+            props.load(MainWindow::class.java.getResourceAsStream("/version.properties"))
+            props.getProperty("app.version")?.takeIf { it.isNotEmpty() && !it.contains("\${") }
+        } catch (_: Exception) { null }
+
         private fun buildTitle(): String {
-            val version = try {
-                val props = java.util.Properties()
-                props.load(MainWindow::class.java.getResourceAsStream("/version.properties"))
-                props.getProperty("app.version", "")
-            } catch (_: Exception) { "" }
+            val version = currentVersion() ?: ""
             return if (version.isNotEmpty()) "Needlecast $version" else "Needlecast"
         }
     }

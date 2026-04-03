@@ -113,8 +113,8 @@ fun main(args: Array<String>) {
             sendToTerminal  = {},
             title           = "Command Library",
             sendButtonLabel = "Run in Terminal",
-            loadLibrary     = { it.commandLibrary },
-            updateLibrary   = { cfg, lib -> cfg.copy(commandLibrary = lib) },
+            loadLibrary     = { ctx.config.commandLibrary },
+            saveLibrary     = { ctx.updateConfig(ctx.config.copy(commandLibrary = it)) },
         ).isVisible = true
     }
     Thread.sleep(1000)

@@ -139,6 +139,12 @@
             <groupId>io.github.andrewauclair</groupId>
             <artifactId>modern-docking-ui</artifactId>
         </dependency>
+
+        <!-- sparkle4j — in-app update checking and silent update application -->
+        <dependency>
+            <groupId>io.github.sparkle4j</groupId>
+            <artifactId>sparkle4j</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -149,6 +155,27 @@
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <excludes>
+                    <exclude>**/*.ico</exclude>
+                    <exclude>**/*.png</exclude>
+                    <exclude>**/*.bmp</exclude>
+                    <exclude>**/*.webp</exclude>
+                    <exclude>**/*.jpg</exclude>
+                    <exclude>**/*.gif</exclude>
+                </excludes>
+            </resource>
+            <!-- Binary resources without filtering -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <includes>
+                    <include>**/*.ico</include>
+                    <include>**/*.png</include>
+                    <include>**/*.bmp</include>
+                    <include>**/*.webp</include>
+                    <include>**/*.jpg</include>
+                    <include>**/*.gif</include>
+                </includes>
             </resource>
         </resources>
 
