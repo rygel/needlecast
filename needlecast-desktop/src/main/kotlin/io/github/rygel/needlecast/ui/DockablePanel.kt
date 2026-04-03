@@ -29,6 +29,8 @@ class DockablePanel(
 
     init {
         add(content)
+        // Allow docking framework to shrink panels as small as needed
+        minimumSize = java.awt.Dimension(0, 0)
     }
 
     /** Exposed for tests — same value as [getPersistentID]. */

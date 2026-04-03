@@ -148,7 +148,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         size = Dimension(ctx.config.windowWidth, ctx.config.windowHeight)
         defaultCloseOperation = DO_NOTHING_ON_CLOSE
-        minimumSize = Dimension(1000, 600)
+        minimumSize = Dimension(800, 500)
 
         // Initialize ModernDocking before the content pane is built (RootDockingPanel registers itself)
         Docking.initialize(this)

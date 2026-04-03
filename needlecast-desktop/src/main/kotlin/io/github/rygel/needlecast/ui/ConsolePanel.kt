@@ -49,13 +49,18 @@ class ConsolePanel : JPanel(BorderLayout()) {
     private val searchBar = ConsoleSearchBar(textArea)
 
     init {
+        minimumSize = java.awt.Dimension(0, 0)
         textArea.componentPopupMenu = buildOutputContextMenu()
 
         val header = JLabel("Output").apply {
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
             font = font.deriveFont(Font.BOLD)
         }
-        val scrollPane = JScrollPane(textArea)
+        val scrollPane = JScrollPane(textArea).apply {
+            minimumSize = java.awt.Dimension(0, 0)
+            verticalScrollBar.unitIncrement = 16
+            verticalScrollBar.blockIncrement = 64
+        }
         add(header, BorderLayout.NORTH)
         add(scrollPane, BorderLayout.CENTER)
         searchBar.isVisible = false

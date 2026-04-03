@@ -722,19 +722,21 @@ class ProjectTreePanel(
         }
         private val tagsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
             isOpaque = false
-            // Prevent tags from widening the row beyond the tree's visible width
-            maximumSize = Dimension(Int.MAX_VALUE, 20)
         }
         private val nameRow = JPanel(BorderLayout(2, 0)).apply {
             isOpaque = false
             add(dotsPanel,  BorderLayout.WEST)
             add(nameLabel,  BorderLayout.CENTER)
-            add(tagsPanel,  BorderLayout.EAST)
+        }
+        private val bottomRow = JPanel(BorderLayout(4, 0)).apply {
+            isOpaque = false
+            add(branchLabel, BorderLayout.WEST)
+            add(tagsPanel,   BorderLayout.CENTER)
         }
         private val cellPanel = JPanel(BorderLayout(0, 1)).apply {
             isOpaque = false
-            add(nameRow,     BorderLayout.NORTH)
-            add(branchLabel, BorderLayout.CENTER)
+            add(nameRow,   BorderLayout.NORTH)
+            add(bottomRow, BorderLayout.CENTER)
         }
         private val innerPanel = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
