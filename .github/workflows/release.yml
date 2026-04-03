@@ -21,6 +21,7 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'maven'
 
       - name: Build fat JAR
         run: mvn -pl desktop -am package -DskipTests -T 4
@@ -31,7 +32,7 @@ jobs:
           sha256sum needlecast.jar > needlecast.jar.sha256
           cat needlecast.jar.sha256
 
-      - name: Upload artifact
+      - name: Upload JAR artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: needlecast-jar
@@ -40,7 +41,7 @@ jobs:
             desktop/target/needlecast.jar.sha256
           retention-days: 90
 
-      - name: Attach to GitHub release
+      - name: Attach JAR to GitHub release
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -67,11 +68,15 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          # No Maven cache — Maven is not invoked here; jlink/jpackage use the downloaded JAR
 
-      - name: Build desktop fat JAR
-        run: mvn -pl desktop -am package -DskipTests -T 4
+      - name: Download fat JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: needlecast-jar
+          path: desktop/target/
 
-      - name: Build app image (Linux/macOS)
+      - name: Build app image (Linux / macOS)
         if: runner.os != 'Windows'
         run: bash scripts/build-jpackage.sh
 
@@ -96,14 +101,14 @@ jobs:
         run: |
           Compress-Archive -Path build\\jpackage\\Needlecast -DestinationPath build\\needlecast-windows-app-image.zip -Force
 
-      - name: Upload artifact
+      - name: Upload app image artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: needlecast-${{ matrix.os }}-app-image
           path: build/*-app-image.zip
           retention-days: 90
 
-      - name: Attach to GitHub release
+      - name: Attach app image to GitHub release
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

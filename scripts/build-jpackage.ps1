@@ -24,7 +24,7 @@ $deps = & jdeps --multi-release 21 --ignore-missing-deps --print-module-deps $ja
   --strip-debug `
   --no-header-files `
   --no-man-pages `
-  --compress=2 `
+  --compress=zip-6 `
   --output $runtimeDir
 
 & "$runtimeDir\bin\java.exe" `
