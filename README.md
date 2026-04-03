@@ -76,7 +76,7 @@ Screenshots are auto-generated in CI on every push. Download the latest from the
 ## Running
 
 ```bash
-mvn -pl needlecast-desktop compile exec:java -Dexec.mainClass=io.github.rygel.needlecast.MainKt
+mvn -pl needlecast-desktop compile exec:java
 ```
 
 Or build a JAR first:

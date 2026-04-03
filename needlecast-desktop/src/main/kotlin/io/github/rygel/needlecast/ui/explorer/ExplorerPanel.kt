@@ -127,7 +127,8 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         // File browser — address bar + table only.
         // The editor tabs are exposed via [editorComponent] so MainWindow can dock them separately.
         add(addressBar, BorderLayout.NORTH)
-        add(JScrollPane(table), BorderLayout.CENTER)
+        add(JScrollPane(table).apply { minimumSize = java.awt.Dimension(0, 0) }, BorderLayout.CENTER)
+        minimumSize = java.awt.Dimension(0, 0)
         navigateTo(currentDir)
     }
 

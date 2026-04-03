@@ -42,9 +42,10 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
     private var currentPath: String? = null
 
     init {
+        minimumSize = java.awt.Dimension(0, 0)
         val split = JSplitPane(JSplitPane.VERTICAL_SPLIT,
-            JScrollPane(logList),
-            JScrollPane(diffArea),
+            JScrollPane(logList).apply { minimumSize = java.awt.Dimension(0, 0) },
+            JScrollPane(diffArea).apply { minimumSize = java.awt.Dimension(0, 0) },
         ).apply { resizeWeight = 0.4 }
 
         add(split, BorderLayout.CENTER)

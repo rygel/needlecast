@@ -247,6 +247,16 @@
                 </executions>
             </plugin>
 
+            <!-- exec:java — allows running the app with: mvn exec:java -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.3</version>
+                <configuration>
+                    <mainClass>${mainClass}</mainClass>
+                </configuration>
+            </plugin>
+
             <!-- JUnit 5 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
