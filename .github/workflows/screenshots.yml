@@ -40,6 +40,7 @@ jobs:
             -t needlecast-screenshots .
 
       - name: Run screenshot tour
+        timeout-minutes: 5
         run: |
           mkdir -p screenshots
           docker run --rm \

@@ -70,6 +70,13 @@ fun main(args: Array<String>) {
         windowReady.countDown()
     }
 
+    // Hard timeout — kill the JVM if the tour takes longer than 2 minutes
+    val watchdog = Thread {
+        Thread.sleep(120_000)
+        System.err.println("Screenshot tour timed out after 2 minutes")
+        Runtime.getRuntime().halt(1)
+    }.apply { isDaemon = true; start() }
+
     windowReady.await()
     val robot = Robot()
     // Allow the window and all panels to fully render before the first screenshot
@@ -77,83 +84,83 @@ fun main(args: Array<String>) {
 
     val w = mainWindow!!
 
-    // ── 1: Main window ────────────────────────────────────────────────────────
-    screenshot(robot, w, outputDir.resolve("01-main-window.png"))
-    println("  ✓ 01-main-window.png")
+    try {
+        // ── 1: Main window ────────────────────────────────────────────────────
+        screenshot(robot, w, outputDir.resolve("01-main-window.png"))
+        println("  > 01-main-window.png")
 
-    // ── 2: Settings dialog ────────────────────────────────────────────────────
-    SwingUtilities.invokeLater {
-        SettingsDialog(w, ctx,
-            sendToTerminal       = {},
-            onShortcutsChanged   = {},
-            onLayoutChanged      = {},
-            onTerminalColorsChanged = { _, _ -> },
-        ).isVisible = true
+        // ── 2: Settings dialog ────────────────────────────────────────────────
+        dialogShot(robot, outputDir.resolve("02-settings.png")) {
+            SettingsDialog(w, ctx,
+                sendToTerminal       = {},
+                onShortcutsChanged   = {},
+                onLayoutChanged      = {},
+                onTerminalColorsChanged = { _, _ -> },
+            ).isVisible = true
+        }
+
+        // ── 3: Prompt Library ─────────────────────────────────────────────────
+        dialogShot(robot, outputDir.resolve("03-prompt-library.png")) {
+            PromptLibraryDialog(w, ctx, sendToTerminal = {}).isVisible = true
+        }
+
+        // ── 4: Command Library ────────────────────────────────────────────────
+        dialogShot(robot, outputDir.resolve("04-command-library.png")) {
+            PromptLibraryDialog(
+                w, ctx,
+                sendToTerminal  = {},
+                title           = "Command Library",
+                sendButtonLabel = "Run in Terminal",
+                loadLibrary     = { ctx.config.commandLibrary },
+                saveLibrary     = { ctx.updateConfig(ctx.config.copy(commandLibrary = it)) },
+            ).isVisible = true
+        }
+
+        // ── 5: Project Switcher ───────────────────────────────────────────────
+        dialogShot(robot, outputDir.resolve("05-project-switcher.png")) {
+            ProjectSwitcherDialog(w, ctx, onSelect = { _, _ -> }).isVisible = true
+        }
+
+        // ── 6: Environment Variables editor ──────────────────────────────────
+        dialogShot(robot, outputDir.resolve("06-env-editor.png")) {
+            EnvEditorDialog(
+                owner        = w,
+                projectLabel = "needlecast-app",
+                initial      = mapOf("JAVA_OPTS" to "-Xmx512m", "MAVEN_OPTS" to "-Xss4m", "NODE_ENV" to "development"),
+                onSave       = {},
+            ).isVisible = true
+        }
+
+        println("Screenshots written to $outputDir")
+    } catch (e: Exception) {
+        System.err.println("Screenshot tour failed: ${e.message}")
+        e.printStackTrace()
+    } finally {
+        // Force exit — MainWindow spawns non-daemon threads (terminal, hook server)
+        // that would keep the JVM alive forever
+        Runtime.getRuntime().halt(0)
     }
-    Thread.sleep(1200)
-    screenshotTopDialog(robot, outputDir.resolve("02-settings.png"))
-    println("  ✓ 02-settings.png")
-    closeTopDialog()
-    Thread.sleep(400)
-
-    // ── 3: Prompt Library ─────────────────────────────────────────────────────
-    SwingUtilities.invokeLater {
-        PromptLibraryDialog(w, ctx, sendToTerminal = {}).isVisible = true
-    }
-    Thread.sleep(1000)
-    screenshotTopDialog(robot, outputDir.resolve("03-prompt-library.png"))
-    println("  ✓ 03-prompt-library.png")
-    closeTopDialog()
-    Thread.sleep(400)
-
-    // ── 4: Command Library ────────────────────────────────────────────────────
-    SwingUtilities.invokeLater {
-        PromptLibraryDialog(
-            w, ctx,
-            sendToTerminal  = {},
-            title           = "Command Library",
-            sendButtonLabel = "Run in Terminal",
-            loadLibrary     = { ctx.config.commandLibrary },
-            saveLibrary     = { ctx.updateConfig(ctx.config.copy(commandLibrary = it)) },
-        ).isVisible = true
-    }
-    Thread.sleep(1000)
-    screenshotTopDialog(robot, outputDir.resolve("04-command-library.png"))
-    println("  ✓ 04-command-library.png")
-    closeTopDialog()
-    Thread.sleep(400)
-
-    // ── 5: Project Switcher ───────────────────────────────────────────────────
-    SwingUtilities.invokeLater {
-        ProjectSwitcherDialog(w, ctx, onSelect = { _, _ -> }).isVisible = true
-    }
-    Thread.sleep(800)
-    screenshotTopDialog(robot, outputDir.resolve("05-project-switcher.png"))
-    println("  ✓ 05-project-switcher.png")
-    closeTopDialog()
-    Thread.sleep(400)
-
-    // ── 6: Environment Variables editor ──────────────────────────────────────
-    SwingUtilities.invokeLater {
-        EnvEditorDialog(
-            owner        = w,
-            projectLabel = "needlecast-app",
-            initial      = mapOf("JAVA_OPTS" to "-Xmx512m", "MAVEN_OPTS" to "-Xss4m", "NODE_ENV" to "development"),
-            onSave       = {},
-        ).isVisible = true
-    }
-    Thread.sleep(800)
-    screenshotTopDialog(robot, outputDir.resolve("06-env-editor.png"))
-    println("  ✓ 06-env-editor.png")
-    closeTopDialog()
-    Thread.sleep(400)
-
-    // ── Done ──────────────────────────────────────────────────────────────────
-    println("Screenshots written to $outputDir")
-    SwingUtilities.invokeLater { w.dispose() }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Show a dialog, wait for it to render, take a screenshot, close it. Skips on timeout. */
+private fun dialogShot(robot: Robot, dest: Path, showDialog: () -> Unit) {
+    SwingUtilities.invokeLater(showDialog)
+    // Wait up to 5s for a dialog to appear
+    val deadline = System.currentTimeMillis() + 5000
+    while (System.currentTimeMillis() < deadline) {
+        val visible = Window.getWindows().filterIsInstance<JDialog>().any { it.isVisible }
+        if (visible) break
+        Thread.sleep(100)
+    }
+    Thread.sleep(800) // let it paint
+    screenshotTopDialog(robot, dest)
+    val name = dest.fileName.toString()
+    println("  > $name")
+    closeTopDialog()
+    Thread.sleep(300)
+}
 
 private fun screenshot(robot: Robot, window: Window, dest: Path) {
     SwingUtilities.invokeAndWait {
