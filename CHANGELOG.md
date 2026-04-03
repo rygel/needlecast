@@ -2,6 +2,39 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.2] — 2026-04-03
+
+### Added
+- **Gradle subproject detection** — parse `settings.gradle(.kts)` for `:module:run`, `:module:build` etc. Detects Spring Boot, Shadow, Compose Desktop, JavaFX plugins per subproject
+- **Maven submodule detection** — parse `<modules>` + `<plugins>` for `-pl module` commands (Spring Boot, Quarkus, Jetty, Tomcat, Liberty)
+- **.NET solution project detection** — parse `.sln` for per-project commands based on SDK type (`dotnet run --project`, `dotnet watch run`, `dotnet test --project`)
+- **Delete from disk** in project tree context menu (under Advanced submenu with confirmation)
+- **Double-click command** to run it immediately
+- **Output panel context menu** — Copy, Select All, Clear on right-click
+- **Check for Updates** menu item in Help menu
+- **Improved About dialog** with app icon, author name, clickable GitHub link
+- **Auto-release workflow** — creates GitHub release automatically on version bump to main
+- **Appcast generation** as release asset for sparkle4j update checking
+- **Release/download badges** in README
+
+### Changed
+- Renamed modules: `desktop/` → `needlecast-desktop/`, `web/` → `needlecast-web/`
+- Console panel renamed to "Output"
+- "Remove" in project tree now clearly states it only removes from list
+- Claude Code hooks now optional (default: off) — agent status detected by terminal output polling instead, eliminating "Ran N hook" messages
+- Upgraded sparkle4j 0.5.0 → 0.5.1
+- Rewrote default prompt library with 25 practical developer templates across 7 categories
+
+### Fixed
+- Project tree rows growing wider on each project add (layout feedback loop)
+- Horizontal scrollbar appearing in project tree when tags overflow
+- Screenshot tour hanging indefinitely in CI (added timeouts + force exit)
+- Inno Setup icon paths after module rename
+- App auto-cleans leftover Claude Code hooks from `~/.claude/settings.json` on startup
+- Icon white borders removed
+
+---
+
 ## [0.6.1] — 2026-04-03
 
 ### Added
