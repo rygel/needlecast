@@ -172,11 +172,18 @@ class TerminalPanel(
     }
 
     /**
+     * If true, status detection for Claude sessions is driven by [ClaudeHookServer]
+     * via [forceStatus] and output-based heuristics are skipped. When false (default),
+     * the same output-polling heuristics are used for all sessions including Claude.
+     */
+    var useHooksForStatus: Boolean = false
+
+    /**
      * Called from the JediTerm reader thread whenever output bytes arrive.
-     * Skipped entirely for Claude sessions (hooks drive status instead).
+     * Skipped for Claude sessions only when hooks are driving status.
      */
     private fun handleOutput(chunk: String) {
-        if (isClaudeSession) return
+        if (isClaudeSession && useHooksForStatus) return
 
         lastChunk = chunk
         val now = System.currentTimeMillis()

@@ -590,6 +590,12 @@ data class AppConfig(
     val terminalForeground: String? = null,
     /** Terminal font size in points. Range [8, 36]. Default 13. */
     val terminalFontSize: Int = 13,
+    /**
+     * When true, install hooks into ~/.claude/settings.json for more reliable
+     * agent status detection. Causes "Ran N hook" messages in Claude Code UI.
+     * When false (default), agent status is detected by polling terminal output.
+     */
+    val claudeHooksEnabled: Boolean = false,
 )
 
 data class AiCliDefinition(
