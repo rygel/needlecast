@@ -1,4 +1,5 @@
 target/
+build/
 *.class
 *.jar
 *.iml

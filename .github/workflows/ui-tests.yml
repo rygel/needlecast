@@ -1,0 +1,44 @@
+name: UI Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions: {}
+
+concurrency:
+  group: ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ui-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Build UI test image
+        run: docker build -f Dockerfile.uitest -t needlecast-uitest .
+
+      - name: Run UI tests
+        run: docker run --rm needlecast-uitest
+
+      - name: Extract test reports from container
+        if: failure()
+        run: |
+          docker create --name uitest-artifacts needlecast-uitest
+          docker cp uitest-artifacts:/app/desktop/target/surefire-reports ./uitest-reports || true
+          docker rm uitest-artifacts
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: ui-test-reports
+          path: uitest-reports/
+          retention-days: 7

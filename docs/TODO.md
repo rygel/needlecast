@@ -41,3 +41,33 @@
 - [x] **Scanner unit tests** — fixture-based tests for Maven, Gradle, npm detection to prevent regressions
 - [x] **Structured logging** — SLF4J + Logback to `~/.quicklaunch/quicklaunch.log` with rotation; replace all `printStackTrace` calls
 - [x] **Keyboard shortcut editor** — settings tab to rebind F5, Ctrl+T, Ctrl+1/2/3 and persist them
+
+## AI / Prompt Library
+
+- [x] **Prompt Library** — create, edit, delete reusable prompt templates with `{variable}` substitution; paste resolved text into the active terminal
+- [x] **APM integration** — detect `apm.yml`, surface `apm install/audit/update/bundle` commands; APM tab in Settings; `apm` in AI Tools menu CLI detector
+
+## Architecture Improvements
+
+Issues identified in architecture review (priority order):
+
+### High Impact
+- [x] `ProcessExecutor` utility — centralise all `ProcessBuilder` calls behind a single timeout-aware helper; eliminate 4 divergent patterns (`GitStatus`, `GitLogPanel`, `AiCliDetector`, `SettingsDialog`)
+- [x] Fix EDT blocking in AI Tools menu — pre-warm CLI detection on a background thread at window open; show cached results on menu open instead of blocking the UI
+- [x] `ProjectService` — extract group/directory config mutations out of `DirectoryPanel` into a dedicated service class; `DirectoryPanel` should not know the shape of `AppConfig`
+- [x] `GitService` interface — decouple git operations from `ProcessBuilder` in the model layer; enables mocking in future UI tests
+- [x] Surface scan failures — `scanAndAdd` now catches exceptions; failed projects appear in the list with a red ⚠ badge and tooltip instead of silently disappearing
+- [x] Config change observation — `AppContext.addConfigListener` lets components react to config changes without polling
+
+### Medium Impact
+- [x] Fix `BuildFileWatcher` race condition — `watch()` has a check-then-act race on registration; fix with double-checked locking
+- [x] Add `apm.yml` to `BuildFileWatcher` watched file names
+- [x] `CommandHistoryManager` — extracted history persistence out of `CommandPanel`; config is now the source of truth
+- [x] Graceful shutdown — `Disposable` interface added to `AppContext`; `BuildFileWatcher` implements it and is registered automatically; `windowClosing` calls `ctx.disposeAll()`
+- [x] `BuildTool` self-describing — `tagLabel` and `tagColor` moved onto the enum; exhaustive `when` in renderer eliminated
+
+### Lower Impact
+- [x] Config migration runner — `ConfigMigrator` applies sequential version migrations on load; pattern in place for future schema changes
+- [x] `CommandPanel` queue tests — add unit tests for the queue drain logic (highest-value untested UI component)
+- [x] `ProjectSwitcherDialog` filter tests — `filterEntries` extracted as a testable pure function; 6 tests added
+- [x] Process timeout enforcement in `ProcessCommandRunner` — `cancel()` now interrupts the reader thread; `RunningProcess` carries the thread reference
