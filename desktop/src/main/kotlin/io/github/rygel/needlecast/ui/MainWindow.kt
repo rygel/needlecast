@@ -416,10 +416,17 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val windowsMenu = buildWindowsMenu()
         val aiMenu   = buildAiMenu()
 
+        val checkUpdateItem = JMenuItem("Check for Updates...").apply {
+            addActionListener { checkForUpdatesManual() }
+        }
         val aboutItem = JMenuItem(i18n.translate("menu.help.about")).apply {
             addActionListener { showAbout() }
         }
-        val helpMenu = JMenu(i18n.translate("menu.help")).apply { add(aboutItem) }
+        val helpMenu = JMenu(i18n.translate("menu.help")).apply {
+            add(checkUpdateItem)
+            addSeparator()
+            add(aboutItem)
+        }
 
         return JMenuBar().apply {
             add(fileMenu); add(viewMenu); add(windowsMenu); add(aiMenu); add(helpMenu)
@@ -764,19 +771,51 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         highlightedDockable = null
     }
 
-    private fun checkForUpdates() {
-        val version = currentVersion() ?: return
-        try {
+    private fun sparkle4jInstance(): io.github.sparkle4j.Sparkle4jInstance? {
+        val version = currentVersion() ?: return null
+        return try {
             io.github.sparkle4j.Sparkle4j.configure {
-                appcastUrl     = "https://github.com/rygel/needlecast/releases/latest/download/appcast.xml"
-                currentVersion = version
-                appName        = "Needlecast"
+                appcastUrl      = "https://github.com/rygel/needlecast/releases/latest/download/appcast.xml"
+                currentVersion  = version
+                appName         = "Needlecast"
                 parentComponent = this@MainWindow
-            }.checkInBackground()
+            }
         } catch (e: Exception) {
-            // Update check is best-effort — never crash the app
+            org.slf4j.LoggerFactory.getLogger(MainWindow::class.java)
+                .warn("Failed to configure update checker", e)
+            null
+        }
+    }
+
+    private fun checkForUpdates() {
+        try {
+            sparkle4jInstance()?.checkInBackground()
+        } catch (e: Exception) {
             org.slf4j.LoggerFactory.getLogger(MainWindow::class.java)
                 .warn("Update check failed", e)
+        }
+    }
+
+    private fun checkForUpdatesManual() {
+        try {
+            val instance = sparkle4jInstance()
+            if (instance == null) {
+                JOptionPane.showMessageDialog(this,
+                    "Update checking is not available (version unknown).",
+                    "Check for Updates", JOptionPane.WARNING_MESSAGE)
+                return
+            }
+            val item = instance.checkNow()
+            if (item == null) {
+                JOptionPane.showMessageDialog(this,
+                    "You are running the latest version of Needlecast.",
+                    "Check for Updates", JOptionPane.INFORMATION_MESSAGE)
+            }
+            // If an update is found, sparkle4j shows its own dialog
+        } catch (e: Exception) {
+            JOptionPane.showMessageDialog(this,
+                "Could not check for updates: ${e.message}",
+                "Check for Updates", JOptionPane.ERROR_MESSAGE)
         }
     }
 
