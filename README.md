@@ -10,8 +10,10 @@
 
 <p align="center">
   <a href="https://github.com/rygel/needlecast/actions/workflows/ci.yml"><img src="https://github.com/rygel/needlecast/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/rygel/needlecast/releases/latest"><img src="https://img.shields.io/github/v/release/rygel/needlecast" alt="Release"></a>
+  <a href="https://github.com/rygel/needlecast/releases"><img src="https://img.shields.io/github/downloads/rygel/needlecast/total" alt="Downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <img src="https://img.shields.io/badge/status-stable-green.svg" alt="Status">
+  <img src="https://img.shields.io/badge/status-alpha-orange.svg" alt="Status">
 </p>
 
 ## Features
