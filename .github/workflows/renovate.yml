@@ -18,6 +18,8 @@ jobs:
           persist-credentials: false
 
       - uses: renovatebot/github-action@3633cede7d4d4598438e654eac4a695e46004420 # v46.1.7
+        # zizmor: ignore[secrets-outside-env] -- RENOVATE_TOKEN is correctly scoped to this
+        # step via env:; passing it via with: is not supported by this action.
         with:
           configurationFile: renovate.json
         env:
