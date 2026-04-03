@@ -21,24 +21,23 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: 'maven'
 
       - name: Build fat JAR
-        run: mvn package -DskipTests -T 4
+        run: mvn -pl desktop -am package -DskipTests -T 4
 
       - name: Generate checksum
         run: |
-          cd target
-          sha256sum quicklaunch.jar > quicklaunch.jar.sha256
-          cat quicklaunch.jar.sha256
+          cd desktop/target
+          sha256sum needlecast.jar > needlecast.jar.sha256
+          cat needlecast.jar.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: quicklaunch-jar
+          name: needlecast-jar
           path: |
-            target/quicklaunch.jar
-            target/quicklaunch.jar.sha256
+            desktop/target/needlecast.jar
+            desktop/target/needlecast.jar.sha256
           retention-days: 90
 
       - name: Attach to GitHub release
@@ -47,5 +46,66 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ github.ref_name }}" \
-            target/quicklaunch.jar \
-            target/quicklaunch.jar.sha256
+            desktop/target/needlecast.jar \
+            desktop/target/needlecast.jar.sha256
+
+  package-native:
+    runs-on: ${{ matrix.os }}
+    needs: build-jar
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Build desktop fat JAR
+        run: mvn -pl desktop -am package -DskipTests -T 4
+
+      - name: Build app image (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: bash scripts/build-jpackage.sh
+
+      - name: Build app image (Windows)
+        if: runner.os == 'Windows'
+        run: powershell -File scripts/build-jpackage.ps1
+
+      - name: Archive app image (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd build/jpackage
+          zip -r ../needlecast-linux-app-image.zip ./*
+
+      - name: Archive app image (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd build/jpackage
+          ditto -c -k --sequesterRsrc --keepParent Needlecast.app ../needlecast-macos-app-image.zip
+
+      - name: Archive app image (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Compress-Archive -Path build\\jpackage\\Needlecast -DestinationPath build\\needlecast-windows-app-image.zip -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: needlecast-${{ matrix.os }}-app-image
+          path: build/*-app-image.zip
+          retention-days: 90
+
+      - name: Attach to GitHub release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" build/*-app-image.zip

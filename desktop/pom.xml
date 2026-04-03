@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.rygel</groupId>
+        <artifactId>needlecast-parent</artifactId>
+        <version>0.6.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>needlecast-desktop</artifactId>
+    <packaging>jar</packaging>
+    <name>Needlecast Desktop</name>
+    <description>Swing-based project launcher for developers</description>
+
+    <properties>
+        <mainClass>io.github.rygel.needlecast.MainKt</mainClass>
+    </properties>
+
+    <dependencies>
+        <!-- Kotlin runtime -->
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+        </dependency>
+
+        <!-- Jackson for JSON config -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-kotlin</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- FlatLaf Swing theme -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-intellij-themes</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf-extras</artifactId>
+        </dependency>
+
+        <!-- RSyntaxTextArea for syntax-highlighted editor -->
+        <dependency>
+            <groupId>com.fifesoft</groupId>
+            <artifactId>rsyntaxtextarea</artifactId>
+        </dependency>
+
+        <!-- JSVG — lightweight SVG renderer for Swing -->
+        <dependency>
+            <groupId>com.github.weisj</groupId>
+            <artifactId>jsvg</artifactId>
+        </dependency>
+
+        <!-- TwelveMonkeys ImageIO — WebP support (JPEG/PNG/GIF/BMP covered by Java built-in) -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+        </dependency>
+
+        <!-- JediTerm embedded terminal -->
+        <dependency>
+            <groupId>org.jetbrains.jediterm</groupId>
+            <artifactId>jediterm-pty</artifactId>
+        </dependency>
+
+        <!-- pty4j: required by jediterm-pty at runtime -->
+        <dependency>
+            <groupId>org.jetbrains.pty4j</groupId>
+            <artifactId>pty4j</artifactId>
+        </dependency>
+
+        <!-- Bridge log4j 1.x API (used by JediTerm) to SLF4J — no actual log4j needed -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>log4j-over-slf4j</artifactId>
+        </dependency>
+
+        <!-- Guava — required by JediTerm -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <!-- Logging: SLF4J API + Logback implementation -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.mockk</groupId>
+            <artifactId>mockk</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-swing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- outerstellar-framework: i18n and theme -->
+        <dependency>
+            <groupId>io.github.rygel</groupId>
+            <artifactId>outerstellar-i18n</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.rygel</groupId>
+            <artifactId>outerstellar-theme</artifactId>
+        </dependency>
+
+        <!-- ModernDocking — dockable panel framework -->
+        <dependency>
+            <groupId>io.github.andrewauclair</groupId>
+            <artifactId>modern-docking-single-app</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.andrewauclair</groupId>
+            <artifactId>modern-docking-ui</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>src/main/kotlin</sourceDirectory>
+        <testSourceDirectory>src/test/kotlin</testSourceDirectory>
+
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+
+        <plugins>
+            <!-- Kotlin compiler -->
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <goals><goal>compile</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>test-compile</id>
+                        <goals><goal>test-compile</goal></goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <jvmTarget>${java.version}</jvmTarget>
+                </configuration>
+            </plugin>
+
+            <!-- Suppress default Java compiler (Kotlin handles all sources) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Fat JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <finalName>needlecast</finalName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${mainClass}</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- JUnit 5 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
+                    <!-- UI tests (*UiTest) require Xvfb — run only via -Ptest-desktop -->
+                    <excludes>
+                        <exclude>**/*UiTest</exclude>
+                    </excludes>
+                    <properties>
+                        <configurationParameters>
+                            junit.jupiter.execution.timeout.default=120s
+                        </configurationParameters>
+                    </properties>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!--
+            Run Swing UI tests inside a container with Xvfb.
+            Usage: mvn verify -Ptest-desktop
+            Never run locally — these tests capture the mouse and keyboard.
+        -->
+        <profile>
+            <id>test-desktop</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/*UiTest</include>
+                            </includes>
+                            <excludes/>
+                            <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
+                            <argLine>
+                                --add-opens java.desktop/java.awt=ALL-UNNAMED
+                                --add-opens java.desktop/sun.awt=ALL-UNNAMED
+                                --add-opens java.desktop/javax.swing=ALL-UNNAMED
+                                --add-opens java.desktop/sun.swing=ALL-UNNAMED
+                                --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                            </argLine>
+                            <properties>
+                                <configurationParameters>
+                                    junit.jupiter.execution.timeout.default=60s
+                                </configurationParameters>
+                            </properties>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

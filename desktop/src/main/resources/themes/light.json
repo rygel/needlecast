@@ -1,0 +1,8 @@
+{
+  "colors": {
+    "accent":  { "base": "#1565c0", "hover": "#1976d2", "pressed": "#0d47a1" },
+    "success": { "base": "#2e7d32", "hover": "#388e3c", "pressed": "#1b5e20" },
+    "danger":  { "base": "#c62828", "hover": "#d32f2f", "pressed": "#b71c1c" },
+    "warning": { "base": "#e65100", "hover": "#f4511e", "pressed": "#bf360c" }
+  }
+}
