@@ -56,4 +56,90 @@ class GradleProjectScannerTest {
                 || cmd.argv.any { it.contains("gradlew") }
         })
     }
+
+    @Test
+    fun `detects subproject tasks from settings_gradle`(@TempDir dir: Path) {
+        File(dir.toFile(), "build.gradle").writeText("plugins {}")
+        File(dir.toFile(), "settings.gradle").writeText("""
+            rootProject.name = 'myapp'
+            include ':desktop', ':web'
+        """.trimIndent())
+
+        // Create subproject with application plugin
+        val desktop = File(dir.toFile(), "desktop").also { it.mkdirs() }
+        File(desktop, "build.gradle").writeText("""
+            plugins {
+                id 'application'
+            }
+        """.trimIndent())
+
+        // Create subproject without application plugin
+        val web = File(dir.toFile(), "web").also { it.mkdirs() }
+        File(web, "build.gradle").writeText("plugins { id 'java' }")
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        val labels = result.commands.map { it.label }
+
+        // Root tasks
+        assertTrue(labels.any { it.contains("build") && !it.contains(":") })
+
+        // Desktop subproject: should have :desktop:run (application plugin), :desktop:build, :desktop:test
+        assertTrue(labels.any { it.contains(":desktop:run") }, "Missing :desktop:run, got: $labels")
+        assertTrue(labels.any { it.contains(":desktop:build") }, "Missing :desktop:build, got: $labels")
+        assertTrue(labels.any { it.contains(":desktop:test") }, "Missing :desktop:test, got: $labels")
+
+        // Web subproject: should have :web:build, :web:test but NOT :web:run (no application plugin)
+        assertTrue(labels.any { it.contains(":web:build") }, "Missing :web:build, got: $labels")
+        assertTrue(labels.any { it.contains(":web:test") }, "Missing :web:test, got: $labels")
+        assertFalse(labels.any { it.contains(":web:run") }, "Unexpected :web:run, got: $labels")
+    }
+
+    @Test
+    fun `detects subproject tasks from settings_gradle_kts`(@TempDir dir: Path) {
+        File(dir.toFile(), "build.gradle.kts").writeText("plugins {}")
+        File(dir.toFile(), "settings.gradle.kts").writeText("""
+            rootProject.name = "myapp"
+            include(":app")
+        """.trimIndent())
+
+        val app = File(dir.toFile(), "app").also { it.mkdirs() }
+        File(app, "build.gradle.kts").writeText("""
+            plugins {
+                id("org.springframework.boot") version "3.2.0"
+            }
+        """.trimIndent())
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        val labels = result.commands.map { it.label }
+
+        assertTrue(labels.any { it.contains(":app:bootRun") }, "Missing :app:bootRun, got: $labels")
+        assertTrue(labels.any { it.contains(":app:build") }, "Missing :app:build, got: $labels")
+    }
+
+    @Test
+    fun `detects Spring Boot and Shadow tasks`(@TempDir dir: Path) {
+        File(dir.toFile(), "build.gradle").writeText("""
+            plugins {
+                id 'org.springframework.boot' version '3.2.0'
+                id 'com.github.johnrengelman.shadow' version '8.0.0'
+            }
+        """.trimIndent())
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        val labels = result.commands.map { it.label }
+
+        assertTrue(labels.any { it.contains("bootRun") }, "Missing bootRun, got: $labels")
+        assertTrue(labels.any { it.contains("shadowJar") }, "Missing shadowJar, got: $labels")
+    }
+
+    @Test
+    fun `ignores subproject with no build file`(@TempDir dir: Path) {
+        File(dir.toFile(), "build.gradle").writeText("plugins {}")
+        File(dir.toFile(), "settings.gradle").writeText("include ':ghost'")
+        // No ghost/ directory or build file
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        val labels = result.commands.map { it.label }
+        assertFalse(labels.any { it.contains(":ghost:") }, "Ghost subproject should be ignored, got: $labels")
+    }
 }
