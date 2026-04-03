@@ -835,7 +835,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private fun checkForUpdates() {
         try {
             updateLogger.info("Startup update check")
-            buildSparkle4j(24)?.checkInBackground()
+            buildSparkle4j(0)?.checkInBackground()
         } catch (e: Exception) {
             updateLogger.warn("Update check failed", e)
         }
