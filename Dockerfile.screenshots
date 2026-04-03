@@ -21,6 +21,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Maven settings for GitHub Packages auth (sparkle4j)
+ARG GITHUB_ACTOR=""
+ARG GITHUB_TOKEN=""
+RUN mkdir -p /root/.m2 && printf '<settings><servers><server><id>github-sparkle4j</id><username>%s</username><password>%s</password></server></servers></settings>' \
+    "$GITHUB_ACTOR" "$GITHUB_TOKEN" > /root/.m2/settings.xml
+
 # Resolve dependencies as a cached layer
 COPY pom.xml .
 COPY desktop/pom.xml desktop/pom.xml
