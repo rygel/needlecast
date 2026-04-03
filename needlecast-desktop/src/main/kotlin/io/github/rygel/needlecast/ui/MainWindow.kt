@@ -810,48 +810,59 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         highlightedDockable = null
     }
 
-    private fun sparkle4jInstance(): io.github.sparkle4j.Sparkle4jInstance? {
-        val version = currentVersion() ?: return null
+    private val updateLogger = org.slf4j.LoggerFactory.getLogger("needlecast.update")
+
+    private fun buildSparkle4j(intervalHours: Int = 24): io.github.sparkle4j.Sparkle4jInstance? {
+        val version = currentVersion() ?: run {
+            updateLogger.warn("Cannot determine app version — update check skipped")
+            return null
+        }
+        updateLogger.info("Building sparkle4j instance: version={}, interval={}h", version, intervalHours)
         return try {
             io.github.sparkle4j.Sparkle4j.builder()
                 .appcastUrl("https://github.com/rygel/needlecast/releases/latest/download/appcast.xml")
                 .currentVersion(version)
                 .appName("Needlecast")
                 .parentComponent(this@MainWindow)
+                .checkIntervalHours(intervalHours)
                 .build()
         } catch (e: Exception) {
-            org.slf4j.LoggerFactory.getLogger(MainWindow::class.java)
-                .warn("Failed to configure update checker", e)
+            updateLogger.error("Failed to configure update checker", e)
             null
         }
     }
 
     private fun checkForUpdates() {
         try {
-            sparkle4jInstance()?.checkInBackground()
+            updateLogger.info("Startup update check")
+            buildSparkle4j(0)?.checkInBackground()
         } catch (e: Exception) {
-            org.slf4j.LoggerFactory.getLogger(MainWindow::class.java)
-                .warn("Update check failed", e)
+            updateLogger.warn("Update check failed", e)
         }
     }
 
     private fun checkForUpdatesManual() {
         try {
-            val instance = sparkle4jInstance()
+            // interval=0 bypasses the "already checked recently" cache
+            val instance = buildSparkle4j(0)
             if (instance == null) {
                 JOptionPane.showMessageDialog(this,
                     "Update checking is not available (version unknown).",
                     "Check for Updates", JOptionPane.WARNING_MESSAGE)
                 return
             }
+            updateLogger.info("Manual update check")
             val item = instance.checkNow()
             if (item == null) {
+                updateLogger.info("No update found — already on latest version")
                 JOptionPane.showMessageDialog(this,
                     "You are running the latest version of Needlecast.",
                     "Check for Updates", JOptionPane.INFORMATION_MESSAGE)
+            } else {
+                updateLogger.info("Update found: {}", item.version())
             }
-            // If an update is found, sparkle4j shows its own dialog
         } catch (e: Exception) {
+            updateLogger.error("Manual update check failed", e)
             JOptionPane.showMessageDialog(this,
                 "Could not check for updates: ${e.message}",
                 "Check for Updates", JOptionPane.ERROR_MESSAGE)
