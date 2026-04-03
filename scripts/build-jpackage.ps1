@@ -3,11 +3,11 @@ $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $appName    = "Needlecast"
 $appVersion = if ($env:APP_VERSION) { $env:APP_VERSION } else {
-    # Fall back to reading from root pom.xml (desktop/pom.xml inherits version from parent)
+    # Fall back to reading from root pom.xml
     ([xml](Get-Content (Join-Path $root "pom.xml"))).project.version
 }
 if (-not $appVersion) { Write-Error "Could not determine app version"; exit 1 }
-$jarPath    = Join-Path $root "desktop/target/needlecast.jar"
+$jarPath    = Join-Path $root "needlecast-desktop/target/needlecast.jar"
 $buildDir   = Join-Path $root "build"
 $runtimeDir = Join-Path $buildDir "runtime"
 $appCdsDir  = Join-Path $buildDir "appcds"
@@ -16,7 +16,7 @@ $archive    = Join-Path $appCdsDir "appcds.jsa"
 
 if (-not (Test-Path $jarPath)) {
   Write-Host "Missing jar: $jarPath"
-  Write-Host "Build it with: mvn -pl desktop -am package -DskipTests"
+  Write-Host "Build it with: mvn -pl needlecast-desktop -am package -DskipTests"
   exit 1
 }
 
@@ -43,7 +43,7 @@ Copy-Item $archive "$runtimeDir\lib\server\appcds.jsa" -Force
 
 $javaOpts = "-XX:SharedArchiveFile=`$APPDIR\runtime\lib\server\appcds.jsa"
 
-$iconPath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $root "desktop") "src") "main") "resources") "icons") "needlecast.ico"
+$iconPath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $root "needlecast-desktop") "src") "main") "resources") "icons") "needlecast.ico"
 
 # jpackage requires major version >= 1; map 0.x.y to 1.x.y for the native package only
 $jpackageVersion = $appVersion

@@ -28,6 +28,7 @@ import javax.swing.JColorChooser
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JLabel
+import javax.swing.JMenu
 import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JPanel
@@ -182,7 +183,9 @@ class ProjectTreePanel(
         })
 
         add(northPanel, BorderLayout.NORTH)
-        add(JScrollPane(tree), BorderLayout.CENTER)
+        add(JScrollPane(tree).apply {
+            horizontalScrollBarPolicy = javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        }, BorderLayout.CENTER)
 
         loadFromConfig()
     }
@@ -475,10 +478,82 @@ class ProjectTreePanel(
             is ProjectTreeEntry.Project -> "project '${e.directory.label()}'"
             else -> "item"
         }
-        if (JOptionPane.showConfirmDialog(this, "Remove $label?", "Remove", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return
+        if (JOptionPane.showConfirmDialog(this, "Remove $label from the project list?\n(The directory on disk is not affected.)",
+                "Remove", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return
         treeModel.removeNodeFromParent(node)
         onProjectSelected(null)
         persist()
+    }
+
+    private fun deleteProjectFromDisk(node: DefaultMutableTreeNode, entry: ProjectTreeEntry.Project) {
+        val dir = File(entry.directory.path)
+        val name = entry.directory.label()
+        val fileCount = dir.walkTopDown().count()
+        val confirm = JOptionPane.showConfirmDialog(this,
+            "Permanently delete '$name' from disk?\n\n" +
+            "Path: ${dir.absolutePath}\n" +
+            "Contains: $fileCount files/directories\n\n" +
+            "This cannot be undone.",
+            "Delete from Disk", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
+        if (confirm != JOptionPane.YES_OPTION) return
+
+        Thread {
+            val deleted = dir.deleteRecursively()
+            SwingUtilities.invokeLater {
+                if (deleted) {
+                    treeModel.removeNodeFromParent(node)
+                    onProjectSelected(null)
+                    persist()
+                } else {
+                    JOptionPane.showMessageDialog(this@ProjectTreePanel,
+                        "Could not delete '$name'. Some files may be locked or protected.",
+                        "Delete Failed", JOptionPane.ERROR_MESSAGE)
+                }
+            }
+        }.start()
+    }
+
+    private fun deleteFolderFromDisk(node: DefaultMutableTreeNode, entry: ProjectTreeEntry.Folder) {
+        // Collect all project directories inside this folder
+        val projects = mutableListOf<String>()
+        fun collect(n: TreeNode) {
+            val obj = (n as? DefaultMutableTreeNode)?.userObject
+            if (obj is ProjectTreeEntry.Project) projects.add(obj.directory.path)
+            for (i in 0 until n.childCount) collect(n.getChildAt(i))
+        }
+        collect(node)
+
+        if (projects.isEmpty()) {
+            // Virtual folder with no projects — just remove from list
+            removeNode(node)
+            return
+        }
+
+        val dirList = projects.joinToString("\n") { "  - $it" }
+        val confirm = JOptionPane.showConfirmDialog(this,
+            "Permanently delete folder '${entry.name}' and all its projects from disk?\n\n" +
+            "Directories that will be deleted:\n$dirList\n\n" +
+            "This cannot be undone.",
+            "Delete from Disk", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
+        if (confirm != JOptionPane.YES_OPTION) return
+
+        Thread {
+            val failures = projects.filter { !File(it).deleteRecursively() }
+            SwingUtilities.invokeLater {
+                if (failures.isEmpty()) {
+                    treeModel.removeNodeFromParent(node)
+                    onProjectSelected(null)
+                    persist()
+                } else {
+                    JOptionPane.showMessageDialog(this@ProjectTreePanel,
+                        "Could not delete some directories:\n${failures.joinToString("\n") { "  - $it" }}",
+                        "Delete Failed", JOptionPane.ERROR_MESSAGE)
+                    treeModel.removeNodeFromParent(node)
+                    onProjectSelected(null)
+                    persist()
+                }
+            }
+        }.start()
     }
 
     private fun editTags(node: DefaultMutableTreeNode, entry: ProjectTreeEntry.Project) {
@@ -559,7 +634,13 @@ class ProjectTreePanel(
                     menu.add(JMenuItem("Clear Color").apply { addActionListener { setFolderColor(node, entry, null) } })
                 }
                 menu.addSeparator()
-                menu.add(JMenuItem("Remove\u2026").apply { addActionListener { removeNode(node) } })
+                menu.add(JMenuItem("Remove").apply { addActionListener { removeNode(node) } })
+                menu.add(JMenu("Advanced").apply {
+                    add(JMenuItem("Delete from disk\u2026").apply {
+                        foreground = Color(0xE53935)
+                        addActionListener { deleteFolderFromDisk(node, entry) }
+                    })
+                })
             }
             is ProjectTreeEntry.Project -> {
                 val detected = scanResults[entry.directory.path]
@@ -598,7 +679,16 @@ class ProjectTreePanel(
                     menu.add(JMenuItem("Clear Color").apply { addActionListener { setProjectColor(node, entry, null) } })
                 }
                 menu.addSeparator()
-                menu.add(JMenuItem("Remove\u2026").apply { addActionListener { removeNode(node) } })
+                menu.add(JMenuItem("Remove").apply { addActionListener { removeNode(node) } })
+                val dir = File(entry.directory.path)
+                if (dir.exists()) {
+                    menu.add(JMenu("Advanced").apply {
+                        add(JMenuItem("Delete from disk\u2026").apply {
+                            foreground = Color(0xE53935)
+                            addActionListener { deleteProjectFromDisk(node, entry) }
+                        })
+                    })
+                }
             }
         }
         if (menu.componentCount > 0) menu.show(tree, x, y)
@@ -630,7 +720,11 @@ class ProjectTreePanel(
         private val branchLabel = JLabel().apply {
             font = Font(Font.MONOSPACED, Font.PLAIN, 10); foreground = Color(0x888888)
         }
-        private val tagsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply { isOpaque = false }
+        private val tagsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
+            isOpaque = false
+            // Prevent tags from widening the row beyond the tree's visible width
+            maximumSize = Dimension(Int.MAX_VALUE, 20)
+        }
         private val nameRow = JPanel(BorderLayout(2, 0)).apply {
             isOpaque = false
             add(dotsPanel,  BorderLayout.WEST)
@@ -648,9 +742,9 @@ class ProjectTreePanel(
         private val projectPanel = object : JPanel(BorderLayout()) {
             override fun getPreferredSize(): Dimension {
                 val base = super.getPreferredSize()
-                val vp   = tree.parent as? javax.swing.JViewport
-                val w    = (vp?.width ?: 0).coerceAtLeast(tree.width)
-                return if (w > base.width) Dimension(w, base.height) else base
+                // Strictly use viewport width — never tree.width (which grows in a feedback loop)
+                val vp = tree.parent as? javax.swing.JViewport ?: return base
+                return Dimension(vp.width, base.height)
             }
         }.apply { isOpaque = true }
 

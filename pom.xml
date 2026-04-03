@@ -11,8 +11,8 @@
     <name>Needlecast (Parent)</name>
 
     <modules>
-        <module>desktop</module>
-        <module>web</module>
+        <module>needlecast-desktop</module>
+        <module>needlecast-web</module>
     </modules>
 
     <properties>

@@ -28,9 +28,29 @@ class ConsolePanel : JPanel(BorderLayout()) {
         wrapStyleWord = false
     }
 
+    private fun buildOutputContextMenu(): javax.swing.JPopupMenu {
+        val area = textArea
+        return javax.swing.JPopupMenu().apply {
+            add(javax.swing.JMenuItem("Copy").apply {
+                accelerator = KeyStroke.getKeyStroke(KeyEvent.VK_C, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
+                addActionListener { area.copy() }
+            })
+            add(javax.swing.JMenuItem("Select All").apply {
+                accelerator = KeyStroke.getKeyStroke(KeyEvent.VK_A, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
+                addActionListener { area.selectAll() }
+            })
+            addSeparator()
+            add(javax.swing.JMenuItem("Clear").apply {
+                addActionListener { clear() }
+            })
+        }
+    }
+
     private val searchBar = ConsoleSearchBar(textArea)
 
     init {
+        textArea.componentPopupMenu = buildOutputContextMenu()
+
         val header = JLabel("Output").apply {
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
             font = font.deriveFont(Font.BOLD)

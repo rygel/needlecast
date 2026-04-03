@@ -28,9 +28,9 @@ RUN mkdir -p /root/.m2 && printf '<settings><servers><server><id>github-sparkle4
 # Resolve Maven dependencies as a separate layer so they are cached
 # across source-only changes.
 COPY pom.xml .
-COPY desktop/pom.xml desktop/pom.xml
-COPY web/pom.xml web/pom.xml
-RUN mvn -B -pl desktop -am dependency:resolve dependency:resolve-plugins -q
+COPY needlecast-desktop/pom.xml needlecast-desktop/pom.xml
+COPY needlecast-web/pom.xml needlecast-web/pom.xml
+RUN mvn -B -pl needlecast-desktop -am dependency:resolve dependency:resolve-plugins -q
 
 # Copy full source and run the UI test suite
 COPY . .
@@ -39,7 +39,7 @@ CMD ["sh", "-c", "\
     Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & \
     XVFB_PID=$! ; \
     sleep 1 ; \
-    DISPLAY=:99 mvn -pl desktop verify -Ptest-desktop -T 4 ; \
+    DISPLAY=:99 mvn -pl needlecast-desktop verify -Ptest-desktop -T 4 ; \
     STATUS=$? ; \
     kill \"$XVFB_PID\" 2>/dev/null ; \
     exit $STATUS \
