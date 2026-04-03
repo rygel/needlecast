@@ -137,3 +137,59 @@ jobs:
           # Upload whichever installer this platform produced
           find build/ \( -name "*.exe" -o -name "*.dmg" -o -name "*.deb" \) \
             -maxdepth 1 -exec gh release upload "$RELEASE_TAG" {} \;
+
+  update-appcast:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: package-native
+    permissions:
+      contents: write
+    steps:
+      - name: Generate and upload appcast.xml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          REPO="rygel/needlecast"
+          BASE_URL="https://github.com/$REPO/releases/download/$RELEASE_TAG"
+          PUB_DATE="$(date -R)"
+          RELEASE_NOTES="https://github.com/$REPO/releases/tag/$RELEASE_TAG"
+
+          # Query release assets for filenames and sizes
+          ASSETS=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.assets[] | "\(.name) \(.size)"')
+          WIN_FILE=$(echo "$ASSETS" | grep '\.exe$' | awk '{print $1}' || true)
+          WIN_SIZE=$(echo "$ASSETS" | grep '\.exe$' | awk '{print $2}' || echo "0")
+          MAC_FILE=$(echo "$ASSETS" | grep '\.dmg$' | awk '{print $1}' || true)
+          MAC_SIZE=$(echo "$ASSETS" | grep '\.dmg$' | awk '{print $2}' || echo "0")
+          DEB_FILE=$(echo "$ASSETS" | grep '\.deb$' | awk '{print $1}' || true)
+          DEB_SIZE=$(echo "$ASSETS" | grep '\.deb$' | awk '{print $2}' || echo "0")
+
+          cat > appcast.xml << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <rss version="2.0"
+               xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+               xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <channel>
+              <title>Needlecast</title>
+              <link>https://github.com/$REPO</link>
+              <description>Needlecast update feed</description>
+              <item>
+                <title>Needlecast $VERSION</title>
+                <pubDate>$PUB_DATE</pubDate>
+                <sparkle:version>$VERSION</sparkle:version>
+                <sparkle:releaseNotesLink>$RELEASE_NOTES</sparkle:releaseNotesLink>
+                <enclosure url="$BASE_URL/$WIN_FILE" sparkle:os="windows" length="$WIN_SIZE" type="application/octet-stream"/>
+                <enclosure url="$BASE_URL/$MAC_FILE" sparkle:os="macos" length="$MAC_SIZE" type="application/octet-stream"/>
+                <enclosure url="$BASE_URL/$DEB_FILE" sparkle:os="linux" length="$DEB_SIZE" type="application/vnd.debian.binary-package"/>
+              </item>
+            </channel>
+          </rss>
+          EOF
+          sed -i 's/^          //' appcast.xml
+
+          echo "Generated appcast.xml for $VERSION:"
+          cat appcast.xml
+
+          # Upload as a release asset (replaces if already exists)
+          gh release upload "$RELEASE_TAG" appcast.xml --clobber
