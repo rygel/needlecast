@@ -99,7 +99,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val gitLogDockable      = DockablePanel(gitLogPanel,                   "git-log",      "Git Log")
     private val explorerDockable    = DockablePanel(explorerPanel,                 "explorer",     "Explorer")
     private val editorDockable      = DockablePanel(explorerPanel.editorComponent, "editor",       "Editor")
-    private val consoleDockable      = DockablePanel(consolePanel,                  "console",      "Console")
+    private val consoleDockable      = DockablePanel(consolePanel,                  "console",      "Output")
     private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
 
@@ -651,7 +651,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val editorCb = JCheckBoxMenuItem("Editor").apply {
             addActionListener { toggleEditor(isSelected) }
         }
-        val consoleCb = JCheckBoxMenuItem("Console").apply {
+        val consoleCb = JCheckBoxMenuItem("Output").apply {
             addActionListener { toggleConsole(isSelected) }
         }
         val promptInputCb = JCheckBoxMenuItem("Prompt Input").apply {
