@@ -1,0 +1,80 @@
+name: Native package check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: native-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-jar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build fat JAR
+        run: mvn -pl desktop -am package -DskipTests -T 4
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: needlecast-jar-check
+          path: desktop/target/needlecast.jar
+          retention-days: 3
+
+  package-native:
+    runs-on: ${{ matrix.os }}
+    needs: build-jar
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Download fat JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: needlecast-jar-check
+          path: desktop/target/
+
+      - name: Build app image (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: bash scripts/build-jpackage.sh
+
+      - name: Build app image (Windows)
+        if: runner.os == 'Windows'
+        run: powershell -File scripts/build-jpackage.ps1
+
+      - name: Upload app image for inspection
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: native-check-${{ matrix.os }}-app-image
+          path: build/jpackage/
+          retention-days: 3
