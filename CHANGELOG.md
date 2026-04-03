@@ -2,6 +2,17 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.4] — 2026-04-04
+
+### Changed
+- All dockable panels can now shrink freely — Explorer, Git Log, Console no longer force a large minimum width
+- Main window minimum size reduced from 1000x600 to 800x500
+- Tags moved from project name row to bottom row alongside branch label — always visible, no horizontal overflow
+- Output panel mouse wheel scrolling improved (unitIncrement=16, blockIncrement=64)
+- `mvn exec:java` now works without `-Dexec.mainClass` (exec-maven-plugin configured in desktop pom)
+
+---
+
 ## [0.6.3] — 2026-04-03
 
 ### Added
