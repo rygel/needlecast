@@ -49,209 +49,246 @@ private fun defaultEditors() = listOf(
 
 internal fun defaultPromptLibrary() = listOf(
 
-    // ── Understand ────────────────────────────────────────────────────────
+    // ── Explore ──────────────────────────────────────────────────────────
     PromptTemplate(
-        name = "Onboard me",
-        category = "Understand",
-        description = "Comprehensive first-look at an unfamiliar codebase.",
-        body = """Read the codebase and give me a developer onboarding summary:
-1. What problem does this project solve and for whom?
-2. High-level architecture — main modules, layers, data flow.
-3. Key entry points (main classes, routes, event handlers).
-4. Non-obvious design decisions or domain-specific conventions I should know.
-5. Where would I start if I needed to add a new feature or fix a bug?
-Be concrete — name actual files and classes.""",
+        name = "Onboard me to this repo",
+        category = "Explore",
+        description = "Quick orientation for an unfamiliar codebase.",
+        body = """Give me a 2-minute developer onboarding:
+1. What does this project do and who uses it?
+2. Architecture overview — modules, layers, how data flows.
+3. Where are the entry points (main, routes, handlers)?
+4. What conventions or gotchas would trip up a new contributor?
+Name actual files. Skip obvious things.""",
     ),
     PromptTemplate(
-        name = "Explain file",
-        category = "Understand",
-        description = "Deep-dive on a single file and its role in the system.",
-        body = """Explain the file {file}:
-- What responsibility does this class/module own?
-- How does it interact with the rest of the codebase (callers, dependencies)?
-- Are there any surprising implementation choices or known limitations?""",
+        name = "What does this file do",
+        category = "Explore",
+        description = "Explain a file's purpose and how it fits into the project.",
+        body = "Explain {file} — what it owns, who calls it, what it depends on, and anything non-obvious about the implementation.",
     ),
     PromptTemplate(
-        name = "Trace feature end-to-end",
-        category = "Understand",
-        description = "Follow a feature or request from trigger to result.",
-        body = """Trace how {feature} works end-to-end in this codebase.
-Start at the user-facing entry point (UI event, API endpoint, CLI command) and follow the call chain all the way through to the final side-effect (DB write, response, file change, etc.).
-Name the actual classes and methods at each step.""",
+        name = "How does this feature work",
+        category = "Explore",
+        description = "Trace a feature from user action to final effect.",
+        body = "Trace {feature} end-to-end. Start at the trigger (click, request, event) and follow every step to the final side-effect. Name the actual classes and methods.",
     ),
     PromptTemplate(
-        name = "Map dependencies",
-        category = "Understand",
-        description = "Show what a class or module depends on and what depends on it.",
-        body = """Map the dependency graph around {target}:
-- What does {target} depend on directly?
-- What depends on {target}?
-- Are there any circular dependencies or surprising couplings?""",
+        name = "What changed recently",
+        category = "Explore",
+        description = "Summarize recent git activity.",
+        body = "Summarize the last 20 commits. Group by area (feature, fix, refactor). Flag anything that looks risky or half-finished.",
     ),
 
-    // ── Debug ─────────────────────────────────────────────────────────────
+    // ── Fix ──────────────────────────────────────────────────────────────
     PromptTemplate(
-        name = "Debug this error",
-        category = "Debug",
-        description = "Diagnose an exception or error message.",
-        body = """I'm getting this error:
+        name = "Fix this error",
+        category = "Fix",
+        description = "Diagnose and fix an error or exception.",
+        body = """I'm hitting this error:
 
 {error}
 
-Help me diagnose the root cause:
-1. What does this error mean?
-2. What are the most likely causes given this codebase?
-3. What should I check or add to narrow it down?
-Don't guess — tell me what you'd need to see to be certain.""",
+Find the root cause in this codebase and fix it. Show me the exact change. If you need more context, tell me which file to look at instead of guessing.""",
+    ),
+    PromptTemplate(
+        name = "Fix this build failure",
+        category = "Fix",
+        description = "Diagnose a build or CI failure.",
+        body = """The build is failing with:
+
+{error}
+
+Diagnose the issue — is it a dependency problem, a config issue, a code error, or an environment difference? Give me the fix, not just the explanation.""",
     ),
     PromptTemplate(
         name = "Why is this slow",
-        category = "Debug",
-        description = "Investigate a performance problem.",
-        body = """{target} is slower than expected. Help me investigate:
-1. What are the most common causes of slowness in this type of code?
-2. Looking at the implementation, where are the likely bottlenecks?
-3. What would you profile or measure first?
-4. Suggest concrete improvements, but only after understanding the actual hotspot.""",
+        category = "Fix",
+        description = "Profile and fix a performance issue.",
+        body = """{target} is too slow. Look at the implementation and tell me:
+1. Where is time actually being spent?
+2. What's the fix?
+Don't suggest generic optimizations. Point at the specific bottleneck in this code.""",
     ),
     PromptTemplate(
-        name = "Find the race condition",
-        category = "Debug",
-        description = "Spot concurrency issues in async or multi-threaded code.",
-        body = """Review {target} for concurrency issues:
-- Shared mutable state accessed without synchronization
-- Operations that need to be atomic but aren't
-- Callbacks or coroutines that resume on unexpected threads
-- Anything that would behave differently under load or slow I/O""",
+        name = "Fix the flaky test",
+        category = "Fix",
+        description = "Diagnose a test that passes sometimes and fails sometimes.",
+        body = """{test} is flaky — it passes locally but fails in CI (or vice versa). Look at it and find:
+- Timing dependencies or race conditions
+- Shared state between tests
+- Environment assumptions (paths, ports, locale)
+Give me the fix, not just the diagnosis.""",
     ),
 
-    // ── Quality ───────────────────────────────────────────────────────────
+    // ── Review ───────────────────────────────────────────────────────────
     PromptTemplate(
-        name = "Review these changes",
-        category = "Quality",
-        description = "Opinionated review of recent or staged changes.",
-        body = """Review my recent changes with a senior engineer's eye. I care about:
-1. Correctness — any bugs or edge cases I missed?
-2. Safety — SQL injection, unvalidated input, accidental data exposure, exception swallowing?
-3. Design — does this fit the existing patterns? Is it more complex than it needs to be?
-4. Tests — what scenarios am I not testing?
-Be direct. If something is wrong, say so.""",
+        name = "Review my changes",
+        category = "Review",
+        description = "Code review of staged or recent changes.",
+        body = """Review my recent changes. Be direct. I want to know:
+1. Bugs or edge cases I missed
+2. Security issues (injection, auth gaps, data leaks)
+3. Anything that doesn't fit the existing patterns
+4. Missing test coverage
+If it's fine, say so. Don't invent problems.""",
+    ),
+    PromptTemplate(
+        name = "Is this safe to deploy",
+        category = "Review",
+        description = "Pre-deployment sanity check.",
+        body = """I'm about to deploy these changes. Check for:
+- Breaking changes to public APIs or DB schemas
+- Missing migrations or feature flags
+- Config changes that need to happen before/after deploy
+- Anything that could fail silently in production
+Give me a go/no-go.""",
     ),
     PromptTemplate(
         name = "Security audit",
-        category = "Quality",
-        description = "Look for security vulnerabilities in a file or feature.",
-        body = """Security audit of {target}. Check for:
-- Injection vulnerabilities (SQL, command, path traversal)
-- Authentication/authorization gaps
-- Sensitive data in logs, error messages, or responses
-- Insecure defaults or missing input validation
-- Dependency issues or unsafe API usage
-Report findings with severity and a recommended fix for each.""",
-    ),
-    PromptTemplate(
-        name = "Write tests",
-        category = "Quality",
-        description = "Generate unit or integration tests for a class or function.",
-        body = """Write tests for {target}.
-- Happy path
-- Boundary conditions and edge cases
-- Error paths — what happens when dependencies fail?
-- Any invariants that should always hold
-
-Use the same test framework and style already in this project.
-Don't mock things that don't need mocking.""",
-    ),
-    PromptTemplate(
-        name = "Find dead code",
-        category = "Quality",
-        description = "Identify unused code that can be removed.",
-        body = """Look through the codebase for dead code:
-- Unused classes, methods, or fields
-- Unreachable branches
-- Feature flags that are always on/off
-- Duplicate implementations of the same thing
-For each finding, confirm it's actually unused before suggesting removal.""",
+        category = "Review",
+        description = "Check for security vulnerabilities.",
+        body = """Security audit of {target}:
+- Injection (SQL, command, path traversal, XSS)
+- Auth/authz gaps
+- Sensitive data in logs or error messages
+- Insecure defaults
+Severity + fix for each finding. Skip theoretical risks — focus on what's actually exploitable.""",
     ),
 
-    // ── Develop ───────────────────────────────────────────────────────────
+    // ── Write ────────────────────────────────────────────────────────────
     PromptTemplate(
-        name = "Implement feature",
-        category = "Develop",
-        description = "Ask the AI to implement something new.",
+        name = "Implement this",
+        category = "Write",
+        description = "Build a feature following existing patterns.",
         body = """Implement: {description}
 
-Before writing any code:
-1. Identify the files that need to change.
-2. Describe the approach you'll take and why.
-3. Flag any design decisions where there's a meaningful trade-off.
+Before coding:
+1. Which files need to change?
+2. What's the approach and why?
+3. Any trade-offs I should know about?
 
-Then implement it following the existing patterns in this codebase. No new dependencies unless necessary.""",
+Then write the code. Follow existing patterns in this codebase. No new dependencies unless truly necessary.""",
     ),
     PromptTemplate(
-        name = "Refactor",
-        category = "Develop",
-        description = "Improve a piece of code without changing its behavior.",
-        body = """Refactor {target} to improve clarity and maintainability.
-Constraints:
-- Don't change observable behavior
-- Don't introduce abstractions that aren't needed yet
-- Follow the conventions already in this codebase
-Explain each change and why it's an improvement.""",
+        name = "Write tests for this",
+        category = "Write",
+        description = "Generate tests for a class or function.",
+        body = """Write tests for {target}. Cover:
+- Happy path
+- Edge cases and boundaries
+- Error/failure paths
+- Any invariants that must always hold
+
+Use the same framework and style as the existing tests in this project.""",
     ),
     PromptTemplate(
-        name = "Migrate to",
-        category = "Develop",
-        description = "Replace one API, library, or pattern with another.",
-        body = """Migrate {from} to {to}.
-1. What needs to change?
-2. Are there semantic differences I need to handle?
-3. Show me a concrete migration for the most complex call site.
-4. Is there anything that can't be migrated automatically?""",
+        name = "Add a REST endpoint",
+        category = "Write",
+        description = "Create a new API endpoint following existing patterns.",
+        body = """Add a {method} endpoint at {path} that {description}.
+
+Follow the existing endpoint patterns in this codebase for:
+- Request/response types
+- Validation
+- Error handling
+- Authentication
+Include the test.""",
+    ),
+    PromptTemplate(
+        name = "Write a database migration",
+        category = "Write",
+        description = "Create a schema migration.",
+        body = """Write a migration to {description}.
+
+Follow the existing migration style in this project. Include:
+- The up migration
+- The down/rollback migration
+- Any data backfill if needed
+Flag anything that could lock tables or be slow on large datasets.""",
+    ),
+    PromptTemplate(
+        name = "Refactor this",
+        category = "Write",
+        description = "Improve code without changing behavior.",
+        body = """Refactor {target}. Don't change behavior. Don't add abstractions that aren't needed yet. Follow existing conventions. Explain each change briefly.""",
+    ),
+    PromptTemplate(
+        name = "Convert to",
+        category = "Write",
+        description = "Convert code from one language, framework, or pattern to another.",
+        body = """Convert {target} from {from} to {to}.
+
+Handle semantic differences — don't just transliterate syntax. Show me the most complex part first so I can validate the approach before you do the rest.""",
     ),
 
-    // ── Git ───────────────────────────────────────────────────────────────
+    // ── Git ──────────────────────────────────────────────────────────────
     PromptTemplate(
-        name = "Commit message",
+        name = "Write commit message",
         category = "Git",
-        description = "Write a conventional commit for staged changes.",
-        body = """Write a conventional commit message for my staged changes.
-Format: <type>(<scope>): <subject>
+        description = "Conventional commit for staged changes.",
+        body = """Write a commit message for my staged changes.
+Format: type(scope): subject
 
-Rules:
-- type: feat | fix | refactor | test | chore | docs | perf | ci
-- subject: imperative mood, ≤72 chars, no period
-- Body (optional): explain the *why*, not the what — the diff already shows the what
-- If there's a breaking change, add a footer: BREAKING CHANGE: <description>""",
+Types: feat, fix, refactor, test, chore, docs, perf, ci
+Subject: imperative mood, under 72 chars, no period.
+Body: explain why, not what. The diff shows what.""",
     ),
     PromptTemplate(
-        name = "PR description",
+        name = "Write PR description",
         category = "Git",
-        description = "Generate a pull request description from recent commits.",
-        body = """Write a pull request description for my changes.
+        description = "Pull request summary from recent commits.",
+        body = """Write a PR description for my changes:
 
 ## Summary
-What changed and why — 3-5 bullet points, non-obvious context only.
+What changed and why — bullet points, non-obvious context only.
 
 ## How to test
-Concrete steps a reviewer can follow to verify the change works.
+Steps a reviewer can follow to verify.
 
-## Notes for reviewers
-Anything tricky, assumptions made, or follow-up work deferred.""",
+## Risks
+Anything that might break, and how to roll back.""",
+    ),
+    PromptTemplate(
+        name = "Explain this diff",
+        category = "Git",
+        description = "Explain what a diff or set of changes does.",
+        body = "Explain this diff to me. What's the intent behind these changes? Is anything suspicious or incomplete?",
     ),
 
-    // ── Docs ──────────────────────────────────────────────────────────────
+    // ── DevOps ───────────────────────────────────────────────────────────
     PromptTemplate(
-        name = "Document this",
-        category = "Docs",
-        description = "Generate KDoc/Javadoc/docstring for a function or class.",
-        body = """Write documentation for {target}.
-- One-sentence summary of what it does
-- Explain non-obvious parameters and return value
-- Note any preconditions, side effects, or exceptions
-- If the implementation has a subtle trick, explain it in a NOTE
+        name = "Write a Dockerfile",
+        category = "DevOps",
+        description = "Create or improve a Dockerfile for this project.",
+        body = """Write a Dockerfile for this project. It should:
+- Use a minimal base image appropriate for the language/framework
+- Leverage layer caching (dependencies before source)
+- Run as non-root
+- Work in CI and locally
+If there's already a Dockerfile, improve it instead of starting over.""",
+    ),
+    PromptTemplate(
+        name = "Write a GitHub Action",
+        category = "DevOps",
+        description = "Create or fix a CI/CD workflow.",
+        body = """Create a GitHub Actions workflow that {description}.
 
-Match the doc style already used in this file.""",
+Requirements:
+- Pin action versions with SHA hashes
+- Use minimal permissions
+- Cache dependencies where possible
+- Fail fast with clear error messages""",
+    ),
+    PromptTemplate(
+        name = "Debug CI failure",
+        category = "DevOps",
+        description = "Diagnose why a CI pipeline is failing.",
+        body = """This CI job is failing:
+
+{error}
+
+Is this a code issue, a config issue, or an environment issue? What's the fix? If it's flaky, explain why and how to make it deterministic.""",
     ),
 )
 
