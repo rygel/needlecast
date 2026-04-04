@@ -39,6 +39,7 @@ class DockablePanel(
     override fun getPersistentID(): String = id
     override fun getTabText(): String = title
     override fun isClosable(): Boolean = closable
+    override fun isWrappableInScrollpane(): Boolean = false
 
     fun setHoverHighlight(on: Boolean) {
         border = if (on) {

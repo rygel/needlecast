@@ -2,6 +2,17 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.5] — 2026-04-04
+
+### Fixed
+- **Ctrl+V paste broken in terminal** — keyboard focus sits on JediTerm's inner TerminalPanel, so the `processKeyEvent` override on the widget never fired; replaced with a `KeyEventDispatcher` that intercepts before any component sees the event
+- **Nested scroll panes in docked panels** — ModernDocking wraps every dockable in a JScrollPane by default (`isWrappableInScrollpane`); panels like Project Tree and Explorer already have their own, causing scroll-within-scroll
+
+### Added
+- End-to-end UI test for terminal Ctrl+V paste (runs in Docker with Xvfb)
+
+---
+
 ## [0.6.4] — 2026-04-04
 
 ### Changed
