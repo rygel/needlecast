@@ -180,14 +180,33 @@ jobs:
           PUB_DATE="$(date -R)"
           RELEASE_NOTES="https://github.com/$REPO/releases/tag/$RELEASE_TAG"
 
-          # Query release assets for filenames and sizes
-          ASSETS=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.assets[] | "\(.name) \(.size)"')
-          WIN_FILE=$(echo "$ASSETS" | grep '\.exe$' | awk '{print $1}' || true)
-          WIN_SIZE=$(echo "$ASSETS" | grep '\.exe$' | awk '{print $2}' || echo "0")
-          MAC_FILE=$(echo "$ASSETS" | grep '\.dmg$' | awk '{print $1}' || true)
-          MAC_SIZE=$(echo "$ASSETS" | grep '\.dmg$' | awk '{print $2}' || echo "0")
-          DEB_FILE=$(echo "$ASSETS" | grep '\.deb$' | awk '{print $1}' || true)
-          DEB_SIZE=$(echo "$ASSETS" | grep '\.deb$' | awk '{print $2}' || echo "0")
+          # Wait for all expected assets to appear (GitHub API propagation delay)
+          echo "=== Waiting for release assets to be available ==="
+          for ATTEMPT in $(seq 1 12); do
+            ASSETS=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.assets[] | "\(.name) \(.size)"')
+            HAS_EXE=$(echo "$ASSETS" | grep -c '\.exe$' || true)
+            HAS_DMG=$(echo "$ASSETS" | grep -c '\.dmg$' || true)
+            HAS_DEB=$(echo "$ASSETS" | grep -c '\.deb$' || true)
+            if [[ "$HAS_EXE" -ge 1 && "$HAS_DMG" -ge 1 && "$HAS_DEB" -ge 1 ]]; then
+              echo "All native assets found (attempt $ATTEMPT)"
+              break
+            fi
+            if [[ "$ATTEMPT" -eq 12 ]]; then
+              echo "FATAL: native assets not found after 60 s (exe=$HAS_EXE dmg=$HAS_DMG deb=$HAS_DEB)"
+              echo "Available assets:"
+              echo "$ASSETS"
+              exit 1
+            fi
+            echo "Waiting for assets... (attempt $ATTEMPT, exe=$HAS_EXE dmg=$HAS_DMG deb=$HAS_DEB)"
+            sleep 5
+          done
+
+          WIN_FILE=$(echo "$ASSETS" | grep '\.exe$' | awk '{print $1}')
+          WIN_SIZE=$(echo "$ASSETS" | grep '\.exe$' | awk '{print $2}')
+          MAC_FILE=$(echo "$ASSETS" | grep '\.dmg$' | awk '{print $1}')
+          MAC_SIZE=$(echo "$ASSETS" | grep '\.dmg$' | awk '{print $2}')
+          DEB_FILE=$(echo "$ASSETS" | grep '\.deb$' | awk '{print $1}')
+          DEB_SIZE=$(echo "$ASSETS" | grep '\.deb$' | awk '{print $2}')
 
           cat > appcast.xml << EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -241,12 +260,12 @@ jobs:
 
           echo ""
           echo "=== Validating XML structure ==="
-          xmllint --noout appcast.xml
+          python3 -c "import xml.etree.ElementTree as ET; ET.parse('appcast.xml')"
           echo "XML is well-formed"
 
           echo ""
           echo "=== Checking version in appcast ==="
-          APPCAST_VERSION=$(xmllint --xpath "string(//*[local-name()='version'])" appcast.xml)
+          APPCAST_VERSION=$(grep -oP '<sparkle:version>\K[^<]+' appcast.xml)
           if [[ "$APPCAST_VERSION" != "$VERSION" ]]; then
             echo "FAIL: appcast version '$APPCAST_VERSION' does not match release '$VERSION'"
             ERRORS=$((ERRORS + 1))
@@ -255,9 +274,15 @@ jobs:
           fi
 
           echo ""
-          echo "=== Checking download URLs ==="
-          for URL in $(xmllint --xpath "//*[local-name()='enclosure']/@url" appcast.xml | grep -oP 'url="\K[^"]+'); do
-            echo -n "  $URL ... "
+          echo "=== Checking enclosure URLs are not empty ==="
+          while IFS= read -r URL; do
+            printf "  %s ... " "$URL"
+            # Detect broken URLs that end with just /
+            if [[ "$URL" =~ /$ ]]; then
+              echo "FAIL (URL has no filename — asset was missing during appcast generation)"
+              ERRORS=$((ERRORS + 1))
+              continue
+            fi
             STATUS=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 30 "$URL")
             if [[ "$STATUS" == "200" ]]; then
               echo "OK ($STATUS)"
@@ -265,7 +290,7 @@ jobs:
               echo "FAIL ($STATUS)"
               ERRORS=$((ERRORS + 1))
             fi
-          done
+          done < <(grep -oP 'url="\K[^"]+' appcast.xml)
 
           echo ""
           echo "=== Checking expected assets exist ==="
