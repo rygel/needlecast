@@ -88,6 +88,7 @@ class TerminalPanel(
             val text = try { cb.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String } catch (_: Exception) { null }
             if (text != null) sendInput(text)
         }
+        termWidget.onTextInput = { text -> sendInput(text) }
         startShell()
     }
 
@@ -259,9 +260,31 @@ class TerminalPanel(
 
     private class ShrinkableJediTermWidget(settings: QuickLaunchTerminalSettings) : JediTermWidget(settings) {
         var onPasteRequested: (() -> Unit)? = null
+        var onTextInput: ((String) -> Unit)? = null
 
         override fun getMinimumSize(): Dimension = Dimension(0, 0)
         override fun getPreferredSize(): Dimension = Dimension(1, 1)
+
+        init {
+            // Catch text from input methods (voice-to-text, IME, etc.)
+            enableInputMethods(true)
+            addInputMethodListener(object : java.awt.event.InputMethodListener {
+                override fun inputMethodTextChanged(e: java.awt.event.InputMethodEvent) {
+                    val text = e.text
+                    if (text != null) {
+                        val sb = StringBuilder()
+                        var c = text.first()
+                        while (c != java.text.CharacterIterator.DONE) {
+                            sb.append(c)
+                            c = text.next()
+                        }
+                        if (sb.isNotEmpty()) onTextInput?.invoke(sb.toString())
+                    }
+                    e.consume()
+                }
+                override fun caretPositionChanged(e: java.awt.event.InputMethodEvent) {}
+            })
+        }
 
         override fun processKeyEvent(e: java.awt.event.KeyEvent) {
             if (e.id == java.awt.event.KeyEvent.KEY_PRESSED &&
