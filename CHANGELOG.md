@@ -2,6 +2,13 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.8] — 2026-04-04
+
+### Fixed
+- **Appcast workflow now works end-to-end** — grep fix (`\.exe$` → `\.exe `) deployed to main; previous releases had the fix on develop but not main
+
+---
+
 ## [0.6.7] — 2026-04-04
 
 ### Fixed
