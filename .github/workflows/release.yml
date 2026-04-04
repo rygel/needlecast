@@ -275,8 +275,8 @@ jobs:
 
           echo ""
           echo "=== Checking enclosure URLs are not empty ==="
-          for URL in $(grep -oP 'url="\K[^"]+' appcast.xml); do
-            echo -n "  $URL ... "
+          while IFS= read -r URL; do
+            printf "  %s ... " "$URL"
             # Detect broken URLs that end with just /
             if [[ "$URL" =~ /$ ]]; then
               echo "FAIL (URL has no filename — asset was missing during appcast generation)"
@@ -290,7 +290,7 @@ jobs:
               echo "FAIL ($STATUS)"
               ERRORS=$((ERRORS + 1))
             fi
-          done
+          done < <(grep -oP 'url="\K[^"]+' appcast.xml)
 
           echo ""
           echo "=== Checking expected assets exist ==="
