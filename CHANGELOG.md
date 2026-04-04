@@ -2,6 +2,23 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.6] — 2026-04-04
+
+### Fixed
+- **Editor theme mismatch** — `EditorPanel.applyTheme()` used hardcoded colours instead of reading from the active FlatLaf theme via `UIManager`; now derives bg/fg/caret from `UIManager.getColor("TextArea.*")` and themes the gutter (line numbers)
+- **Terminal theme not applied** — `pushStyleToJediTerm()` reflection targeted `JediTermWidget` instead of JediTerm's inner `TerminalPanel` where `myStyleState` actually lives; silently failed every time
+- **Terminal starts black** — initial terminal session used hardcoded fallback colours because `UIManager` colours weren't read during construction; now reads them in the settings provider initialiser
+- **Terminal placeholder black** — the idle placeholder panel hardcoded `Color(0x1E1E1E)`; now uses `UIManager` and updates on theme switch
+- **Terminal selection colours** — hardcoded selection highlight now derived from `UIManager.getColor("TextArea.selectionBackground")`
+- **Appcast generation race condition** — `update-appcast` job queried the GitHub API before native assets propagated, producing empty download URLs; now retries up to 60 s and fails hard if assets are missing
+- **`verify-update` CI job broken** — replaced missing `xmllint` with `python3` + `grep`; added check for URLs ending in `/`
+
+### Added
+- 15 end-to-end UI tests for theming (editor, terminal, consistency across theme variants)
+- Updated documentation screenshots
+
+---
+
 ## [0.6.5] — 2026-04-04
 
 ### Fixed
