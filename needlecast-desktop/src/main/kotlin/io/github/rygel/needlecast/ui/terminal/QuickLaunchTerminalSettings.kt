@@ -109,10 +109,10 @@ class QuickLaunchTerminalSettings(
     }
 
     override fun getSelectionColor(): TextStyle {
-        val bg = themeBackground ?: if (isDark) Color(0x1E1E1E) else Color(0xFFFFFF)
-        val selBg = if (isDark) Color(0x264F78) else Color(0xADD6FF)
-        val selFg = if (isDark) Color(0xD4D4D4) else Color(0x1E1E1E)
-        // Lighten/darken the theme bg slightly for selection if we have a theme color
+        val selBg = javax.swing.UIManager.getColor("TextArea.selectionBackground")
+            ?: if (isDark) Color(0x264F78) else Color(0xADD6FF)
+        val selFg = javax.swing.UIManager.getColor("TextArea.selectionForeground")
+            ?: if (isDark) Color(0xD4D4D4) else Color(0x1E1E1E)
         return TextStyle(TerminalColor.awt(selFg), TerminalColor.awt(selBg))
     }
 }

@@ -146,12 +146,16 @@ class TerminalPanel(
      * JediTerm caches the default style in a [StyleState] at session-creation time.
      * After a live color change we must also update that cache, otherwise existing
      * terminal sessions keep rendering with the old colors.
+     *
+     * The [StyleState] lives on JediTerm's inner [com.jediterm.terminal.ui.TerminalPanel]
+     * (field `myStyleState`), **not** on [JediTermWidget] itself.
      */
     private fun pushStyleToJediTerm(style: TextStyle) {
         try {
-            val field = termWidget.javaClass.getDeclaredField("myStyleState")
+            val innerPanel = termWidget.terminalPanel
+            val field = innerPanel.javaClass.getDeclaredField("myStyleState")
             field.isAccessible = true
-            (field.get(termWidget) as? StyleState)?.setDefaultStyle(style)
+            (field.get(innerPanel) as? StyleState)?.setDefaultStyle(style)
         } catch (_: Exception) {}
     }
 
