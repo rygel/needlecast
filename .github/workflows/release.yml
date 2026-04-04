@@ -180,19 +180,21 @@ jobs:
           PUB_DATE="$(date -R)"
           RELEASE_NOTES="https://github.com/$REPO/releases/tag/$RELEASE_TAG"
 
-          # Wait for all expected assets to appear (GitHub API propagation delay)
+          # Wait for all expected assets to appear (GitHub API propagation delay).
+          # Query format: "filename size" per line — grep must NOT use $ anchor
+          # because each line ends with the size, not the extension.
           echo "=== Waiting for release assets to be available ==="
-          for ATTEMPT in $(seq 1 12); do
-            ASSETS=$(gh api "repos/$REPO/releases/tags/$RELEASE_TAG" --jq '.assets[] | "\(.name) \(.size)"')
-            HAS_EXE=$(echo "$ASSETS" | grep -c '\.exe$' || true)
-            HAS_DMG=$(echo "$ASSETS" | grep -c '\.dmg$' || true)
-            HAS_DEB=$(echo "$ASSETS" | grep -c '\.deb$' || true)
+          for ATTEMPT in $(seq 1 30); do
+            ASSETS=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json assets --jq '.assets[] | "\(.name) \(.size)"')
+            HAS_EXE=$(echo "$ASSETS" | grep -c '\.exe ' || true)
+            HAS_DMG=$(echo "$ASSETS" | grep -c '\.dmg ' || true)
+            HAS_DEB=$(echo "$ASSETS" | grep -c '\.deb ' || true)
             if [[ "$HAS_EXE" -ge 1 && "$HAS_DMG" -ge 1 && "$HAS_DEB" -ge 1 ]]; then
               echo "All native assets found (attempt $ATTEMPT)"
               break
             fi
-            if [[ "$ATTEMPT" -eq 12 ]]; then
-              echo "FATAL: native assets not found after 60 s (exe=$HAS_EXE dmg=$HAS_DMG deb=$HAS_DEB)"
+            if [[ "$ATTEMPT" -eq 30 ]]; then
+              echo "FATAL: native assets not found after 150 s (exe=$HAS_EXE dmg=$HAS_DMG deb=$HAS_DEB)"
               echo "Available assets:"
               echo "$ASSETS"
               exit 1
@@ -201,12 +203,12 @@ jobs:
             sleep 5
           done
 
-          WIN_FILE=$(echo "$ASSETS" | grep '\.exe$' | awk '{print $1}')
-          WIN_SIZE=$(echo "$ASSETS" | grep '\.exe$' | awk '{print $2}')
-          MAC_FILE=$(echo "$ASSETS" | grep '\.dmg$' | awk '{print $1}')
-          MAC_SIZE=$(echo "$ASSETS" | grep '\.dmg$' | awk '{print $2}')
-          DEB_FILE=$(echo "$ASSETS" | grep '\.deb$' | awk '{print $1}')
-          DEB_SIZE=$(echo "$ASSETS" | grep '\.deb$' | awk '{print $2}')
+          WIN_FILE=$(echo "$ASSETS" | grep '\.exe ' | awk '{print $1}')
+          WIN_SIZE=$(echo "$ASSETS" | grep '\.exe ' | awk '{print $2}')
+          MAC_FILE=$(echo "$ASSETS" | grep '\.dmg ' | awk '{print $1}')
+          MAC_SIZE=$(echo "$ASSETS" | grep '\.dmg ' | awk '{print $2}')
+          DEB_FILE=$(echo "$ASSETS" | grep '\.deb ' | awk '{print $1}')
+          DEB_SIZE=$(echo "$ASSETS" | grep '\.deb ' | awk '{print $2}')
 
           cat > appcast.xml << EOF
           <?xml version="1.0" encoding="UTF-8"?>
