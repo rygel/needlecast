@@ -33,7 +33,16 @@ class TerminalPanel(
 
     private val logger = LoggerFactory.getLogger(TerminalPanel::class.java)
 
-    private val settingsProvider = QuickLaunchTerminalSettings(dark = dark, initialFg = initialFg, initialBg = initialBg, initialFontSize = initialFontSize)
+    private val settingsProvider = QuickLaunchTerminalSettings(dark = dark, initialFg = initialFg, initialBg = initialBg, initialFontSize = initialFontSize).apply {
+        // Read UIManager colours immediately so the initial terminal session
+        // matches the active FlatLaf theme.  Without this, the first session
+        // uses hardcoded fallback colours until applyTheme() is called later.
+        val themeBg = javax.swing.UIManager.getColor("TextArea.background")
+            ?: javax.swing.UIManager.getColor("Panel.background")
+        val themeFg = javax.swing.UIManager.getColor("TextArea.foreground")
+            ?: javax.swing.UIManager.getColor("Panel.foreground")
+        if (themeFg != null || themeBg != null) applyThemeColors(themeFg, themeBg)
+    }
     private val termWidget = ShrinkableJediTermWidget(settingsProvider)
     private val termContainer = object : JPanel(BorderLayout()) {
         override fun getPreferredSize(): Dimension = Dimension(1, 1)
