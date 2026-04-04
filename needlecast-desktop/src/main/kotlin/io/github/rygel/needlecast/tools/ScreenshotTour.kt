@@ -21,28 +21,22 @@ import java.util.concurrent.CountDownLatch
 import javax.imageio.ImageIO
 import javax.swing.JDialog
 import javax.swing.JFrame
+import javax.swing.JOptionPane
 import javax.swing.SwingUtilities
 
 /**
- * Headless screenshot tour.
+ * Headless screenshot tour — captures every major screen of the Needlecast UI.
  *
- * Launches the full Needlecast UI with synthetic demo data, captures a PNG of each major
- * screen/dialog, and exits. Intended to run inside the Xvfb Docker container on CI so the
- * output always reflects the current UI — no hand-maintained screenshots.
+ * Runs inside the Xvfb Docker container on CI to produce up-to-date screenshots
+ * for the user manual. Uses Dark Purple theme with realistic demo data.
  *
  * Usage:
  *   java -cp needlecast.jar io.github.rygel.needlecast.tools.ScreenshotTourKt [output-dir]
- *
- * Default output-dir: target/screenshots
- *
- * Requires a real display (DISPLAY env var). On CI use Xvfb:
- *   Xvfb :99 -screen 0 1280x900x24 & DISPLAY=:99 java ...
  */
 fun main(args: Array<String>) {
     val outputDir = Path.of(args.getOrElse(0) { "target/screenshots" })
     Files.createDirectories(outputDir)
 
-    // Isolated home so docking state and config don't bleed in from the developer's machine
     val fakeHome = Files.createTempDirectory("needlecast-tour-")
     System.setProperty("user.home", fakeHome.toString())
     System.setProperty("awt.useSystemAAFontSettings", "lcd")
@@ -53,7 +47,7 @@ fun main(args: Array<String>) {
     val projects = createDemoProjects(demoRoot)
     val demoConfig = buildDemoConfig(projects)
 
-    ThemeRegistry.apply("one-dark")
+    ThemeRegistry.apply("dark-purple")
 
     val ctx = AppContext(configStore = FixedConfigStore(demoConfig))
 
@@ -70,8 +64,8 @@ fun main(args: Array<String>) {
         windowReady.countDown()
     }
 
-    // Hard timeout — kill the JVM if the tour takes longer than 2 minutes
-    val watchdog = Thread {
+    // Hard timeout
+    Thread {
         Thread.sleep(120_000)
         System.err.println("Screenshot tour timed out after 2 minutes")
         Runtime.getRuntime().halt(1)
@@ -79,17 +73,16 @@ fun main(args: Array<String>) {
 
     windowReady.await()
     val robot = Robot()
-    // Allow the window and all panels to fully render before the first screenshot
     Thread.sleep(3000)
 
     val w = mainWindow!!
 
     try {
-        // ── 1: Main window ────────────────────────────────────────────────────
+        // ── 01: Main window — project tree with folders and projects ──────
         screenshot(robot, w, outputDir.resolve("01-main-window.png"))
         println("  > 01-main-window.png")
 
-        // ── 2: Settings dialog ────────────────────────────────────────────────
+        // ── 02: Settings — General tab ───────────────────────────────────
         dialogShot(robot, outputDir.resolve("02-settings.png")) {
             SettingsDialog(w, ctx,
                 sendToTerminal       = {},
@@ -99,12 +92,12 @@ fun main(args: Array<String>) {
             ).isVisible = true
         }
 
-        // ── 3: Prompt Library ─────────────────────────────────────────────────
+        // ── 03: Prompt Library ───────────────────────────────────────────
         dialogShot(robot, outputDir.resolve("03-prompt-library.png")) {
             PromptLibraryDialog(w, ctx, sendToTerminal = {}).isVisible = true
         }
 
-        // ── 4: Command Library ────────────────────────────────────────────────
+        // ── 04: Command Library ──────────────────────────────────────────
         dialogShot(robot, outputDir.resolve("04-command-library.png")) {
             PromptLibraryDialog(
                 w, ctx,
@@ -116,19 +109,37 @@ fun main(args: Array<String>) {
             ).isVisible = true
         }
 
-        // ── 5: Project Switcher ───────────────────────────────────────────────
+        // ── 05: Project Switcher (Ctrl+P) ────────────────────────────────
         dialogShot(robot, outputDir.resolve("05-project-switcher.png")) {
             ProjectSwitcherDialog(w, ctx, onSelect = { _, _ -> }).isVisible = true
         }
 
-        // ── 6: Environment Variables editor ──────────────────────────────────
+        // ── 06: Environment Variables ────────────────────────────────────
         dialogShot(robot, outputDir.resolve("06-env-editor.png")) {
             EnvEditorDialog(
                 owner        = w,
                 projectLabel = "needlecast-app",
-                initial      = mapOf("JAVA_OPTS" to "-Xmx512m", "MAVEN_OPTS" to "-Xss4m", "NODE_ENV" to "development"),
+                initial      = mapOf(
+                    "JAVA_HOME" to "/usr/lib/jvm/java-21",
+                    "MAVEN_OPTS" to "-Xmx2g -Xss4m",
+                    "NODE_ENV" to "development",
+                    "DATABASE_URL" to "postgres://localhost:5432/mydb",
+                ),
                 onSave       = {},
             ).isVisible = true
+        }
+
+        // ── 07: About dialog ─────────────────────────────────────────────
+        dialogShot(robot, outputDir.resolve("07-about.png")) {
+            // Trigger the about dialog by calling showAbout via reflection
+            try {
+                val method = w.javaClass.getDeclaredMethod("showAbout")
+                method.isAccessible = true
+                method.invoke(w)
+            } catch (_: Exception) {
+                // Fallback: show a simple about-like dialog
+                JOptionPane.showMessageDialog(w, "Needlecast", "About", JOptionPane.INFORMATION_MESSAGE)
+            }
         }
 
         println("Screenshots written to $outputDir")
@@ -136,25 +147,21 @@ fun main(args: Array<String>) {
         System.err.println("Screenshot tour failed: ${e.message}")
         e.printStackTrace()
     } finally {
-        // Force exit — MainWindow spawns non-daemon threads (terminal, hook server)
-        // that would keep the JVM alive forever
         Runtime.getRuntime().halt(0)
     }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Show a dialog, wait for it to render, take a screenshot, close it. Skips on timeout. */
 private fun dialogShot(robot: Robot, dest: Path, showDialog: () -> Unit) {
     SwingUtilities.invokeLater(showDialog)
-    // Wait up to 5s for a dialog to appear
     val deadline = System.currentTimeMillis() + 5000
     while (System.currentTimeMillis() < deadline) {
         val visible = Window.getWindows().filterIsInstance<JDialog>().any { it.isVisible }
         if (visible) break
         Thread.sleep(100)
     }
-    Thread.sleep(800) // let it paint
+    Thread.sleep(800)
     screenshotTopDialog(robot, dest)
     val name = dest.fileName.toString()
     println("  > $name")
@@ -196,10 +203,12 @@ private data class DemoProject(val dir: File, val displayName: String)
 
 private fun createDemoProjects(root: Path): List<DemoProject> {
     val projects = listOf(
-        Triple("needlecast-app",  "needlecast-app",  ::scaffoldMaven),
-        Triple("web-dashboard",   "web-dashboard",   ::scaffoldNpm),
-        Triple("api-service",     "api-service",     ::scaffoldGradle),
-        Triple("data-pipeline",   "data-pipeline",   ::scaffoldMaven),
+        Triple("needlecast",    "needlecast",    ::scaffoldMaven),
+        Triple("web-dashboard", "web-dashboard", ::scaffoldNpm),
+        Triple("api-service",   "api-service",   ::scaffoldGradle),
+        Triple("ml-pipeline",   "ml-pipeline",   ::scaffoldMaven),
+        Triple("mobile-app",    "mobile-app",    ::scaffoldGradle),
+        Triple("docs-site",     "docs-site",     ::scaffoldNpm),
     )
     return projects.map { (dirName, label, scaffold) ->
         val dir = root.resolve(dirName).toFile().also { it.mkdirs() }
@@ -217,27 +226,15 @@ private fun scaffoldMaven(dir: File) {
           <artifactId>${dir.name}</artifactId>
           <version>1.0.0</version>
           <packaging>jar</packaging>
+          <build><plugins>
+            <plugin><artifactId>exec-maven-plugin</artifactId></plugin>
+          </plugins></build>
         </project>
     """.trimIndent())
-    dir.resolve("README.md").writeText("""
-        # ${dir.name}
-
-        A sample Maven project used for Needlecast screenshots.
-
-        ## Build
-
-        ```bash
-        mvn package
-        mvn verify
-        ```
-    """.trimIndent())
+    dir.resolve("README.md").writeText("# ${dir.name}\n\nA sample Maven project.\n")
     dir.resolve("src/main/kotlin").mkdirs()
     dir.resolve("src/test/kotlin").mkdirs()
-    dir.resolve("src/main/kotlin/Main.kt").writeText("""
-        fun main() {
-            println("Hello from ${dir.name}")
-        }
-    """.trimIndent())
+    dir.resolve("src/main/kotlin/Main.kt").writeText("fun main() {\n    println(\"Hello from ${dir.name}\")\n}\n")
 }
 
 private fun scaffoldNpm(dir: File) {
@@ -246,104 +243,112 @@ private fun scaffoldNpm(dir: File) {
           "name": "${dir.name}",
           "version": "1.0.0",
           "scripts": {
-            "start": "node src/index.js",
-            "build": "webpack --mode production",
-            "test": "jest"
+            "dev": "vite",
+            "build": "vite build",
+            "test": "vitest",
+            "lint": "eslint .",
+            "preview": "vite preview"
           }
         }
     """.trimIndent())
-    dir.resolve("README.md").writeText("""
-        # ${dir.name}
-
-        A sample npm project used for Needlecast screenshots.
-
-        ## Dev
-
-        ```bash
-        npm install
-        npm run dev
-        ```
-    """.trimIndent())
+    dir.resolve("README.md").writeText("# ${dir.name}\n\nA sample frontend project.\n")
     dir.resolve("src").mkdirs()
-    dir.resolve("src/index.js").writeText("console.log('Hello from ${dir.name}');")
+    dir.resolve("src/index.ts").writeText("console.log('Hello from ${dir.name}');\n")
+    dir.resolve("src/App.tsx").writeText("export default function App() {\n  return <div>Hello</div>;\n}\n")
 }
 
 private fun scaffoldGradle(dir: File) {
-    dir.resolve("build.gradle").writeText("""
+    dir.resolve("settings.gradle.kts").writeText("rootProject.name = \"${dir.name}\"\n")
+    dir.resolve("build.gradle.kts").writeText("""
         plugins {
-            id 'java'
+            id("java")
+            id("application")
         }
-        group = 'io.example'
-        version = '1.0.0'
-
+        group = "io.example"
+        version = "1.0.0"
+        application { mainClass.set("Main") }
         repositories { mavenCentral() }
     """.trimIndent())
-    dir.resolve("README.md").writeText("""
-        # ${dir.name}
-
-        A sample Gradle project used for Needlecast screenshots.
-
-        ## Build
-
-        ```bash
-        ./gradlew build
-        ./gradlew test
-        ```
-    """.trimIndent())
+    dir.resolve("README.md").writeText("# ${dir.name}\n\nA sample Gradle project.\n")
     dir.resolve("src/main/java").mkdirs()
-    dir.resolve("src/main/java/Main.java").writeText("""
-        public class Main {
-            public static void main(String[] args) {
-                System.out.println("Hello from ${dir.name}");
-            }
-        }
-    """.trimIndent())
+    dir.resolve("src/main/java/Main.java").writeText("public class Main {\n    public static void main(String[] a) {\n        System.out.println(\"Hello\");\n    }\n}\n")
 }
 
 private fun buildDemoConfig(projects: List<DemoProject>): AppConfig {
-    val (mavenApp, npmApp, gradleService, mavenPipeline) = projects
+    val needlecast = projects[0]
+    val webDashboard = projects[1]
+    val apiService = projects[2]
+    val mlPipeline = projects[3]
+    val mobileApp = projects[4]
+    val docsSite = projects[5]
 
     val projectTree = listOf(
         ProjectTreeEntry.Folder(
-            name  = "Apps",
-            color = "#3f88c5",
+            name  = "Work Projects",
+            color = "#7C4DFF",
             children = listOf(
                 ProjectTreeEntry.Project(
                     directory = ProjectDirectory(
-                        path        = mavenApp.dir.absolutePath,
-                        displayName = mavenApp.displayName,
-                    )
+                        path = needlecast.dir.absolutePath,
+                        displayName = needlecast.displayName,
+                        color = "#7C4DFF",
+                    ),
+                    tags = listOf("kotlin", "swing"),
                 ),
                 ProjectTreeEntry.Project(
                     directory = ProjectDirectory(
-                        path        = npmApp.dir.absolutePath,
-                        displayName = npmApp.displayName,
-                    )
+                        path = apiService.dir.absolutePath,
+                        displayName = apiService.displayName,
+                    ),
+                    tags = listOf("java", "rest"),
+                ),
+                ProjectTreeEntry.Project(
+                    directory = ProjectDirectory(
+                        path = mlPipeline.dir.absolutePath,
+                        displayName = mlPipeline.displayName,
+                    ),
+                    tags = listOf("data"),
                 ),
             ),
         ),
         ProjectTreeEntry.Folder(
-            name  = "Services",
-            color = "#2a9d8f",
+            name  = "Frontend",
+            color = "#FF6D00",
             children = listOf(
                 ProjectTreeEntry.Project(
                     directory = ProjectDirectory(
-                        path        = gradleService.dir.absolutePath,
-                        displayName = gradleService.displayName,
-                    )
+                        path = webDashboard.dir.absolutePath,
+                        displayName = webDashboard.displayName,
+                        color = "#FF6D00",
+                    ),
+                    tags = listOf("react", "ts"),
                 ),
                 ProjectTreeEntry.Project(
                     directory = ProjectDirectory(
-                        path        = mavenPipeline.dir.absolutePath,
-                        displayName = mavenPipeline.displayName,
-                    )
+                        path = docsSite.dir.absolutePath,
+                        displayName = docsSite.displayName,
+                    ),
+                    tags = listOf("docs"),
+                ),
+            ),
+        ),
+        ProjectTreeEntry.Folder(
+            name  = "Mobile",
+            color = "#00BFA5",
+            children = listOf(
+                ProjectTreeEntry.Project(
+                    directory = ProjectDirectory(
+                        path = mobileApp.dir.absolutePath,
+                        displayName = mobileApp.displayName,
+                    ),
+                    tags = listOf("android"),
                 ),
             ),
         ),
     )
 
     return AppConfig(
-        theme       = "one-dark",
+        theme       = "dark-purple",
         projectTree = projectTree,
         windowWidth  = 1280,
         windowHeight = 840,
