@@ -2,6 +2,14 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.7] — 2026-04-04
+
+### Fixed
+- **Appcast generation broken** — grep patterns used `\.exe$` anchor but the output format is `"name size"` per line, so `$` never matched; changed to `\.exe ` (with trailing space)
+- Screenshots workflow now only runs on `develop` to prevent binary merge conflicts on every release PR
+
+---
+
 ## [0.6.6] — 2026-04-04
 
 ### Fixed
