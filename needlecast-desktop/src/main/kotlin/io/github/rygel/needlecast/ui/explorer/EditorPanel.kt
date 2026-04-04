@@ -140,11 +140,6 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             "auto" -> if (dark) "monokai.xml" else "idea.xml"
             else   -> "$syntaxTheme.xml"
         }
-        val resolvedDark = when (syntaxTheme) {
-            "auto"                      -> dark
-            "monokai", "dark", "druid"  -> true
-            else                        -> false
-        }
         try {
             val stream = Theme::class.java.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/$themeFile")
             if (stream != null) {
@@ -156,17 +151,29 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         }
         // Preserve current zoom level — RSTA theme XML may override the font
         editor.font = editor.font.deriveFont(editorFontSize.toFloat())
-        if (resolvedDark) {
-            editor.background = java.awt.Color(0x1E1E1E)
-            editor.foreground = java.awt.Color(0xD4D4D4)
-            editor.caretColor = java.awt.Color(0xAEAFAD)
-            scrollPane.background = java.awt.Color(0x1E1E1E)
-        } else {
-            editor.background = java.awt.Color.WHITE
-            editor.foreground = java.awt.Color(0x1E1E1E)
-            editor.caretColor = java.awt.Color.BLACK
-            scrollPane.background = java.awt.Color.WHITE
-        }
+
+        // Derive colors from the active FlatLaf theme so the editor matches the
+        // surrounding application.  UIManager colors update when the L&F changes.
+        val bg = javax.swing.UIManager.getColor("TextArea.background")
+            ?: javax.swing.UIManager.getColor("Panel.background")
+            ?: if (dark) java.awt.Color(0x1E1E1E) else java.awt.Color.WHITE
+        val fg = javax.swing.UIManager.getColor("TextArea.foreground")
+            ?: javax.swing.UIManager.getColor("Panel.foreground")
+            ?: if (dark) java.awt.Color(0xD4D4D4) else java.awt.Color(0x1E1E1E)
+        val caret = javax.swing.UIManager.getColor("TextArea.caretForeground")
+            ?: fg
+
+        editor.background = bg
+        editor.foreground = fg
+        editor.caretColor = caret
+        scrollPane.background = bg
+
+        // Theme the gutter (line numbers area) to match
+        val gutter = scrollPane.gutter
+        gutter.background = bg
+        gutter.borderColor = bg
+        gutter.lineNumberColor = javax.swing.UIManager.getColor("Label.disabledForeground")
+            ?: fg.let { java.awt.Color(it.red, it.green, it.blue, 140) }
     }
 
     fun checkUnsaved(): Boolean {
