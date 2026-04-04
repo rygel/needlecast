@@ -265,7 +265,33 @@ class TerminalPanel(
         override fun getMinimumSize(): Dimension = Dimension(0, 0)
         override fun getPreferredSize(): Dimension = Dimension(1, 1)
 
+        /**
+         * Intercepts Ctrl+V before the event reaches JediTerm's inner TerminalPanel.
+         *
+         * JediTermWidget wraps an inner [com.jediterm.terminal.ui.TerminalPanel] that
+         * holds keyboard focus.  Overriding [processKeyEvent] on the *widget* has no
+         * effect because AWT dispatches the event directly to the focused inner panel.
+         * A [java.awt.KeyEventDispatcher] registered with [java.awt.KeyboardFocusManager]
+         * fires before any component sees the event, so it reliably intercepts the
+         * shortcut regardless of which child component is focused.
+         */
+        private val pasteDispatcher = java.awt.KeyEventDispatcher { e ->
+            if (e.id == java.awt.event.KeyEvent.KEY_PRESSED &&
+                (e.modifiersEx and java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0 &&
+                (e.modifiersEx and java.awt.event.InputEvent.SHIFT_DOWN_MASK) == 0 &&
+                e.keyCode == java.awt.event.KeyEvent.VK_V &&
+                SwingUtilities.isDescendingFrom(e.component, this)) {
+                onPasteRequested?.invoke()
+                true
+            } else {
+                false
+            }
+        }
+
         init {
+            java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(pasteDispatcher)
+
             // Catch text from input methods (voice-to-text, IME, etc.)
             enableInputMethods(true)
             addInputMethodListener(object : java.awt.event.InputMethodListener {
@@ -286,15 +312,10 @@ class TerminalPanel(
             })
         }
 
-        override fun processKeyEvent(e: java.awt.event.KeyEvent) {
-            if (e.id == java.awt.event.KeyEvent.KEY_PRESSED &&
-                e.isControlDown && !e.isShiftDown &&
-                e.keyCode == java.awt.event.KeyEvent.VK_V) {
-                onPasteRequested?.invoke()
-                e.consume()
-                return
-            }
-            super.processKeyEvent(e)
+        override fun close() {
+            java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                .removeKeyEventDispatcher(pasteDispatcher)
+            super.close()
         }
     }
 }
