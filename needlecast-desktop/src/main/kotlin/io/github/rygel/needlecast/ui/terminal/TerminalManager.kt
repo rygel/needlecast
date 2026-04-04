@@ -72,7 +72,8 @@ class TerminalManager : JPanel(CardLayout()) {
     }
 
     private val placeholderLabel = JLabel(MSG_IDLE, SwingConstants.CENTER).apply {
-        foreground = Color(0x6A737D)
+        foreground = javax.swing.UIManager.getColor("Label.disabledForeground")
+            ?: Color(0x6A737D)
         font = Font(Font.MONOSPACED, Font.PLAIN, 12)
     }
 
@@ -152,6 +153,14 @@ class TerminalManager : JPanel(CardLayout()) {
     fun applyTheme(dark: Boolean) {
         currentDark = dark
         terminals.values.forEach { it.applyTheme(dark) }
+        // Update the placeholder to match the new theme
+        val bg = javax.swing.UIManager.getColor("TextArea.background")
+            ?: javax.swing.UIManager.getColor("Panel.background")
+        if (bg != null) {
+            placeholderLabel.parent?.background = bg
+            placeholderLabel.foreground = javax.swing.UIManager.getColor("Label.disabledForeground")
+                ?: Color(0x6A737D)
+        }
     }
 
     private var currentFg: java.awt.Color? = null
@@ -179,7 +188,9 @@ class TerminalManager : JPanel(CardLayout()) {
 
     private fun buildPlaceholder(): JPanel {
         val panel = JPanel(BorderLayout()).apply {
-            background = Color(0x1E1E1E)
+            background = javax.swing.UIManager.getColor("TextArea.background")
+                ?: javax.swing.UIManager.getColor("Panel.background")
+                ?: Color(0x1E1E1E)
             add(placeholderLabel, BorderLayout.CENTER)
         }
         val listener = object : MouseAdapter() {
