@@ -61,6 +61,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     )
     private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
     private val gitLogPanel   = GitLogPanel(ctx.gitService)
+    private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
     private val renovatePanel = RenovatePanel()
 
     private val projectTreePanel: ProjectTreePanel = ProjectTreePanel(
@@ -68,6 +69,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         onProjectSelected = { project ->
             commandPanel.loadProject(project)
             gitLogPanel.loadProject(project?.directory?.path)
+            logViewerPanel.loadProject(project?.directory?.path)
             renovatePanel.loadProject(project?.directory?.path)
             if (project != null) {
                 explorerPanel.setRootDirectory(File(project.directory.path))
@@ -105,6 +107,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val editorDockable      = DockablePanel(explorerPanel.editorComponent, "editor",       "Editor")
     private val renovateDockable     = DockablePanel(renovatePanel,                 "renovate",     "Renovate")
     private val consoleDockable      = DockablePanel(consolePanel,                  "console",      "Output")
+    private val logViewerDockable    = DockablePanel(logViewerPanel,               "log-viewer",   "Log Viewer")
     private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
 
@@ -166,6 +169,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.registerDockable(terminalDockable)
         Docking.registerDockable(commandsDockable)
         Docking.registerDockable(gitLogDockable)
+        Docking.registerDockable(logViewerDockable)
         Docking.registerDockable(explorerDockable)
         Docking.registerDockable(editorDockable)
         Docking.registerDockable(consoleDockable)
@@ -205,6 +209,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     AppState.setAutoPersist(false)
                     AppState.setPaused(true)
                     ctx.disposeAll()
+                    logViewerPanel.dispose()
                     terminalPanel.dispose()
                     claudeHookServer?.stop()
                     dispose()
@@ -245,7 +250,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         if (!restored || !allPresent) {
             listOf(projectTreeDockable, terminalDockable, commandsDockable,
-                   gitLogDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable)
+                   gitLogDockable, logViewerDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable)
                 .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
             dockingLayoutFile.delete()
             setupDefaultDockingLayout()
@@ -285,6 +290,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.dock(commandsDockable,    terminalDockable,    DockingRegion.EAST,  0.28)
         // 5. Git Log tabbed alongside Commands
         Docking.dock(gitLogDockable,      commandsDockable,    DockingRegion.CENTER)
+        // 5b. Log Viewer tabbed alongside Git Log
+        Docking.dock(logViewerDockable,   gitLogDockable,      DockingRegion.CENTER)
         // 6. Editor tabbed with the terminal in the centre column
         Docking.dock(editorDockable,      terminalDockable,    DockingRegion.CENTER)
         // 7. Console below Commands
@@ -301,7 +308,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     fun resetLayout() {
         AppState.setAutoPersist(false)
         listOf(projectTreeDockable, terminalDockable, commandsDockable,
-               gitLogDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable)
+               gitLogDockable, logViewerDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable)
             .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
         dockingLayoutFile.delete()
         setupDefaultDockingLayout()
@@ -798,7 +805,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private val allDockables get() = listOf(
         projectTreeDockable, terminalDockable, commandsDockable, gitLogDockable,
-        renovateDockable, explorerDockable, editorDockable, consoleDockable,
+        logViewerDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
         promptInputDockable, commandInputDockable,
     )
     private var highlightedDockable: DockablePanel? = null
