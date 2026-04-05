@@ -323,6 +323,18 @@ class ProjectTreePanel(
         }
     }
 
+    /** Force the tree to recalculate all cell widths (call after initial layout). */
+    fun invalidateTreeLayout() {
+        val ui = tree.ui as? javax.swing.plaf.basic.BasicTreeUI ?: return
+        try {
+            val field = javax.swing.plaf.basic.BasicTreeUI::class.java.getDeclaredField("treeState")
+            field.isAccessible = true
+            (field.get(ui) as? javax.swing.tree.AbstractLayoutCache)?.invalidateSizes()
+        } catch (_: Exception) {}
+        tree.revalidate()
+        tree.repaint()
+    }
+
     fun setActivePaths(paths: Set<String>) {
         activePaths = paths
         tree.repaint()
@@ -806,13 +818,18 @@ class ProjectTreePanel(
         private val projectPanel = object : JPanel(BorderLayout()) {
             override fun getPreferredSize(): Dimension {
                 val base = super.getPreferredSize()
-                val vp = tree.parent as? javax.swing.JViewport ?: return base
-                // Calculate indent from depth — do NOT call tree.getRowBounds() here
-                // because that triggers layout → getNodeDimensions → getPreferredSize → StackOverflow
+                // Try multiple sources for the available width
+                var availableWidth = tree.width
+                if (availableWidth <= 0) {
+                    availableWidth = (tree.parent as? javax.swing.JViewport)?.width ?: 0
+                }
+                if (availableWidth <= 0) return base
+                // Subtract indent for this depth — do NOT call tree.getRowBounds()
+                // as that re-enters getPreferredSize and causes StackOverflow
                 val ui = tree.ui as? javax.swing.plaf.basic.BasicTreeUI
-                val perLevel = (ui?.leftChildIndent ?: 8) + (ui?.rightChildIndent ?: 12)
+                val perLevel = (ui?.leftChildIndent ?: 8) + (ui?.rightChildIndent ?: 13)
                 val indent = currentDepth * perLevel
-                val w = (vp.width - indent).coerceAtLeast(base.width)
+                val w = (availableWidth - indent).coerceAtLeast(base.width)
                 return Dimension(w, base.height.coerceAtLeast(30))
             }
         }.apply { isOpaque = true }

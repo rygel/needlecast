@@ -47,6 +47,11 @@ fun main(args: Array<String>) {
     val projects = createDemoProjects(demoRoot)
     val demoConfig = buildDemoConfig(projects)
 
+    // Create demo log file before the window opens so the log viewer discovers it
+    val demoLogDir = File(projects[0].dir.absolutePath, "target")
+    demoLogDir.mkdirs()
+    File(demoLogDir, "app.log").writeText(buildDemoLog())
+
     ThemeRegistry.apply("dark-purple")
 
     val ctx = AppContext(configStore = FixedConfigStore(demoConfig))
@@ -76,6 +81,18 @@ fun main(args: Array<String>) {
     Thread.sleep(3000)
 
     val w = mainWindow!!
+
+    // Force tree to recalculate cell widths now that the window is fully laid out
+    SwingUtilities.invokeAndWait {
+        // Access the project tree panel and invalidate its layout
+        try {
+            val field = w.javaClass.getDeclaredField("projectTreePanel")
+            field.isAccessible = true
+            val treePanel = field.get(w)
+            treePanel.javaClass.getMethod("invalidateTreeLayout").invoke(treePanel)
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+    Thread.sleep(500)
 
     try {
         // ── 01: Main window — project tree with folders and projects ──────
@@ -129,38 +146,40 @@ fun main(args: Array<String>) {
             ).isVisible = true
         }
 
-        // ── 08: Renovate panel (show via Panels menu) ────────────────────
+        // ── 08: Renovate panel (show via Panels menu, with project loaded) ─
         SwingUtilities.invokeAndWait {
             try {
-                val method = w.javaClass.getDeclaredMethod("toggleRenovate", Boolean::class.java)
-                method.isAccessible = true
-                method.invoke(w, true)
-            } catch (_: Exception) {}
+                val toggleRenovate = w.javaClass.getDeclaredMethod("toggleRenovate", Boolean::class.java)
+                toggleRenovate.isAccessible = true
+                toggleRenovate.invoke(w, true)
+                // Load the first project into the renovate panel
+                val renovatePanel = w.javaClass.getDeclaredField("renovatePanel")
+                renovatePanel.isAccessible = true
+                val panel = renovatePanel.get(w)
+                val loadMethod = panel.javaClass.getMethod("loadProject", String::class.java)
+                loadMethod.invoke(panel, projects[0].dir.absolutePath)
+            } catch (e: Exception) { e.printStackTrace() }
         }
         Thread.sleep(1000)
         screenshot(robot, w, outputDir.resolve("08-renovate.png"))
         println("  > 08-renovate.png")
 
-        // ── 09: Log Viewer panel ─────────────────────────────────────────
-        // Create a demo log file so the log viewer has content
-        val demoLogDir = File(projects[0].dir.absolutePath, "target")
-        demoLogDir.mkdirs()
-        File(demoLogDir, "app.log").writeText(buildDemoLog())
+        // ── 09: Log Viewer panel (with demo log content) ─────────────────
         SwingUtilities.invokeAndWait {
             try {
-                // Show log viewer, hide renovate
+                // Hide renovate, show log viewer
                 val toggleRenovate = w.javaClass.getDeclaredMethod("toggleRenovate", Boolean::class.java)
                 toggleRenovate.isAccessible = true
                 toggleRenovate.invoke(w, false)
-                // Trigger log viewer to load the demo project
+                // Load project into log viewer
                 val logViewer = w.javaClass.getDeclaredField("logViewerPanel")
                 logViewer.isAccessible = true
                 val panel = logViewer.get(w)
                 val loadMethod = panel.javaClass.getMethod("loadProject", String::class.java)
                 loadMethod.invoke(panel, projects[0].dir.absolutePath)
-            } catch (_: Exception) {}
+            } catch (e: Exception) { e.printStackTrace() }
         }
-        Thread.sleep(1500)
+        Thread.sleep(2000)
         screenshot(robot, w, outputDir.resolve("09-log-viewer.png"))
         println("  > 09-log-viewer.png")
 
