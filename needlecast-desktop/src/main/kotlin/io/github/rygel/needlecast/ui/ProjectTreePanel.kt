@@ -801,13 +801,19 @@ class ProjectTreePanel(
         private val innerPanel = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
         }
+        /** Tracks the current row index so we can compute the correct indent. */
+        private var currentRow = 0
+
         private val projectPanel = object : JPanel(BorderLayout()) {
             override fun getPreferredSize(): Dimension {
                 val base = super.getPreferredSize()
-                val vp = tree.parent as? javax.swing.JViewport
-                // Use viewport width if available; fall back to base but ensure minimum width
-                val w = vp?.width ?: base.width.coerceAtLeast(200)
-                return Dimension(w.coerceAtLeast(200), base.height.coerceAtLeast(30))
+                val vp = tree.parent as? javax.swing.JViewport ?: return base
+                val vpWidth = vp.width
+                // Subtract the tree's indentation for this row
+                val rowBounds = tree.getRowBounds(currentRow)
+                val indent = rowBounds?.x ?: 0
+                val w = (vpWidth - indent).coerceAtLeast(100)
+                return Dimension(w, base.height.coerceAtLeast(30))
             }
         }.apply { isOpaque = true }
 
@@ -824,6 +830,7 @@ class ProjectTreePanel(
         override fun getTreeCellRendererComponent(
             t: JTree, value: Any?, selected: Boolean, expanded: Boolean, leaf: Boolean, row: Int, hasFocus: Boolean,
         ): Component {
+            currentRow = row
             val node = value as? DefaultMutableTreeNode
             val bg = if (selected) (UIManager.getColor("Tree.selectionBackground") ?: t.background) else t.background
             val fg = if (selected) (UIManager.getColor("Tree.selectionForeground") ?: t.foreground) else t.foreground
