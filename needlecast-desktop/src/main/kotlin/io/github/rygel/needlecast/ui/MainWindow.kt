@@ -652,8 +652,15 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private fun buildViewMenu(title: String): JMenu {
-        fun themeItem(id: String, name: String) = JMenuItem(name).apply {
-            addActionListener { setTheme(id) }
+        val themeItems = mutableListOf<JCheckBoxMenuItem>()
+        fun themeItem(id: String, name: String) = JCheckBoxMenuItem(name, id == ctx.config.theme).apply {
+            addActionListener {
+                setTheme(id)
+                // Update all checkmarks
+                themeItems.forEach { it.isSelected = false }
+                isSelected = true
+            }
+            themeItems.add(this)
         }
         fun groupSubmenu(label: String, baseId: String, baseName: String, group: String): JMenu {
             return JMenu(label).apply {
