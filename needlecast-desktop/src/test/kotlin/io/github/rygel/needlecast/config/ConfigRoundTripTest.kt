@@ -41,7 +41,7 @@ class ConfigRoundTripTest {
         val store = JsonConfigStore(dir.resolve("nonexistent.json"))
         val config = store.load()
         assertTrue(config.groups.isEmpty())
-        assertEquals("dark", config.theme)
+        assertEquals("system", config.theme)
     }
 
     @Test
