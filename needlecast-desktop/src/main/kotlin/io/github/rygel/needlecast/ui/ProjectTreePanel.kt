@@ -801,27 +801,7 @@ class ProjectTreePanel(
         private val innerPanel = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
         }
-        /** Tracks the tree depth for the current row so we can compute indent. */
-        private var currentDepth = 0
-
-        private val projectPanel = object : JPanel(BorderLayout()) {
-            override fun getPreferredSize(): Dimension {
-                val base = super.getPreferredSize()
-                val vp = tree.parent as? javax.swing.JViewport ?: return base
-                val vpWidth = vp.width
-                // Calculate indent from node depth and the tree's UI left-child-indent
-                val ui = tree.ui as? javax.swing.plaf.basic.BasicTreeUI
-                val leftIndent = ui?.leftChildIndent ?: 8
-                val rightIndent = ui?.rightChildIndent ?: 12
-                val perLevel = leftIndent + rightIndent
-                // depth includes root (hidden) so subtract 1; add handle area
-                val indent = (currentDepth - 1).coerceAtLeast(0) * perLevel + perLevel
-                val scrollBarWidth = (vp.parent as? JScrollPane)?.verticalScrollBar
-                    ?.let { if (it.isVisible) it.width else 0 } ?: 0
-                val w = (vpWidth - indent - scrollBarWidth).coerceAtLeast(100)
-                return Dimension(w, base.height.coerceAtLeast(30))
-            }
-        }.apply { isOpaque = true }
+        private val projectPanel = JPanel(BorderLayout()).apply { isOpaque = true }
 
         private val folderLabel = JLabel().apply {
             border = BorderFactory.createEmptyBorder(3, 6, 3, 6)
@@ -837,7 +817,6 @@ class ProjectTreePanel(
             t: JTree, value: Any?, selected: Boolean, expanded: Boolean, leaf: Boolean, row: Int, hasFocus: Boolean,
         ): Component {
             val node = value as? DefaultMutableTreeNode
-            currentDepth = node?.level ?: 0
             val bg = if (selected) (UIManager.getColor("Tree.selectionBackground") ?: t.background) else t.background
             val fg = if (selected) (UIManager.getColor("Tree.selectionForeground") ?: t.foreground) else t.foreground
 
