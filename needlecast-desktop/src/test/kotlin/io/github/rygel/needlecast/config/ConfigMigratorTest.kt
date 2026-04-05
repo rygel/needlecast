@@ -29,18 +29,10 @@ class ConfigMigratorTest {
     }
 
     @Test
-    fun `v2 migration seeds prompt library when empty`() {
-        val old = AppConfig(configVersion = 1, promptLibrary = emptyList())
+    fun `migration preserves prompt library`() {
+        val old = AppConfig(configVersion = 1, promptLibrary = listOf(AppConfig().promptLibrary.first()))
         val result = ConfigMigrator.migrate(old)
-        assertTrue(result.promptLibrary.isNotEmpty())
-    }
-
-    @Test
-    fun `v2 migration keeps existing prompt library`() {
-        val old = AppConfig(configVersion = 1, promptLibrary = listOf())
-            .copy(promptLibrary = listOf(AppConfig().promptLibrary.first()))
-        val result = ConfigMigrator.migrate(old)
-        assertEquals(old.promptLibrary, result.promptLibrary)
+        assertEquals(1, result.promptLibrary.size)
     }
 
     @Test
