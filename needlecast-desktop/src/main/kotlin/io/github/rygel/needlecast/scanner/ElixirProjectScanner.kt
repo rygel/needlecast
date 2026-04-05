@@ -39,13 +39,13 @@ class ElixirProjectScanner : ProjectScanner {
 
         return DetectedProject(
             directory = directory,
-            buildTools = setOf(BuildTool.ELIXIR),
+            buildTools = setOf(BuildTool.MIX),
             commands = commands,
         )
     }
 
     private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, BuildTool.ELIXIR,
+        CommandDescriptor(label, BuildTool.MIX,
             if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
             dir.path)
 }

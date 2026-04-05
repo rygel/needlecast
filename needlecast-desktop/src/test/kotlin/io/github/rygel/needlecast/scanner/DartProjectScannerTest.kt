@@ -21,7 +21,7 @@ class DartProjectScannerTest {
     fun `detects pure dart project`(@TempDir dir: Path) {
         File(dir.toFile(), "pubspec.yaml").writeText("name: my_app\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
-        assertEquals(setOf(BuildTool.DART), result.buildTools)
+        assertEquals(setOf(BuildTool.PUB), result.buildTools)
         assertTrue(result.commands.any { it.label == "dart run" })
         assertTrue(result.commands.any { it.label == "dart test" })
         assertFalse(result.commands.any { it.label == "flutter run" })
@@ -36,6 +36,7 @@ class DartProjectScannerTest {
                 sdk: flutter
         """.trimIndent())
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        assertEquals(setOf(BuildTool.FLUTTER), result.buildTools)
         assertTrue(result.commands.any { it.label == "flutter run" })
         assertTrue(result.commands.any { it.label == "flutter test" })
         assertTrue(result.commands.any { it.label == "flutter build apk" })

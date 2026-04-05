@@ -21,7 +21,7 @@ class RustProjectScannerTest {
     fun `detects rust project from Cargo_toml`(@TempDir dir: Path) {
         File(dir.toFile(), "Cargo.toml").writeText("[package]\nname = \"test\"\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
-        assertEquals(setOf(BuildTool.RUST), result.buildTools)
+        assertEquals(setOf(BuildTool.CARGO), result.buildTools)
         assertTrue(result.commands.any { it.label == "cargo build" })
         assertTrue(result.commands.any { it.label == "cargo test" })
         assertTrue(result.commands.any { it.label == "cargo run" })
@@ -62,7 +62,7 @@ class RustProjectScannerTest {
         File(dir.toFile(), "Cargo.toml").writeText("[package]\nname = \"test\"\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         result.commands.forEach {
-            assertEquals(BuildTool.RUST, it.buildTool)
+            assertEquals(BuildTool.CARGO, it.buildTool)
             assertEquals(dir.toString(), it.workingDirectory)
         }
     }

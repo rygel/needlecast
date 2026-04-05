@@ -22,7 +22,7 @@ class PythonProjectScannerTest {
         File(dir.toFile(), "pyproject.toml").writeText("[project]\nname = \"test\"\n")
         File(dir.toFile(), "uv.lock").writeText("")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
-        assertEquals(setOf(BuildTool.PYTHON), result.buildTools)
+        assertEquals(setOf(BuildTool.UV), result.buildTools)
         assertTrue(result.commands.any { it.label == "uv sync" })
         assertTrue(result.commands.any { it.label == "uv build" })
     }
@@ -39,6 +39,7 @@ class PythonProjectScannerTest {
         File(dir.toFile(), "pyproject.toml").writeText("[project]\nname = \"test\"\n")
         File(dir.toFile(), "poetry.lock").writeText("")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        assertEquals(setOf(BuildTool.POETRY), result.buildTools)
         assertTrue(result.commands.any { it.label == "poetry install" })
         assertTrue(result.commands.any { it.label == "poetry build" })
     }
@@ -47,6 +48,7 @@ class PythonProjectScannerTest {
     fun `detects poetry project from tool_poetry section`(@TempDir dir: Path) {
         File(dir.toFile(), "pyproject.toml").writeText("[tool.poetry]\nname = \"test\"\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        assertEquals(setOf(BuildTool.POETRY), result.buildTools)
         assertTrue(result.commands.any { it.label == "poetry install" })
     }
 
@@ -54,6 +56,7 @@ class PythonProjectScannerTest {
     fun `falls back to pip for bare pyproject_toml`(@TempDir dir: Path) {
         File(dir.toFile(), "pyproject.toml").writeText("[project]\nname = \"test\"\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        assertEquals(setOf(BuildTool.PIP), result.buildTools)
         assertTrue(result.commands.any { it.label == "pip install -e ." })
     }
 
@@ -61,6 +64,7 @@ class PythonProjectScannerTest {
     fun `detects requirements_txt fallback`(@TempDir dir: Path) {
         File(dir.toFile(), "requirements.txt").writeText("flask\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
+        assertEquals(setOf(BuildTool.PIP), result.buildTools)
         assertTrue(result.commands.any { it.label == "pip install -r requirements.txt" })
     }
 
@@ -96,7 +100,7 @@ class PythonProjectScannerTest {
         File(dir.toFile(), "uv.lock").writeText("")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         result.commands.forEach {
-            assertEquals(BuildTool.PYTHON, it.buildTool)
+            assertEquals(BuildTool.UV, it.buildTool)
             assertEquals(dir.toString(), it.workingDirectory)
         }
     }

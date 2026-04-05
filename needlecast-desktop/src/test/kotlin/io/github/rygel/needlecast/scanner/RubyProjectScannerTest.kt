@@ -21,7 +21,7 @@ class RubyProjectScannerTest {
     fun `detects ruby project`(@TempDir dir: Path) {
         File(dir.toFile(), "Gemfile").writeText("source 'https://rubygems.org'\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
-        assertEquals(setOf(BuildTool.RUBY), result.buildTools)
+        assertEquals(setOf(BuildTool.BUNDLER), result.buildTools)
         assertTrue(result.commands.any { it.label == "bundle install" })
     }
 

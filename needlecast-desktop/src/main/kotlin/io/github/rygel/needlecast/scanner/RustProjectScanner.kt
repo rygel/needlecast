@@ -43,7 +43,7 @@ class RustProjectScanner : ProjectScanner {
 
         return DetectedProject(
             directory = directory,
-            buildTools = setOf(BuildTool.RUST),
+            buildTools = setOf(BuildTool.CARGO),
             commands = commands,
         )
     }
@@ -82,7 +82,7 @@ class RustProjectScanner : ProjectScanner {
     private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
         CommandDescriptor(
             label = label,
-            buildTool = BuildTool.RUST,
+            buildTool = BuildTool.CARGO,
             argv = if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
             workingDirectory = dir.path,
         )

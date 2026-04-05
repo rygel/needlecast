@@ -21,7 +21,7 @@ class ElixirProjectScannerTest {
     fun `detects elixir project`(@TempDir dir: Path) {
         File(dir.toFile(), "mix.exs").writeText("defmodule MyApp.MixProject do\nend\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
-        assertEquals(setOf(BuildTool.ELIXIR), result.buildTools)
+        assertEquals(setOf(BuildTool.MIX), result.buildTools)
         assertTrue(result.commands.any { it.label == "mix compile" })
         assertTrue(result.commands.any { it.label == "mix test" })
     }

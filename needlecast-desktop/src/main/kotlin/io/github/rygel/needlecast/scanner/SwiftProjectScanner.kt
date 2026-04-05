@@ -26,13 +26,13 @@ class SwiftProjectScanner : ProjectScanner {
 
         return DetectedProject(
             directory = directory,
-            buildTools = setOf(BuildTool.SWIFT),
+            buildTools = setOf(BuildTool.SPM),
             commands = commands,
         )
     }
 
     private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, BuildTool.SWIFT,
+        CommandDescriptor(label, BuildTool.SPM,
             if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
             dir.path)
 }

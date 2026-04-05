@@ -21,7 +21,7 @@ class PhpProjectScannerTest {
     fun `detects php project`(@TempDir dir: Path) {
         File(dir.toFile(), "composer.json").writeText("""{"name":"test/app"}""")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
-        assertEquals(setOf(BuildTool.PHP), result.buildTools)
+        assertEquals(setOf(BuildTool.COMPOSER), result.buildTools)
         assertTrue(result.commands.any { it.label == "composer install" })
     }
 

@@ -43,13 +43,13 @@ class RubyProjectScanner : ProjectScanner {
 
         return DetectedProject(
             directory = directory,
-            buildTools = setOf(BuildTool.RUBY),
+            buildTools = setOf(BuildTool.BUNDLER),
             commands = commands,
         )
     }
 
     private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, BuildTool.RUBY,
+        CommandDescriptor(label, BuildTool.BUNDLER,
             if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
             dir.path)
 }

@@ -53,13 +53,13 @@ class PhpProjectScanner : ProjectScanner {
 
         return DetectedProject(
             directory = directory,
-            buildTools = setOf(BuildTool.PHP),
+            buildTools = setOf(BuildTool.COMPOSER),
             commands = commands,
         )
     }
 
     private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, BuildTool.PHP,
+        CommandDescriptor(label, BuildTool.COMPOSER,
             if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
             dir.path)
 }

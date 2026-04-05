@@ -21,7 +21,7 @@ class SwiftProjectScannerTest {
     fun `detects swift project`(@TempDir dir: Path) {
         File(dir.toFile(), "Package.swift").writeText("// swift-tools-version:5.9\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
-        assertEquals(setOf(BuildTool.SWIFT), result.buildTools)
+        assertEquals(setOf(BuildTool.SPM), result.buildTools)
         assertTrue(result.commands.any { it.label == "swift build" })
         assertTrue(result.commands.any { it.label == "swift test" })
         assertTrue(result.commands.any { it.label == "swift run" })
