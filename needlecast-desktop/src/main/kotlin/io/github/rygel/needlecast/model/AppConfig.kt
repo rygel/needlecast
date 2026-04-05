@@ -538,8 +538,8 @@ internal fun defaultCommandLibrary() = listOf(
 )
 
 data class AppConfig(
-    /** Incremented when a breaking schema change requires migration. Current: 2. */
-    val configVersion: Int = 2,
+    /** Incremented when a breaking schema change requires migration. Current: 3. */
+    val configVersion: Int = 3,
     val groups: List<ProjectGroup> = emptyList(),
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,

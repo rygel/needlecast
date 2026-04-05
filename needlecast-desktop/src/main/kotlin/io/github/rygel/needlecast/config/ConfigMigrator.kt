@@ -1,7 +1,6 @@
 package io.github.rygel.needlecast.config
 
 import io.github.rygel.needlecast.model.AppConfig
-import io.github.rygel.needlecast.model.defaultPromptLibrary
 
 /**
  * Applies sequential schema migrations to configs loaded from disk.
@@ -17,7 +16,7 @@ import io.github.rygel.needlecast.model.defaultPromptLibrary
  */
 object ConfigMigrator {
 
-    const val CURRENT_VERSION = 2
+    const val CURRENT_VERSION = 3
 
     fun migrate(config: AppConfig): AppConfig {
         if (config.configVersion >= CURRENT_VERSION) return config
@@ -25,16 +24,9 @@ object ConfigMigrator {
     }
 
     private fun runMigrations(config: AppConfig): AppConfig {
-        var c = config
-        if (c.configVersion < 2) c = v1ToV2(c)
-        return c
-    }
-
-    private fun v1ToV2(config: AppConfig): AppConfig {
-        return if (config.promptLibrary.isEmpty()) {
-            config.copy(promptLibrary = defaultPromptLibrary())
-        } else {
-            config
-        }
+        // Prompt and command libraries are no longer persisted (v3+).
+        // They always come from code via defaultPromptLibrary() / defaultCommandLibrary().
+        // No per-version migration steps needed at this time.
+        return config
     }
 }
