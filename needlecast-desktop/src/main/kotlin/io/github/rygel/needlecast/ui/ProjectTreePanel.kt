@@ -748,7 +748,39 @@ class ProjectTreePanel(
         private val branchLabel = JLabel().apply {
             font = Font(Font.MONOSPACED, Font.PLAIN, 10); foreground = Color(0x888888)
         }
-        private val tagsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
+        private val tagsPanel = object : JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)) {
+            /** Single-row preferred size — never wrap to a second line. */
+            override fun getPreferredSize(): Dimension {
+                var w = 0
+                val h = if (componentCount > 0) components.maxOf { it.preferredSize.height } else 0
+                val gap = (layout as FlowLayout).hgap
+                for (i in 0 until componentCount) {
+                    if (i > 0) w += gap
+                    w += components[i].preferredSize.width
+                }
+                return Dimension(w, h)
+            }
+            /** Constrain max size to prevent overflow beyond allocated width. */
+            override fun getMaximumSize(): Dimension = Dimension(Short.MAX_VALUE.toInt(), 16)
+            /** Lay out children in a single row; hide any that don't fit. */
+            override fun doLayout() {
+                val gap = (layout as FlowLayout).hgap
+                var x = 0
+                for (i in 0 until componentCount) {
+                    val c = components[i]
+                    val pref = c.preferredSize
+                    if (x + pref.width > width && i > 0) {
+                        // Hide tags that don't fit
+                        c.setBounds(0, 0, 0, 0)
+                        c.isVisible = false
+                    } else {
+                        c.isVisible = true
+                        c.setBounds(x, 0, pref.width, height.coerceAtLeast(pref.height))
+                        x += pref.width + gap
+                    }
+                }
+            }
+        }.apply {
             isOpaque = false
         }
         private val nameRow = JPanel(BorderLayout(2, 0)).apply {
@@ -769,13 +801,19 @@ class ProjectTreePanel(
         private val innerPanel = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
         }
+        private var currentDepth = 0
+
         private val projectPanel = object : JPanel(BorderLayout()) {
             override fun getPreferredSize(): Dimension {
                 val base = super.getPreferredSize()
-                val vp = tree.parent as? javax.swing.JViewport
-                // Use viewport width if available; fall back to base but ensure minimum width
-                val w = vp?.width ?: base.width.coerceAtLeast(200)
-                return Dimension(w.coerceAtLeast(200), base.height.coerceAtLeast(30))
+                val vp = tree.parent as? javax.swing.JViewport ?: return base
+                // Calculate indent from depth — do NOT call tree.getRowBounds() here
+                // because that triggers layout → getNodeDimensions → getPreferredSize → StackOverflow
+                val ui = tree.ui as? javax.swing.plaf.basic.BasicTreeUI
+                val perLevel = (ui?.leftChildIndent ?: 8) + (ui?.rightChildIndent ?: 12)
+                val indent = currentDepth * perLevel
+                val w = (vp.width - indent).coerceAtLeast(base.width)
+                return Dimension(w, base.height.coerceAtLeast(30))
             }
         }.apply { isOpaque = true }
 
@@ -793,6 +831,7 @@ class ProjectTreePanel(
             t: JTree, value: Any?, selected: Boolean, expanded: Boolean, leaf: Boolean, row: Int, hasFocus: Boolean,
         ): Component {
             val node = value as? DefaultMutableTreeNode
+            currentDepth = node?.level ?: 0
             val bg = if (selected) (UIManager.getColor("Tree.selectionBackground") ?: t.background) else t.background
             val fg = if (selected) (UIManager.getColor("Tree.selectionForeground") ?: t.foreground) else t.foreground
 
