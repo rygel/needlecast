@@ -2,7 +2,6 @@ package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.PromptTemplate
-import io.github.rygel.needlecast.model.defaultPromptLibrary
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -46,9 +45,7 @@ class PromptLibraryDialog(
     title: String = "Prompt Library",
     private val sendButtonLabel: String = "Paste to Terminal",
     private val loadLibrary: () -> List<PromptTemplate> = { ctx.config.promptLibrary },
-    private val saveLibrary: (List<PromptTemplate>) -> Unit = {
-        ctx.updateConfig(ctx.config.copy(customPrompts = it.filter { p -> p !in defaultPromptLibrary() }))
-    },
+    private val saveLibrary: (List<PromptTemplate>) -> Unit = { ctx.updateConfig(ctx.config.copy(promptLibrary = it)) },
 ) : JDialog(owner, title, ModalityType.MODELESS) {
 
     // ── List-side state ───────────────────────────────────────────────────

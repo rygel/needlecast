@@ -57,7 +57,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         sendButtonLabel = "Run in Terminal",
         itemLabel       = "Command",
         loadLibrary     = { it.commandLibrary },
-        updateLibrary   = { cfg, lib -> cfg.copy(customCommands = lib.filter { it !in io.github.rygel.needlecast.model.defaultCommandLibrary() }) },
+        updateLibrary   = { cfg, lib -> cfg.copy(commandLibrary = lib) },
     )
     private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
     private val gitLogPanel   = GitLogPanel(ctx.gitService)
@@ -528,7 +528,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     title           = "Command Library",
                     sendButtonLabel = "Run in Terminal",
                     loadLibrary     = { ctx.config.commandLibrary },
-                    saveLibrary     = { ctx.updateConfig(ctx.config.copy(customCommands = it.filter { c -> c !in io.github.rygel.needlecast.model.defaultCommandLibrary() })) },
+                    saveLibrary     = { ctx.updateConfig(ctx.config.copy(commandLibrary = it)) },
                 ).isVisible = true
             }
         }

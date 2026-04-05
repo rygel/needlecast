@@ -105,7 +105,7 @@ fun main(args: Array<String>) {
                 title           = "Command Library",
                 sendButtonLabel = "Run in Terminal",
                 loadLibrary     = { ctx.config.commandLibrary },
-                saveLibrary     = { ctx.updateConfig(ctx.config.copy(customCommands = it.filter { p -> p !in io.github.rygel.needlecast.model.defaultCommandLibrary() })) },
+                saveLibrary     = { ctx.updateConfig(ctx.config.copy(commandLibrary = it)) },
             ).isVisible = true
         }
 

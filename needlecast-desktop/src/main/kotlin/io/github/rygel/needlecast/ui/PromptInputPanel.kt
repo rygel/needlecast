@@ -3,7 +3,6 @@ package io.github.rygel.needlecast.ui
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.PromptTemplate
-import io.github.rygel.needlecast.model.defaultPromptLibrary
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
@@ -51,7 +50,7 @@ class PromptInputPanel(
     private val itemLabel: String = "Prompt",
     private val loadLibrary: (AppConfig) -> List<PromptTemplate> = { it.promptLibrary },
     private val updateLibrary: (AppConfig, List<PromptTemplate>) -> AppConfig =
-        { cfg, lib -> cfg.copy(customPrompts = lib.filter { it !in defaultPromptLibrary() }) },
+        { cfg, lib -> cfg.copy(promptLibrary = lib) },
 ) : JPanel(BorderLayout()) {
 
     // ── Tree ──────────────────────────────────────────────────────────────────

@@ -1,6 +1,5 @@
 package io.github.rygel.needlecast.model
 
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import java.util.UUID
@@ -553,10 +552,8 @@ data class AppConfig(
     val commandHistory: Map<String, List<CommandHistoryEntry>> = emptyMap(),
     /** Overridden keyboard shortcuts keyed by action name. Empty = use built-in defaults. */
     val shortcuts: Map<String, String> = emptyMap(),
-    /** User-created prompts — persisted in config. Shown alongside built-in defaults. */
-    val customPrompts: List<PromptTemplate> = emptyList(),
-    /** User-created commands — persisted in config. Shown alongside built-in defaults. */
-    val customCommands: List<PromptTemplate> = emptyList(),
+    val promptLibrary: List<PromptTemplate> = defaultPromptLibrary(),
+    val commandLibrary: List<PromptTemplate> = defaultCommandLibrary(),
     val projectTree: List<ProjectTreeEntry> = emptyList(),
     /** Whether the console output pane is visible. */
     val showConsole: Boolean = true,
@@ -599,14 +596,7 @@ data class AppConfig(
      * When false (default), agent status is detected by polling terminal output.
      */
     val claudeHooksEnabled: Boolean = false,
-) {
-    /** Built-in defaults + user custom prompts. Built-ins always come from code. */
-    @get:JsonIgnore
-    val promptLibrary: List<PromptTemplate> get() = defaultPromptLibrary() + customPrompts
-    /** Built-in defaults + user custom commands. Built-ins always come from code. */
-    @get:JsonIgnore
-    val commandLibrary: List<PromptTemplate> get() = defaultCommandLibrary() + customCommands
-}
+)
 
 data class AiCliDefinition(
     val name: String,

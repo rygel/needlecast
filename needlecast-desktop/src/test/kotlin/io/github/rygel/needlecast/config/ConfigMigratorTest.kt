@@ -29,12 +29,10 @@ class ConfigMigratorTest {
     }
 
     @Test
-    fun `prompt library always comes from code defaults regardless of config version`() {
-        val old = AppConfig(configVersion = 1)
+    fun `migration preserves prompt library`() {
+        val old = AppConfig(configVersion = 1, promptLibrary = listOf(AppConfig().promptLibrary.first()))
         val result = ConfigMigrator.migrate(old)
-        // Libraries are @JsonIgnore — always the code defaults
-        assertEquals(AppConfig().promptLibrary.size, result.promptLibrary.size)
-        assertEquals(AppConfig().commandLibrary.size, result.commandLibrary.size)
+        assertEquals(1, result.promptLibrary.size)
     }
 
     @Test

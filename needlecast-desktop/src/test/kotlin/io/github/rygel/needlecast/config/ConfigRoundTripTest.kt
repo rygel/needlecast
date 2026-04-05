@@ -134,12 +134,23 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `promptLibrary is not persisted — always loaded from code defaults`(@TempDir dir: Path) {
+    fun `promptLibrary round-trips correctly`(@TempDir dir: Path) {
         val store = JsonConfigStore(dir.resolve("config.json"))
-        store.save(AppConfig())
+        val template = PromptTemplate(
+            id          = "test-id-1",
+            name        = "Code Review",
+            category    = "Review",
+            description = "Ask the AI to review code",
+            body        = "Please review {fileName} for {concern}.",
+        )
+        val config = AppConfig(promptLibrary = listOf(template))
+        store.save(config)
+
         val loaded = store.load()
-        // Libraries come from code, not from the saved file
-        assertEquals(AppConfig().promptLibrary.size, loaded.promptLibrary.size)
-        assertEquals(AppConfig().commandLibrary.size, loaded.commandLibrary.size)
+        assertEquals(1, loaded.promptLibrary.size)
+        assertEquals("Code Review",  loaded.promptLibrary[0].name)
+        assertEquals("test-id-1",    loaded.promptLibrary[0].id)
+        assertEquals("Review",       loaded.promptLibrary[0].category)
+        assertTrue(loaded.promptLibrary[0].body.contains("{fileName}"))
     }
 }
