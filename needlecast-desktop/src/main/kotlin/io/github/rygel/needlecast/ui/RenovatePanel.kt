@@ -7,26 +7,20 @@ import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.GraphicsEnvironment
-import java.awt.GridBagConstraints
-import java.awt.GridBagLayout
-import java.awt.Insets
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JLabel
-import javax.swing.JOptionPane
 import javax.swing.JPanel
-import javax.swing.JPasswordField
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
-import javax.swing.JTextField
 import javax.swing.SwingConstants
 import javax.swing.SwingWorker
 
 /**
- * Dockable panel for running Renovate against the currently selected project.
+ * Dockable panel for running Renovate locally against the active project.
  *
- * Provides token + repo fields, dry-run toggle, and both local CLI and Docker
- * execution modes. Command output streams live into the embedded output area.
+ * Runs `renovate --platform=local` in the project directory — no token needed.
+ * Output streams live into the embedded output area.
  */
 class RenovatePanel : JPanel(BorderLayout()) {
 
@@ -37,182 +31,82 @@ class RenovatePanel : JPanel(BorderLayout()) {
         wrapStyleWord = false
     }
 
-    private val statusLabel = JLabel("Checking…", SwingConstants.CENTER).apply {
+    private val statusLabel = JLabel("Checking…", SwingConstants.LEFT).apply {
         font = font.deriveFont(Font.BOLD)
     }
-    private val versionLabel = JLabel("", SwingConstants.CENTER)
-
-    private val envToken = System.getenv("RENOVATE_TOKEN") ?: System.getenv("GITHUB_TOKEN") ?: ""
-    private val tokenField = JPasswordField(envToken, 28).apply {
-        toolTipText = "GitHub token with Contents R/W and Pull requests R/W (only for GitHub/Docker mode)"
-    }
-    private val repoField = JTextField(detectGitRepo() ?: "", 22).apply {
-        toolTipText = "GitHub repo (owner/name)"
+    private val versionLabel = JLabel("", SwingConstants.LEFT)
+    private val projectLabel = JLabel("No project selected").apply {
+        font = font.deriveFont(Font.ITALIC)
     }
 
     private var currentProjectPath: String? = null
-    private val allActionButtons = mutableListOf<JButton>()
+
+    private val runButton = JButton("Run Renovate").apply {
+        toolTipText = "Scan for outdated dependencies in the active project"
+        addActionListener { runLocalScan() }
+    }
 
     init {
         minimumSize = Dimension(0, 0)
 
-        val statusPanel = JPanel(BorderLayout(0, 2)).apply {
-            border = BorderFactory.createTitledBorder("Installation status")
-            add(statusLabel, BorderLayout.CENTER)
-            add(versionLabel, BorderLayout.SOUTH)
+        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 8, 4)).apply {
+            add(runButton)
+            add(statusLabel)
+            add(versionLabel)
         }
 
-        // ── Local scan (no token needed) ─────────────────────────────────
-        val localScanButton = JButton("Local Scan").apply {
-            toolTipText = "Scan the current project for outdated dependencies (no token needed)"
-            addActionListener { runLocalScan() }
-        }
-        allActionButtons.add(localScanButton)
-
-        val localPanel = JPanel(GridBagLayout()).apply {
-            border = BorderFactory.createTitledBorder("Local scan (no token required)")
-        }
-        val lc = GridBagConstraints().apply {
-            insets = Insets(3, 6, 3, 6); anchor = GridBagConstraints.WEST
-        }
-        lc.gridx = 0; lc.gridy = 0; lc.gridwidth = 2; lc.fill = GridBagConstraints.HORIZONTAL; lc.weightx = 1.0
-        localPanel.add(JLabel(
-            "<html>Scan the selected project directory for outdated dependencies.<br>" +
-            "No PRs are created — results are shown in the output below.</html>"
-        ), lc)
-        lc.gridy = 1; lc.gridwidth = 1; lc.fill = GridBagConstraints.NONE; lc.weightx = 0.0
-        localPanel.add(localScanButton, lc)
-
-        // ── GitHub mode (needs token) ────────────────────────────────────
-        val runGitHubButton = JButton("Run (GitHub CLI)").apply {
-            toolTipText = "Run Renovate against GitHub to create/update PRs (needs token)"
-            addActionListener { runGitHub(docker = false) }
-        }
-        allActionButtons.add(runGitHubButton)
-
-        val runDockerButton = JButton("Run (Docker)").apply {
-            toolTipText = "Run Renovate via Docker against GitHub (needs token)"
-            addActionListener { runGitHub(docker = true) }
-        }
-        allActionButtons.add(runDockerButton)
-
-        val ghPanel = JPanel(GridBagLayout()).apply {
-            border = BorderFactory.createTitledBorder("GitHub mode (creates PRs — token required)")
-        }
-        val gc = GridBagConstraints().apply {
-            insets = Insets(3, 6, 3, 6); anchor = GridBagConstraints.WEST; fill = GridBagConstraints.HORIZONTAL
-        }
-        gc.gridx = 0; gc.gridy = 0; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
-        ghPanel.add(JLabel("Token:"), gc)
-        gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; gc.gridwidth = 2
-        ghPanel.add(tokenField, gc)
-
-        gc.gridx = 0; gc.gridy = 1; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE; gc.gridwidth = 1
-        ghPanel.add(JLabel("Repository:"), gc)
-        gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; gc.gridwidth = 2
-        ghPanel.add(repoField, gc)
-
-        gc.gridx = 0; gc.gridy = 2; gc.gridwidth = 3; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
-        ghPanel.add(javax.swing.JCheckBox("Dry run (no PRs created)", false).also { dryRunCb = it }, gc)
-
-        gc.gridy = 3; gc.gridwidth = 3
-        ghPanel.add(JPanel(FlowLayout(FlowLayout.CENTER, 8, 2)).apply {
-            add(runGitHubButton); add(runDockerButton)
-        }, gc)
-
-        // ── Layout ───────────────────────────────────────────────────────
-        val topSection = JPanel(GridBagLayout()).apply {
-            val tc = GridBagConstraints().apply {
-                gridx = 0; fill = GridBagConstraints.HORIZONTAL; weightx = 1.0; insets = Insets(0, 0, 4, 0)
-            }
-            tc.gridy = 0; add(JLabel(
-                "<html>Renovate keeps your dependencies up to date.<br>" +
-                "Use <b>Local Scan</b> to check for updates, or <b>GitHub mode</b> to create PRs.</html>"
-            ).apply { border = BorderFactory.createEmptyBorder(4, 6, 4, 6) }, tc)
-            tc.gridy = 1; add(statusPanel, tc)
-            tc.gridy = 2; add(localPanel, tc)
-            tc.gridy = 3; add(ghPanel, tc)
+        val projectBar = JPanel(FlowLayout(FlowLayout.LEFT, 8, 2)).apply {
+            add(JLabel("Project:"))
+            add(projectLabel)
         }
 
-        add(JScrollPane(topSection).apply {
+        val header = JPanel(BorderLayout()).apply {
+            add(projectBar, BorderLayout.NORTH)
+            add(toolbar, BorderLayout.SOUTH)
+        }
+
+        add(header, BorderLayout.NORTH)
+        add(JScrollPane(outputArea).apply {
             border = BorderFactory.createEmptyBorder()
             verticalScrollBar.unitIncrement = 16
-        }, BorderLayout.NORTH)
-        add(JScrollPane(outputArea).apply {
-            border = BorderFactory.createTitledBorder("Output")
         }, BorderLayout.CENTER)
 
         checkRenovateStatus()
     }
 
-    private lateinit var dryRunCb: javax.swing.JCheckBox
-
-    /** Update the repo field when a project is selected. */
+    /** Called when the active project changes. */
     fun loadProject(path: String?) {
         currentProjectPath = path
-        if (path == null) return
-        val repo = detectGitRepo(path)
-        if (repo != null) repoField.text = repo
+        if (path != null) {
+            projectLabel.text = path
+            projectLabel.font = projectLabel.font.deriveFont(Font.PLAIN)
+        } else {
+            projectLabel.text = "No project selected"
+            projectLabel.font = projectLabel.font.deriveFont(Font.ITALIC)
+        }
     }
-
-    // ── Run logic ────────────────────────────────────────────────────────
 
     private fun runLocalScan() {
         val dir = currentProjectPath
         if (dir == null) {
-            JOptionPane.showMessageDialog(this,
-                "Select a project first.", "No project", JOptionPane.WARNING_MESSAGE)
+            outputArea.text = "No project selected. Select a project in the tree first.\n"
             return
         }
-        runCommandStreaming("renovate --platform=local",
-            env = mapOf("LOG_LEVEL" to "info"),
-            workingDir = dir)
-    }
-
-    private fun runGitHub(docker: Boolean) {
-        val token = String(tokenField.password).trim()
-        val repo = repoField.text.trim()
-        if (token.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                "A GitHub token is required for GitHub mode.\n" +
-                "Set RENOVATE_TOKEN / GITHUB_TOKEN or enter one above.\n\n" +
-                "For a token-free scan, use Local Scan instead.",
-                "Missing token", JOptionPane.WARNING_MESSAGE)
-            return
-        }
-        if (repo.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                "Enter the GitHub repository (owner/name).",
-                "Missing repository", JOptionPane.WARNING_MESSAGE)
-            return
-        }
-        val dryFlag = if (dryRunCb.isSelected) " --dry-run=full" else ""
-
-        if (docker) {
-            val cmd = "docker run --rm" +
-                " -e RENOVATE_TOKEN=$token" +
-                " -e LOG_LEVEL=info" +
-                " ghcr.io/renovatebot/renovate:latest" +
-                "$dryFlag --platform=github $repo"
-            runCommandStreaming(cmd)
-        } else {
-            runCommandStreaming("renovate$dryFlag --platform=github $repo",
-                env = mapOf("RENOVATE_TOKEN" to token, "LOG_LEVEL" to "info"))
-        }
-    }
-
-    private fun runCommandStreaming(command: String, env: Map<String, String> = emptyMap(), workingDir: String? = null) {
-        allActionButtons.forEach { it.isEnabled = false }
+        runButton.isEnabled = false
         outputArea.text = ""
-        outputArea.append("$ $command\n")
+        outputArea.append("$ renovate --platform=local\n")
+        outputArea.append("Working directory: $dir\n\n")
 
         object : SwingWorker<Int, String>() {
             override fun doInBackground(): Int {
-                val argv = if (IS_WINDOWS) listOf("cmd", "/c", command) else listOf("sh", "-c", command)
+                val argv = if (IS_WINDOWS)
+                    listOf("cmd", "/c", "renovate --platform=local")
+                else
+                    listOf("sh", "-c", "renovate --platform=local")
                 val pb = ProcessBuilder(argv).redirectErrorStream(true)
                 pb.environment()["PATH"] = System.getenv("PATH") ?: ""
-                env.forEach { (k, v) -> pb.environment()[k] = v }
-                workingDir?.let { pb.directory(java.io.File(it)) }
+                pb.environment()["LOG_LEVEL"] = "info"
+                pb.directory(java.io.File(dir))
                 val proc = pb.start()
                 proc.inputStream.bufferedReader().useLines { lines ->
                     for (line in lines) publish(line)
@@ -238,8 +132,7 @@ class RenovatePanel : JPanel(BorderLayout()) {
                     outputArea.append("\nCommand failed (exit code $exitCode).\n")
                 }
                 outputArea.caretPosition = outputArea.document.length
-                allActionButtons.forEach { it.isEnabled = true }
-                checkRenovateStatus()
+                runButton.isEnabled = true
             }
         }.execute()
     }
@@ -260,32 +153,20 @@ class RenovatePanel : JPanel(BorderLayout()) {
             override fun done() {
                 val (found, version) = get()
                 if (found) {
-                    statusLabel.text = "\u2713  Renovate is installed"
+                    statusLabel.text = "\u2713 Installed"
                     statusLabel.foreground = java.awt.Color(0x4CAF50)
-                    versionLabel.text = if (version.isNotEmpty()) "version $version" else ""
+                    versionLabel.text = if (version.isNotEmpty()) "v$version" else ""
                 } else {
-                    statusLabel.text = "\u2717  Renovate not found on PATH"
+                    statusLabel.text = "\u2717 Not installed"
                     statusLabel.foreground = java.awt.Color(0xF44336)
-                    versionLabel.text = "Install via Settings, then use this panel to run it"
+                    versionLabel.text = "(install via Settings)"
+                    runButton.isEnabled = false
                 }
             }
         }.execute()
     }
 
     companion object {
-        /** Detect GitHub repo from git remote in a given directory, or cwd if null. */
-        fun detectGitRepo(workingDir: String? = null): String? {
-            val argv = listOf("git", "remote", "get-url", "origin")
-            val result = ProcessExecutor.run(argv, workingDir = workingDir, timeoutMs = 3_000L) ?: return null
-            if (result.exitCode != 0) return null
-            val url = result.output.trim()
-            val sshMatch = Regex("""git@github\.com:(.+?)(?:\.git)?$""").find(url)
-            if (sshMatch != null) return sshMatch.groupValues[1]
-            val httpsMatch = Regex("""https?://github\.com/(.+?)(?:\.git)?$""").find(url)
-            if (httpsMatch != null) return httpsMatch.groupValues[1]
-            return null
-        }
-
         private fun monoFont(): String {
             val os = System.getProperty("os.name", "").lowercase()
             val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
