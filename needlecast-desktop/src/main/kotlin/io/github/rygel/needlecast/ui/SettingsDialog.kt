@@ -141,36 +141,42 @@ class SettingsDialog(
         }
         val versionLabel = JLabel("", SwingConstants.CENTER)
 
-        val outputArea = buildOutputArea()
+        val panel = JPanel(BorderLayout(0, 8)).apply {
+            border = BorderFactory.createEmptyBorder(12, 14, 12, 14)
+        }
 
-        // All action buttons — disabled while any command is running
-        val allActionButtons = mutableListOf<JButton>()
-        fun lockButtons() = allActionButtons.forEach { it.isEnabled = false }
-        fun unlockButtons() = allActionButtons.forEach { it.isEnabled = true }
+        val infoLabel = JLabel(
+            "<html>Renovate keeps your dependencies up to date by opening automated PRs.<br>" +
+            "Install it globally, then use the <b>Renovate</b> panel (Panels menu) to run it.</html>"
+        ).apply { border = BorderFactory.createEmptyBorder(0, 0, 8, 0) }
 
-        // ── Installation status ──────────────────────────────────────────
         val statusPanel = JPanel(BorderLayout(0, 2)).apply {
             border = BorderFactory.createTitledBorder("Installation status")
             add(statusLabel, BorderLayout.CENTER)
             add(versionLabel, BorderLayout.SOUTH)
         }
 
+        val outputArea = buildOutputArea()
+
         val installPanel = JPanel(BorderLayout(0, 4)).apply {
             border = BorderFactory.createTitledBorder("Install via package manager")
         }
         val buttonsPanel = JPanel(FlowLayout(FlowLayout.CENTER, 8, 4))
-        buildInstallOptions().forEach { (label, cmd) ->
+
+        val managers = buildInstallOptions()
+        val installButtons = mutableListOf<JButton>()
+        managers.forEach { (label, cmd) ->
             val btn = JButton(label).apply {
                 toolTipText = cmd
                 addActionListener {
-                    lockButtons()
+                    installButtons.forEach { it.isEnabled = false }
                     runCommandStreaming(cmd, outputArea) {
-                        unlockButtons()
+                        installButtons.forEach { it.isEnabled = true }
                         checkRenovate(statusLabel, versionLabel)
                     }
                 }
             }
-            allActionButtons.add(btn)
+            installButtons.add(btn)
             buttonsPanel.add(btn)
         }
         installPanel.add(buttonsPanel, BorderLayout.CENTER)
@@ -179,122 +185,21 @@ class SettingsDialog(
             addActionListener { checkRenovate(statusLabel, versionLabel) }
         }
 
-        // ── Run Renovate ─────────────────────────────────────────────────
-        val envToken = System.getenv("RENOVATE_TOKEN") ?: System.getenv("GITHUB_TOKEN") ?: ""
-        val tokenField = javax.swing.JPasswordField(envToken, 28).apply {
-            toolTipText = "GitHub token with Contents R/W and Pull requests R/W"
-        }
-        val repoField = JTextField(detectGitRepo() ?: "", 22).apply {
-            toolTipText = "GitHub repo (owner/name)"
-        }
-        val dryRunCheckbox = javax.swing.JCheckBox("Dry run (no PRs created)", false)
-
-        val runLocalButton = JButton("Run (local CLI)").apply {
-            toolTipText = "Run 'renovate' directly (must be installed)"
-            addActionListener {
-                val token = String(tokenField.password).trim()
-                val repo = repoField.text.trim()
-                if (token.isEmpty()) {
-                    JOptionPane.showMessageDialog(this@SettingsDialog,
-                        "A GitHub token is required.\nSet RENOVATE_TOKEN / GITHUB_TOKEN or enter one above.",
-                        "Missing token", JOptionPane.WARNING_MESSAGE)
-                    return@addActionListener
-                }
-                if (repo.isEmpty()) {
-                    JOptionPane.showMessageDialog(this@SettingsDialog,
-                        "Enter the GitHub repository (owner/name).",
-                        "Missing repository", JOptionPane.WARNING_MESSAGE)
-                    return@addActionListener
-                }
-                val dryFlag = if (dryRunCheckbox.isSelected) " --dry-run=full" else ""
-                lockButtons()
-                runCommandStreaming("renovate$dryFlag --platform=github $repo", outputArea,
-                    env = mapOf("RENOVATE_TOKEN" to token, "LOG_LEVEL" to "info")) {
-                    unlockButtons()
-                }
+        val topSection = JPanel(BorderLayout(0, 8)).apply {
+            add(infoLabel, BorderLayout.NORTH)
+            val mid = JPanel(BorderLayout(0, 8)).apply {
+                add(statusPanel, BorderLayout.NORTH)
+                add(installPanel, BorderLayout.CENTER)
+                add(JPanel(FlowLayout(FlowLayout.CENTER)).apply { add(recheckButton) }, BorderLayout.SOUTH)
             }
-        }
-        allActionButtons.add(runLocalButton)
-
-        val runDockerButton = JButton("Run (Docker)").apply {
-            toolTipText = "Run Renovate inside a Docker container"
-            addActionListener {
-                val token = String(tokenField.password).trim()
-                val repo = repoField.text.trim()
-                if (token.isEmpty()) {
-                    JOptionPane.showMessageDialog(this@SettingsDialog,
-                        "A GitHub token is required.\nSet RENOVATE_TOKEN / GITHUB_TOKEN or enter one above.",
-                        "Missing token", JOptionPane.WARNING_MESSAGE)
-                    return@addActionListener
-                }
-                if (repo.isEmpty()) {
-                    JOptionPane.showMessageDialog(this@SettingsDialog,
-                        "Enter the GitHub repository (owner/name).",
-                        "Missing repository", JOptionPane.WARNING_MESSAGE)
-                    return@addActionListener
-                }
-                val dryFlag = if (dryRunCheckbox.isSelected) " --dry-run=full" else ""
-                val cmd = "docker run --rm" +
-                    " -e RENOVATE_TOKEN=$token" +
-                    " -e LOG_LEVEL=info" +
-                    " ghcr.io/renovatebot/renovate:latest" +
-                    "$dryFlag --platform=github $repo"
-                lockButtons()
-                runCommandStreaming(cmd, outputArea) { unlockButtons() }
-            }
-        }
-        allActionButtons.add(runDockerButton)
-
-        val runPanel = JPanel(GridBagLayout()).apply {
-            border = BorderFactory.createTitledBorder("Run Renovate")
-        }
-        val gc = GridBagConstraints().apply {
-            insets = Insets(3, 6, 3, 6); anchor = GridBagConstraints.WEST; fill = GridBagConstraints.HORIZONTAL
-        }
-        gc.gridx = 0; gc.gridy = 0; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
-        runPanel.add(JLabel("Token:"), gc)
-        gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; gc.gridwidth = 2
-        runPanel.add(tokenField, gc)
-
-        gc.gridx = 0; gc.gridy = 1; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE; gc.gridwidth = 1
-        runPanel.add(JLabel("Repository:"), gc)
-        gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; gc.gridwidth = 2
-        runPanel.add(repoField, gc)
-
-        gc.gridx = 0; gc.gridy = 2; gc.gridwidth = 3; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
-        runPanel.add(dryRunCheckbox, gc)
-
-        gc.gridy = 3; gc.gridwidth = 3
-        runPanel.add(JPanel(FlowLayout(FlowLayout.CENTER, 8, 2)).apply {
-            add(runLocalButton); add(runDockerButton)
-        }, gc)
-
-        // ── Layout ───────────────────────────────────────────────────────
-        val topSection = JPanel(GridBagLayout()).apply {
-            val tc = GridBagConstraints().apply {
-                gridx = 0; fill = GridBagConstraints.HORIZONTAL; weightx = 1.0; insets = Insets(0, 0, 4, 0)
-            }
-            tc.gridy = 0; add(JLabel(
-                "<html>Renovate keeps your dependencies up to date by opening automated PRs.<br>" +
-                "Install it globally so it can also be run locally via <code>renovate-local.sh</code>.</html>"
-            ).apply { border = BorderFactory.createEmptyBorder(0, 0, 4, 0) }, tc)
-            tc.gridy = 1; add(statusPanel, tc)
-            tc.gridy = 2; add(installPanel, tc)
-            tc.gridy = 3; add(JPanel(FlowLayout(FlowLayout.CENTER)).apply { add(recheckButton) }, tc)
-            tc.gridy = 4; add(runPanel, tc)
+            add(mid, BorderLayout.CENTER)
         }
 
-        val panel = JPanel(BorderLayout(0, 8)).apply {
-            border = BorderFactory.createEmptyBorder(12, 14, 12, 14)
-        }
-        panel.add(JScrollPane(topSection).apply {
-            border = BorderFactory.createEmptyBorder()
-            verticalScrollBar.unitIncrement = 16
-        }, BorderLayout.CENTER)
+        panel.add(topSection, BorderLayout.NORTH)
         panel.add(JScrollPane(outputArea).apply {
             border = BorderFactory.createTitledBorder("Output")
             preferredSize = Dimension(0, 160)
-        }, BorderLayout.SOUTH)
+        }, BorderLayout.CENTER)
 
         checkRenovate(statusLabel, versionLabel)
         return panel
@@ -978,20 +883,6 @@ class SettingsDialog(
                 onFinished()
             }
         }.execute()
-    }
-
-    /** Detect the GitHub repo (owner/name) from the git remote of the current working directory. */
-    private fun detectGitRepo(): String? {
-        val result = ProcessExecutor.run(listOf("git", "remote", "get-url", "origin"), timeoutMs = 3_000L)
-            ?: return null
-        if (result.exitCode != 0) return null
-        val url = result.output.trim()
-        // SSH: git@github.com:owner/repo.git  or  HTTPS: https://github.com/owner/repo.git
-        val sshMatch = Regex("""git@github\.com:(.+?)(?:\.git)?$""").find(url)
-        if (sshMatch != null) return sshMatch.groupValues[1]
-        val httpsMatch = Regex("""https?://github\.com/(.+?)(?:\.git)?$""").find(url)
-        if (httpsMatch != null) return httpsMatch.groupValues[1]
-        return null
     }
 
     private fun monoFont(): String {

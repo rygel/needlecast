@@ -62,6 +62,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
     private val gitLogPanel   = GitLogPanel(ctx.gitService)
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
+    private val renovatePanel = RenovatePanel()
 
     private val projectTreePanel: ProjectTreePanel = ProjectTreePanel(
         ctx = ctx,
@@ -69,6 +70,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             commandPanel.loadProject(project)
             gitLogPanel.loadProject(project?.directory?.path)
             logViewerPanel.loadProject(project?.directory?.path)
+            renovatePanel.loadProject(project?.directory?.path)
             if (project != null) {
                 explorerPanel.setRootDirectory(File(project.directory.path))
                 terminalPanel.showProject(project.directory.path, project.directory)
@@ -103,6 +105,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val gitLogDockable      = DockablePanel(gitLogPanel,                   "git-log",      "Git Log")
     private val explorerDockable    = DockablePanel(explorerPanel,                 "explorer",     "Explorer")
     private val editorDockable      = DockablePanel(explorerPanel.editorComponent, "editor",       "Editor")
+    private val renovateDockable     = DockablePanel(renovatePanel,                 "renovate",     "Renovate")
     private val consoleDockable      = DockablePanel(consolePanel,                  "console",      "Output")
     private val logViewerDockable    = DockablePanel(logViewerPanel,               "log-viewer",   "Log Viewer")
     private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
@@ -170,6 +173,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.registerDockable(explorerDockable)
         Docking.registerDockable(editorDockable)
         Docking.registerDockable(consoleDockable)
+        Docking.registerDockable(renovateDockable)
         Docking.registerDockable(promptInputDockable)
         Docking.registerDockable(commandInputDockable)
         installPanelHoverHighlighter()
@@ -246,7 +250,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         if (!restored || !allPresent) {
             listOf(projectTreeDockable, terminalDockable, commandsDockable,
-                   gitLogDockable, logViewerDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable)
+                   gitLogDockable, logViewerDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable)
                 .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
             dockingLayoutFile.delete()
             setupDefaultDockingLayout()
@@ -304,7 +308,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     fun resetLayout() {
         AppState.setAutoPersist(false)
         listOf(projectTreeDockable, terminalDockable, commandsDockable,
-               gitLogDockable, logViewerDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable)
+               gitLogDockable, logViewerDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable)
             .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
         dockingLayoutFile.delete()
         setupDefaultDockingLayout()
@@ -394,6 +398,15 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             dockTo(commandInputDockable, anchor, DockingRegion.SOUTH, 0.78)
         } else if (!show && Docking.isDocked(commandInputDockable)) {
             Docking.undock(commandInputDockable)
+        }
+    }
+
+    private fun toggleRenovate(show: Boolean) {
+        if (show && !Docking.isDocked(renovateDockable)) {
+            if (Docking.isDocked(commandsDockable)) Docking.dock(renovateDockable, commandsDockable, DockingRegion.CENTER)
+            else dockTo(renovateDockable, terminalDockable, DockingRegion.EAST, 0.28)
+        } else if (!show && Docking.isDocked(renovateDockable)) {
+            Docking.undock(renovateDockable)
         }
     }
 
@@ -713,6 +726,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val commandInputCb = JCheckBoxMenuItem("Command Input").apply {
             addActionListener { toggleCommandInput(isSelected) }
         }
+        val renovateCb = JCheckBoxMenuItem("Renovate").apply {
+            addActionListener { toggleRenovate(isSelected) }
+        }
 
         fun syncState() {
             commandsCb.isSelected = Docking.isDocked(commandsDockable)
@@ -722,6 +738,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             consoleCb.isSelected = Docking.isDocked(consoleDockable)
             promptInputCb.isSelected = Docking.isDocked(promptInputDockable)
             commandInputCb.isSelected = Docking.isDocked(commandInputDockable)
+            renovateCb.isSelected = Docking.isDocked(renovateDockable)
         }
 
         return JMenu("Panels").apply {
@@ -732,6 +749,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             })
             add(commandsCb)
             add(gitLogCb)
+            add(renovateCb)
             addSeparator()
             add(explorerCb)
             add(editorCb)
@@ -787,7 +805,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private val allDockables get() = listOf(
         projectTreeDockable, terminalDockable, commandsDockable, gitLogDockable,
-        logViewerDockable, explorerDockable, editorDockable, consoleDockable,
+        logViewerDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
         promptInputDockable, commandInputDockable,
     )
     private var highlightedDockable: DockablePanel? = null

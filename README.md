@@ -27,7 +27,32 @@
 - File explorer automatically switches to the active project's directory
 
 **Commands**
-- Auto-detects Maven, Gradle, npm, .NET, IntelliJ run configs, and APM projects
+- Auto-detects build tools across 14 language ecosystems — no configuration needed:
+
+  | Language | Build tool | Detected from | Highlights |
+  |----------|-----------|---------------|------------|
+  | Java / Kotlin | **Maven** | `pom.xml` | Lifecycle goals, plugin detection (Spring Boot, Quarkus, JavaFX, exec), submodules |
+  | Java / Kotlin | **Gradle** | `build.gradle(.kts)` | Tasks, plugin detection (Spring Boot, Shadow, Compose Desktop), subprojects |
+  | JavaScript / TypeScript | **npm** | `package.json` | Extracts scripts, preferred ordering (dev, start, build, test) |
+  | Python | **uv** | `uv.lock` or `[tool.uv]` | sync, run, build, test, lock |
+  | Python | **Poetry** | `poetry.lock` or `[tool.poetry]` | install, run, build, test, lock |
+  | Python | **pip** | `pyproject.toml` / `requirements.txt` | Fallback when no lock file detected |
+  | Rust | **Cargo** | `Cargo.toml` | build, test, run, check, clippy, fmt; workspace members |
+  | Go | **Go** | `go.mod` | build, test, vet, fmt; `main.go` and `cmd/` detection |
+  | C# / F# / VB | **.NET** | `.sln` / `.csproj` | Solution parsing, web/test/runnable project detection |
+  | PHP | **Composer** | `composer.json` | Script extraction, Laravel artisan detection |
+  | Ruby | **Bundler** | `Gemfile` | Rails server/console/test, Rakefile detection |
+  | Swift | **SPM** | `Package.swift` | build, test, run, package resolve |
+  | Dart | **pub** | `pubspec.yaml` | run, test, compile, analyze |
+  | Dart | **Flutter** | `pubspec.yaml` + `sdk: flutter` | run, build (apk/ios/web), test, analyze |
+  | C / C++ | **CMake** | `CMakeLists.txt` | configure, build, ctest, install |
+  | C / C++ | **Make** | `Makefile` | make, clean, test, install |
+  | Scala | **sbt** | `build.sbt` | compile, test, run, assembly |
+  | Elixir | **Mix** | `mix.exs` | compile, test, format; Phoenix server/ecto detection |
+  | Zig | **Zig** | `build.zig` | build, test, run, fmt |
+  | — | **IntelliJ Run Configs** | `.idea/runConfigurations/` | Application, JUnit, Maven goal configs |
+  | — | **APM** | `apm.yml` | install, audit, update, bundle |
+
 - Command queue — chain commands to run sequentially (clean → build → run)
 - Command history with re-run support (last 20 per project)
 - Desktop notification when a command finishes in the background
