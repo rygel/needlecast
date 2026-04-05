@@ -801,18 +801,24 @@ class ProjectTreePanel(
         private val innerPanel = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
         }
-        /** Tracks the current row index so we can compute the correct indent. */
-        private var currentRow = 0
+        /** Tracks the tree depth for the current row so we can compute indent. */
+        private var currentDepth = 0
 
         private val projectPanel = object : JPanel(BorderLayout()) {
             override fun getPreferredSize(): Dimension {
                 val base = super.getPreferredSize()
                 val vp = tree.parent as? javax.swing.JViewport ?: return base
                 val vpWidth = vp.width
-                // Subtract the tree's indentation for this row
-                val rowBounds = tree.getRowBounds(currentRow)
-                val indent = rowBounds?.x ?: 0
-                val w = (vpWidth - indent).coerceAtLeast(100)
+                // Calculate indent from node depth and the tree's UI left-child-indent
+                val ui = tree.ui as? javax.swing.plaf.basic.BasicTreeUI
+                val leftIndent = ui?.leftChildIndent ?: 8
+                val rightIndent = ui?.rightChildIndent ?: 12
+                val perLevel = leftIndent + rightIndent
+                // depth includes root (hidden) so subtract 1; add handle area
+                val indent = (currentDepth - 1).coerceAtLeast(0) * perLevel + perLevel
+                val scrollBarWidth = (vp.parent as? JScrollPane)?.verticalScrollBar
+                    ?.let { if (it.isVisible) it.width else 0 } ?: 0
+                val w = (vpWidth - indent - scrollBarWidth).coerceAtLeast(100)
                 return Dimension(w, base.height.coerceAtLeast(30))
             }
         }.apply { isOpaque = true }
@@ -830,8 +836,8 @@ class ProjectTreePanel(
         override fun getTreeCellRendererComponent(
             t: JTree, value: Any?, selected: Boolean, expanded: Boolean, leaf: Boolean, row: Int, hasFocus: Boolean,
         ): Component {
-            currentRow = row
             val node = value as? DefaultMutableTreeNode
+            currentDepth = node?.level ?: 0
             val bg = if (selected) (UIManager.getColor("Tree.selectionBackground") ?: t.background) else t.background
             val fg = if (selected) (UIManager.getColor("Tree.selectionForeground") ?: t.foreground) else t.foreground
 
