@@ -801,7 +801,21 @@ class ProjectTreePanel(
         private val innerPanel = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
         }
-        private val projectPanel = JPanel(BorderLayout()).apply { isOpaque = true }
+        private var currentRow = 0
+
+        private val projectPanel = object : JPanel(BorderLayout()) {
+            override fun getPreferredSize(): Dimension {
+                val base = super.getPreferredSize()
+                val vp = tree.parent as? javax.swing.JViewport ?: return base
+                // The JTree positions cells at an indent determined by the row bounds.
+                // We need to subtract that indent so the cell fills from its start to the panel edge.
+                val rowBounds = if (currentRow >= 0 && currentRow < tree.rowCount)
+                    tree.getRowBounds(currentRow) else null
+                val indent = rowBounds?.x ?: 0
+                val w = (vp.width - indent).coerceAtLeast(base.width)
+                return Dimension(w, base.height.coerceAtLeast(30))
+            }
+        }.apply { isOpaque = true }
 
         private val folderLabel = JLabel().apply {
             border = BorderFactory.createEmptyBorder(3, 6, 3, 6)
@@ -816,6 +830,7 @@ class ProjectTreePanel(
         override fun getTreeCellRendererComponent(
             t: JTree, value: Any?, selected: Boolean, expanded: Boolean, leaf: Boolean, row: Int, hasFocus: Boolean,
         ): Component {
+            currentRow = row
             val node = value as? DefaultMutableTreeNode
             val bg = if (selected) (UIManager.getColor("Tree.selectionBackground") ?: t.background) else t.background
             val fg = if (selected) (UIManager.getColor("Tree.selectionForeground") ?: t.foreground) else t.foreground
