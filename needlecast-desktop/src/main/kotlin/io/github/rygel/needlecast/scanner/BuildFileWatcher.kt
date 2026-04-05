@@ -15,6 +15,19 @@ private val BUILD_FILE_NAMES = setOf(
     "build.gradle.kts",
     "package.json",
     "apm.yml",
+    "pyproject.toml",
+    "requirements.txt",
+    "Cargo.toml",
+    "go.mod",
+    "composer.json",
+    "Gemfile",
+    "Package.swift",
+    "pubspec.yaml",
+    "CMakeLists.txt",
+    "Makefile",
+    "build.sbt",
+    "mix.exs",
+    "build.zig",
 )
 
 private val BUILD_FILE_EXTENSIONS = setOf("sln", "csproj")

@@ -11,6 +11,17 @@ class CompositeProjectScanner(
         IntellijRunConfigScanner(),
         NpmProjectScanner(),
         ApmProjectScanner(),
+        PythonProjectScanner(),
+        RustProjectScanner(),
+        GoProjectScanner(),
+        PhpProjectScanner(),
+        RubyProjectScanner(),
+        SwiftProjectScanner(),
+        DartProjectScanner(),
+        CMakeProjectScanner(),
+        SbtProjectScanner(),
+        ElixirProjectScanner(),
+        ZigProjectScanner(),
     ),
 ) : ProjectScanner {
 

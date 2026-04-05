@@ -2,6 +2,31 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.9] — 2026-04-05
+
+### Added
+- **Log Viewer panel** — dockable panel that discovers `.log` files in the active project, with live tailing (500ms poll), colour-coded log levels (ERROR/WARN/INFO/DEBUG/TRACE), level filtering, follow mode, and incremental search; supports Logback, Log4j2, JSON structured logs, and plain text
+- **Renovate panel** — dockable panel that scans the active project for outdated dependencies using `renovate --platform=local`, shows results in a sortable colour-coded table (major/minor/patch), and applies selected updates directly to project files
+- **11 new build system scanners** with full test coverage (49 tests):
+  - **Python** — uv (`uv.lock`), Poetry (`poetry.lock`), pip fallback; parses `[project.scripts]`
+  - **Rust** — Cargo (`Cargo.toml`); workspace member detection for per-crate commands
+  - **Go** — go mod (`go.mod`); `main.go` and `cmd/` subdirectory detection
+  - **PHP** — Composer (`composer.json`); script extraction, Laravel artisan detection
+  - **Ruby** — Bundler (`Gemfile`); Rails, Rakefile detection
+  - **Swift** — SPM (`Package.swift`)
+  - **Dart/Flutter** — pub/Flutter (`pubspec.yaml`); distinguishes Flutter from pure Dart
+  - **C/C++** — CMake (`CMakeLists.txt`) and Make (`Makefile`), can coexist
+  - **Scala** — sbt (`build.sbt`)
+  - **Elixir** — Mix (`mix.exs`); Phoenix framework detection
+  - **Zig** — Zig (`build.zig`)
+- **Settings: embedded output** — Renovate and APM install tabs now stream command output in an embedded panel instead of sending blindly to the main terminal
+
+### Changed
+- `BuildTool` enum renamed to use actual tool names (Cargo not Rust, Composer not PHP, Bundler not Ruby, SPM not Swift, Mix not Elixir, etc.)
+- Editor mono font selection is now OS-aware (Cascadia Mono on Windows, SF Mono on macOS, JetBrains Mono on Linux)
+
+---
+
 ## [0.6.8] — 2026-04-04
 
 ### Fixed
