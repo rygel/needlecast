@@ -10,6 +10,15 @@ enum class BuildTool(val displayName: String, val tagLabel: String, val tagColor
     PYTHON("Python",    "py",     "#3776AB"),
     RUST("Rust",        "cargo",  "#DEA584"),
     GO("Go",            "go",     "#00ADD8"),
+    PHP("PHP",          "php",    "#777BB4"),
+    RUBY("Ruby",        "ruby",   "#CC342D"),
+    SWIFT("Swift",      "swift",  "#F05138"),
+    DART("Dart",        "dart",   "#0175C2"),
+    CMAKE("CMake",      "cmake",  "#064F8C"),
+    MAKE("Make",        "make",   "#6D6E71"),
+    SBT("sbt",          "sbt",    "#DC322F"),
+    ELIXIR("Elixir",    "elixir", "#6E4A7E"),
+    ZIG("Zig",          "zig",    "#F7A41D"),
 }
 
 data class CommandDescriptor(

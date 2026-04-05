@@ -14,6 +14,14 @@ class CompositeProjectScanner(
         PythonProjectScanner(),
         RustProjectScanner(),
         GoProjectScanner(),
+        PhpProjectScanner(),
+        RubyProjectScanner(),
+        SwiftProjectScanner(),
+        DartProjectScanner(),
+        CMakeProjectScanner(),
+        SbtProjectScanner(),
+        ElixirProjectScanner(),
+        ZigProjectScanner(),
     ),
 ) : ProjectScanner {
 
