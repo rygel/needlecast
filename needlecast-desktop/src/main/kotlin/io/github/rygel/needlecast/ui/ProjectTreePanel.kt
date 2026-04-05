@@ -89,6 +89,34 @@ class ProjectTreePanel(
 
     companion object {
         private val logger = LoggerFactory.getLogger(ProjectTreePanel::class.java)
+
+        /** Draws [base] icon with a small green "+" badge in the bottom-right corner. */
+        private fun plusOverlayIcon(base: javax.swing.Icon?): javax.swing.Icon? {
+            if (base == null) return null
+            return object : javax.swing.Icon {
+                override fun getIconWidth() = base.iconWidth
+                override fun getIconHeight() = base.iconHeight
+                override fun paintIcon(c: java.awt.Component?, g: java.awt.Graphics, x: Int, y: Int) {
+                    base.paintIcon(c, g, x, y)
+                    val g2 = g.create() as java.awt.Graphics2D
+                    g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON)
+                    val size = 9
+                    val px = x + base.iconWidth - size
+                    val py = y + base.iconHeight - size
+                    // Green circle background
+                    g2.color = java.awt.Color(0x4CAF50)
+                    g2.fillOval(px, py, size, size)
+                    // White "+" sign
+                    g2.color = java.awt.Color.WHITE
+                    g2.stroke = java.awt.BasicStroke(1.5f)
+                    val cx = px + size / 2
+                    val cy = py + size / 2
+                    g2.drawLine(cx - 2, cy, cx + 2, cy)
+                    g2.drawLine(cx, cy - 2, cx, cy + 2)
+                    g2.dispose()
+                }
+            }
+        }
     }
 
     init {
@@ -104,10 +132,10 @@ class ProjectTreePanel(
             isContentAreaFilled = false
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
         }
-        val addFolderBtn = iconBtn(UIManager.getIcon("FileView.directoryIcon"), "\uD83D\uDCC1", "Add a folder to organize projects").apply {
+        val addFolderBtn = iconBtn(plusOverlayIcon(UIManager.getIcon("FileView.directoryIcon")), "\uD83D\uDCC1+", "Add a folder to organize projects").apply {
             addActionListener { addFolder(selectedFolderNode()) }
         }
-        val addProjectBtn = iconBtn(UIManager.getIcon("FileView.fileIcon"), "\uD83D\uDCC4", "Add a project directory").apply {
+        val addProjectBtn = iconBtn(plusOverlayIcon(UIManager.getIcon("FileView.fileIcon")), "\uD83D\uDCC4+", "Add a project directory").apply {
             addActionListener { addProject(selectedFolderNode()) }
         }
         val rescanBtn = iconBtn(null, "\u21BB", "Rescan all projects (F5)").apply {
