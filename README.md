@@ -27,7 +27,22 @@
 - File explorer automatically switches to the active project's directory
 
 **Commands**
-- Auto-detects Maven, Gradle, npm, .NET, IntelliJ run configs, and APM projects
+- Auto-detects 17 build tools across 11 language ecosystems:
+  - **Java/Kotlin** — Maven (lifecycle + plugins + submodules), Gradle (tasks + plugins + subprojects)
+  - **JavaScript/TypeScript** — npm (scripts from package.json)
+  - **Python** — uv, Poetry, pip (auto-detected from lock files and pyproject.toml)
+  - **Rust** — Cargo (workspace members, clippy, fmt)
+  - **Go** — go mod (main.go detection, cmd/ subdirectories)
+  - **C#/.NET** — solution/project detection with per-project commands
+  - **PHP** — Composer (scripts, Laravel artisan detection)
+  - **Ruby** — Bundler (Rails, Rakefile detection)
+  - **Swift** — Swift Package Manager
+  - **Dart/Flutter** — pubspec.yaml (distinguishes Flutter from pure Dart)
+  - **C/C++** — CMake and/or Makefile
+  - **Scala** — sbt
+  - **Elixir** — Mix (Phoenix framework detection)
+  - **Zig** — build.zig
+  - **Other** — IntelliJ run configs, APM
 - Command queue — chain commands to run sequentially (clean → build → run)
 - Command history with re-run support (last 20 per project)
 - Desktop notification when a command finishes in the background
