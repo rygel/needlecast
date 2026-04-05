@@ -56,7 +56,7 @@ fun main(args: Array<String>) {
 
     SwingUtilities.invokeLater {
         val w = MainWindow(ctx)
-        w.setSize(1280, 840)
+        w.setSize(1440, 900)
         w.setLocationRelativeTo(null)
         w.defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
         w.isVisible = true
@@ -385,8 +385,8 @@ private fun buildDemoConfig(projects: List<DemoProject>): AppConfig {
     return AppConfig(
         theme       = "dark-purple",
         projectTree = projectTree,
-        windowWidth  = 1280,
-        windowHeight = 840,
+        windowWidth  = 1440,
+        windowHeight = 900,
     )
 }
 
