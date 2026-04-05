@@ -194,6 +194,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 applyEditorPaneDefaults()
                 applyTheme(ThemeRegistry.isDark(ctx.config.theme))
                 updateTimer.start()
+                // After the window is laid out, force the project tree to
+                // recalculate cell widths (tree.width is 0 during initial render)
+                SwingUtilities.invokeLater { projectTreePanel.invalidateTreeLayout() }
             }
 
             override fun windowClosing(e: WindowEvent) {
