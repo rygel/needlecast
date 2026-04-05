@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import java.util.UUID
@@ -538,8 +539,8 @@ internal fun defaultCommandLibrary() = listOf(
 )
 
 data class AppConfig(
-    /** Incremented when a breaking schema change requires migration. Current: 2. */
-    val configVersion: Int = 2,
+    /** Incremented when a breaking schema change requires migration. Current: 3. */
+    val configVersion: Int = 3,
     val groups: List<ProjectGroup> = emptyList(),
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,
@@ -552,7 +553,11 @@ data class AppConfig(
     val commandHistory: Map<String, List<CommandHistoryEntry>> = emptyMap(),
     /** Overridden keyboard shortcuts keyed by action name. Empty = use built-in defaults. */
     val shortcuts: Map<String, String> = emptyMap(),
+    /** Built-in prompt library — always loaded from code, never persisted. */
+    @get:JsonIgnore
     val promptLibrary: List<PromptTemplate> = defaultPromptLibrary(),
+    /** Built-in command library — always loaded from code, never persisted. */
+    @get:JsonIgnore
     val commandLibrary: List<PromptTemplate> = defaultCommandLibrary(),
     val projectTree: List<ProjectTreeEntry> = emptyList(),
     /** Whether the console output pane is visible. */
