@@ -304,8 +304,34 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     }
 
     private fun monoFont(): String {
+        val os = System.getProperty("os.name", "").lowercase()
         val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
-        return listOf("JetBrains Mono", "Cascadia Code", "Consolas", "Courier New").firstOrNull { it in available }
-            ?: Font.MONOSPACED
+        val preferred = when {
+            os.contains("win") -> listOf(
+                "Cascadia Mono",       // ships with Windows 11 / Windows Terminal — crisp at all sizes
+                "Cascadia Code",       // ligature variant
+                "JetBrains Mono",      // popular dev font, excellent readability
+                "Fira Code",           // widely installed via dev toolchains
+                "Consolas",            // ClearType-optimised, every Windows since Vista
+                "Lucida Console",
+            )
+            os.contains("mac") -> listOf(
+                "SF Mono",             // Apple's system monospace (macOS 10.15+)
+                "Menlo",               // macOS default monospace
+                "JetBrains Mono",
+                "Fira Code",
+                "Monaco",
+                "Courier New",
+            )
+            else -> listOf(
+                "JetBrains Mono",
+                "Fira Code",
+                "DejaVu Sans Mono",
+                "Liberation Mono",
+                "Noto Mono",
+                "Ubuntu Mono",
+            )
+        }
+        return preferred.firstOrNull { it in available } ?: Font.MONOSPACED
     }
 }
