@@ -7,6 +7,9 @@ enum class BuildTool(val displayName: String, val tagLabel: String, val tagColor
     INTELLIJ_RUN("Run Config", "run", "#E65100"),
     NPM("npm",          "npm",    "#CB3837"),
     APM("apm",          "apm",    "#0078D4"),
+    PYTHON("Python",    "py",     "#3776AB"),
+    RUST("Rust",        "cargo",  "#DEA584"),
+    GO("Go",            "go",     "#00ADD8"),
 }
 
 data class CommandDescriptor(
