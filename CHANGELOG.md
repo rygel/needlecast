@@ -2,6 +2,15 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.10] — 2026-04-05
+
+### Changed
+- **Update checks every 15 minutes** — replaces the single startup check with periodic polling (first check 30s after launch)
+- **Updated documentation** — README now includes Log Viewer and Renovate panel features with screenshot gallery; User Guide expanded with full sections for Log Viewer, Renovate, and all 21 build tools
+- **Screenshot tour** — captures Renovate panel and Log Viewer with realistic demo data; demo projects now include Python (uv), Rust (Cargo), and Go
+
+---
+
 ## [0.6.9] — 2026-04-05
 
 ### Added

@@ -57,7 +57,7 @@ The left sidebar organizes your projects into color-coded folders.
 Each project shows:
 - **Name** — the directory name (or custom display name)
 - **Branch** — current git branch and dirty indicator (`*`)
-- **Tags** — build tool badges (mvn, gradle, npm, .net) and custom tags
+- **Tags** — build tool badges (mvn, gradle, npm, cargo, uv, go, composer, etc.) and custom tags
 - **Color stripe** — optional per-project color
 
 Right-click a project for:
@@ -80,17 +80,36 @@ Press **Ctrl+P** to open the fuzzy project switcher — search across all groups
 
 ## Commands
 
-When you select a project, Needlecast scans its build files and shows detected commands:
+When you select a project, Needlecast scans its build files and shows detected commands. The following languages and build tools are auto-detected:
 
-- **Maven** — `mvn clean`, `mvn verify`, `mvn spring-boot:run`, etc.
-- **Gradle** — `./gradlew build`, `./gradlew :module:run`, etc.
-- **npm** — all scripts from `package.json` (dev, build, test, lint, ...)
-- **.NET** — `dotnet build`, `dotnet run --project`, `dotnet watch run`, etc.
+| Language | Build tool | Detected from | Highlights |
+|----------|-----------|---------------|------------|
+| Java / Kotlin | **Maven** | `pom.xml` | Lifecycle goals, plugin detection (Spring Boot, Quarkus, JavaFX, exec), submodules |
+| Java / Kotlin | **Gradle** | `build.gradle(.kts)` | Tasks, plugin detection (Spring Boot, Shadow, Compose Desktop), subprojects |
+| JavaScript / TypeScript | **npm** | `package.json` | Extracts scripts, preferred ordering (dev, start, build, test) |
+| Python | **uv** | `uv.lock` or `[tool.uv]` | sync, run, build, test, lock |
+| Python | **Poetry** | `poetry.lock` or `[tool.poetry]` | install, run, build, test, lock |
+| Python | **pip** | `pyproject.toml` / `requirements.txt` | Fallback when no lock file detected |
+| Rust | **Cargo** | `Cargo.toml` | build, test, run, check, clippy, fmt; workspace members |
+| Go | **Go** | `go.mod` | build, test, vet, fmt; `main.go` and `cmd/` detection |
+| C# / F# / VB | **.NET** | `.sln` / `.csproj` | Solution parsing, web/test/runnable project detection |
+| PHP | **Composer** | `composer.json` | Script extraction, Laravel artisan detection |
+| Ruby | **Bundler** | `Gemfile` | Rails server/console/test, Rakefile detection |
+| Swift | **SPM** | `Package.swift` | build, test, run, package resolve |
+| Dart | **pub** | `pubspec.yaml` | run, test, compile, analyze |
+| Dart | **Flutter** | `pubspec.yaml` + `sdk: flutter` | run, build (apk/ios/web), test, analyze |
+| C / C++ | **CMake** | `CMakeLists.txt` | configure, build, ctest, install |
+| C / C++ | **Make** | `Makefile` | make, clean, test, install |
+| Scala | **sbt** | `build.sbt` | compile, test, run, assembly |
+| Elixir | **Mix** | `mix.exs` | compile, test, format; Phoenix server/ecto detection |
+| Zig | **Zig** | `build.zig` | build, test, run, fmt |
 
 ### Multi-module detection
 
 - **Maven** — parses `<modules>` and generates `-pl module -am` commands. Detects Spring Boot, Quarkus, Jetty, exec-maven-plugin per module.
 - **Gradle** — parses `settings.gradle(.kts)` for subproject tasks. Detects Spring Boot, Shadow, Compose Desktop per subproject.
+- **Rust** — parses `[workspace] members` from `Cargo.toml` for per-crate `cargo build -p` and `cargo test -p`.
+- **Go** — detects `cmd/` subdirectories for per-binary `go build ./cmd/name` and `go run ./cmd/name`.
 - **.NET** — parses `.sln` for project references. Generates per-project `run`, `test`, `watch` based on SDK type and PackageReferences.
 
 ### Running commands
@@ -188,6 +207,11 @@ Same interface but for shell commands — Git, Maven, Gradle, npm, Docker, Searc
 - Enable/disable detected AI CLIs (Claude, Gemini, Codex, etc.)
 - Add custom AI CLI definitions
 
+### Renovate / APM
+- One-click install buttons for Renovate and APM
+- Command output streams live in an embedded panel (no need to switch to the terminal)
+- Recheck button verifies installation status
+
 ---
 
 ## Environment Variables
@@ -214,9 +238,65 @@ The Git Log panel shows recent commits. Click a commit to see `git show` output.
 
 ---
 
+## Log Viewer
+
+The **Log Viewer** panel discovers and displays log files from the active project. Open it from **Panels → Log Viewer** (or it may already be tabbed alongside Git Log).
+
+![Log Viewer](screenshots/09-log-viewer.png)
+
+### Features
+
+- **Auto-discovery** — scans `target/`, `logs/`, `log/`, `build/`, `out/` and the project root for `.log` files
+- **Live tailing** — polls the active log file every 500ms for new content
+- **Colour-coded levels** — ERROR (red, bold), WARN (orange), INFO (default), DEBUG (grey), TRACE (grey, italic)
+- **Level filtering** — toggle buttons to show/hide each log level
+- **Follow mode** — auto-scrolls to newest entries (click the arrow button or scroll manually to disable)
+- **Search** — `Ctrl+F` for incremental search with match highlighting and navigation (Enter/Shift+Enter)
+- **Log rotation detection** — if a file shrinks (rotated), the viewer reloads from the beginning
+- **Stack trace grouping** — lines starting with `at`, `Caused by:`, or `...` are grouped with the preceding log entry
+
+### Supported formats
+
+- **Logback** — `HH:mm:ss.SSS [thread] LEVEL logger - message`
+- **Log4j2** — `YYYY-MM-DD HH:mm:ss,SSS LEVEL [thread] logger - message`
+- **JSON lines** — `{"timestamp":..., "level":..., "message":...}`
+- **Plain text** — keyword detection (ERROR, WARN, DEBUG, TRACE)
+
+---
+
+## Renovate (Dependency Updates)
+
+The **Renovate** panel scans the active project for outdated dependencies and lets you apply updates. Open it from **Panels → Renovate**.
+
+![Renovate Panel](screenshots/08-renovate.png)
+
+### Scanning
+
+Click **Scan for Updates** to run `renovate --platform=local` against the active project. No GitHub token is needed — Renovate reads the local build files directly. Results appear in a sortable table:
+
+- **Manager** — which build system (maven, npm, dockerfile, github-actions, etc.)
+- **Dependency** — the package name
+- **Current** / **Available** — version comparison
+- **Type** — colour-coded: **major** (red), **minor** (orange), **patch** (green)
+
+The summary bar shows total counts (e.g. "20 updates available: 2 major, 9 minor, 7 patch, 2 other").
+
+### Applying updates
+
+1. Check the boxes next to the updates you want to apply
+2. Use the quick-select buttons: **All**, **None**, or **Patch only** (safest)
+3. Click **Apply Selected** — a confirmation dialog shows what will change, with a warning for major (breaking) updates
+4. Needlecast modifies the version strings in your project files directly (Maven properties, Dockerfile tags, etc.)
+
+### Installing Renovate
+
+If Renovate is not installed, the panel shows a hint. Install it via **Settings → Renovate** tab, which provides one-click install buttons for npm, Scoop, Chocolatey, or Homebrew.
+
+---
+
 ## Updates
 
-Needlecast checks for updates on startup and via **Help → Check for Updates**. When a new version is available, a dialog shows the release notes and offers to download the installer.
+Needlecast checks for updates every 15 minutes and via **Help → Check for Updates**. When a new version is available, a dialog shows the release notes and offers to download the installer.
 
 The update feed uses the [Sparkle appcast format](https://sparkle-project.org/) via [sparkle4j](https://github.com/rygel/sparkle4j).
 
@@ -224,7 +304,7 @@ The update feed uses the [Sparkle appcast format](https://sparkle-project.org/) 
 
 ## Configuration
 
-Config is stored in `~/.quicklaunch/config.json` and migrated automatically on version upgrades.
+Config is stored in `~/.needlecast/config.json` and migrated automatically on version upgrades.
 
 ### Import/Export
 

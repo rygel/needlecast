@@ -192,7 +192,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             override fun windowOpened(e: WindowEvent) {
                 applyDockingLayout()
                 applyTheme(ThemeRegistry.isDark(ctx.config.theme))
-                checkForUpdates()
+                updateTimer.start()
             }
 
             override fun windowClosing(e: WindowEvent) {
@@ -209,6 +209,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     AppState.setAutoPersist(false)
                     AppState.setPaused(true)
                     ctx.disposeAll()
+                    updateTimer.stop()
                     logViewerPanel.dispose()
                     terminalPanel.dispose()
                     claudeHookServer?.stop()
@@ -857,9 +858,14 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         }
     }
 
+    private val updateTimer = javax.swing.Timer(15 * 60 * 1000) { checkForUpdates() }.apply {
+        isRepeats = true
+        initialDelay = 30_000 // first check 30s after launch
+    }
+
     private fun checkForUpdates() {
         try {
-            updateLogger.info("Startup update check")
+            updateLogger.info("Periodic update check")
             buildSparkle4j(0)?.checkInBackground()
         } catch (e: Exception) {
             updateLogger.warn("Update check failed", e)
