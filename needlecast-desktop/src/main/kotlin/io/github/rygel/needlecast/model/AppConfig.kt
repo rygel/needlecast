@@ -553,12 +553,10 @@ data class AppConfig(
     val commandHistory: Map<String, List<CommandHistoryEntry>> = emptyMap(),
     /** Overridden keyboard shortcuts keyed by action name. Empty = use built-in defaults. */
     val shortcuts: Map<String, String> = emptyMap(),
-    /** Built-in prompt library — always loaded from code, never persisted. */
-    @get:JsonIgnore
-    val promptLibrary: List<PromptTemplate> = defaultPromptLibrary(),
-    /** Built-in command library — always loaded from code, never persisted. */
-    @get:JsonIgnore
-    val commandLibrary: List<PromptTemplate> = defaultCommandLibrary(),
+    /** User-created prompts — persisted in config. Shown alongside built-in defaults. */
+    val customPrompts: List<PromptTemplate> = emptyList(),
+    /** User-created commands — persisted in config. Shown alongside built-in defaults. */
+    val customCommands: List<PromptTemplate> = emptyList(),
     val projectTree: List<ProjectTreeEntry> = emptyList(),
     /** Whether the console output pane is visible. */
     val showConsole: Boolean = true,
@@ -601,7 +599,14 @@ data class AppConfig(
      * When false (default), agent status is detected by polling terminal output.
      */
     val claudeHooksEnabled: Boolean = false,
-)
+) {
+    /** Built-in defaults + user custom prompts. Built-ins always come from code. */
+    @get:JsonIgnore
+    val promptLibrary: List<PromptTemplate> get() = defaultPromptLibrary() + customPrompts
+    /** Built-in defaults + user custom commands. Built-ins always come from code. */
+    @get:JsonIgnore
+    val commandLibrary: List<PromptTemplate> get() = defaultCommandLibrary() + customCommands
+}
 
 data class AiCliDefinition(
     val name: String,
