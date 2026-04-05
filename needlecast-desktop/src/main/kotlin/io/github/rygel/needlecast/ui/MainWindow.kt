@@ -191,6 +191,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         addWindowListener(object : WindowAdapter() {
             override fun windowOpened(e: WindowEvent) {
                 applyDockingLayout()
+                applyEditorPaneDefaults()
                 applyTheme(ThemeRegistry.isDark(ctx.config.theme))
                 updateTimer.start()
             }
@@ -645,10 +646,28 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private fun setTheme(themeId: String) {
         val dark = ThemeRegistry.apply(themeId)
+        applyEditorPaneDefaults()
         SwingUtilities.updateComponentTreeUI(this)
         applyTheme(dark)
         ctx.updateConfig(ctx.config.copy(theme = themeId))
         ctx.reloadTheme()
+    }
+
+    /**
+     * Set JEditorPane HTML defaults from the current L&F so that HTML content
+     * (e.g. the sparkle4j update dialog) inherits the theme's text color.
+     */
+    private fun applyEditorPaneDefaults() {
+        val fg = UIManager.getColor("EditorPane.foreground") ?: UIManager.getColor("Label.foreground")
+        val bg = UIManager.getColor("EditorPane.background") ?: UIManager.getColor("Panel.background")
+        if (fg != null && bg != null) {
+            val fgHex = "#%02X%02X%02X".format(fg.red, fg.green, fg.blue)
+            val bgHex = "#%02X%02X%02X".format(bg.red, bg.green, bg.blue)
+            val rule = "body { color: $fgHex; background-color: $bgHex; } a { color: #5C9CE6; }"
+            val kit = javax.swing.text.html.HTMLEditorKit()
+            val styleSheet = kit.styleSheet
+            styleSheet.addRule(rule)
+        }
     }
 
     private fun buildViewMenu(title: String): JMenu {
