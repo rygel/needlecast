@@ -1,6 +1,5 @@
 package io.github.rygel.needlecast.ui
 
-import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.rygel.needlecast.process.ProcessExecutor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
@@ -15,6 +14,7 @@ import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JLabel
+import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTable
@@ -26,18 +26,30 @@ import javax.swing.table.DefaultTableCellRenderer
 /**
  * Dockable panel for running Renovate locally against the active project.
  *
- * Runs `renovate --platform=local` with a JSON report, then parses the
- * report to show a table of outdated dependencies with current/available
- * versions and update type.
+ * Scans for outdated dependencies, shows results in a table with checkboxes,
+ * and applies selected updates by replacing version strings in project files.
  */
 class RenovatePanel : JPanel(BorderLayout()) {
 
+    /** One row in the updates table. Carries everything needed to apply the update. */
     private data class DepUpdate(
         val manager: String,
+        val packageFile: String,
         val depName: String,
-        val currentVersion: String,
-        val newVersion: String,
+        val currentValue: String,
+        val newValue: String,
         val updateType: String,
+        /** Maven property name, e.g. "jackson.version". Empty for non-shared deps. */
+        val sharedVariableName: String,
+        /** Byte offset in the file where the version string lives. -1 if unavailable. */
+        val fileReplacePosition: Int,
+        /** For Dockerfiles: the full string to search/replace (e.g. "maven:3.9-temurin"). */
+        val replaceString: String,
+        /** The template for generating the new replace string. */
+        val autoReplaceTemplate: String,
+        /** New digest for pinDigest updates. */
+        val newDigest: String,
+        var selected: Boolean = true,
     )
 
     private val statusLabel = JLabel("", SwingConstants.LEFT)
@@ -49,19 +61,29 @@ class RenovatePanel : JPanel(BorderLayout()) {
     private var updates = mutableListOf<DepUpdate>()
 
     private val tableModel = object : AbstractTableModel() {
-        private val columns = arrayOf("Manager", "Dependency", "Current", "Available", "Type")
+        private val columns = arrayOf("", "Manager", "Dependency", "Current", "Available", "Type")
         override fun getRowCount() = updates.size
         override fun getColumnCount() = columns.size
         override fun getColumnName(col: Int) = columns[col]
+        override fun getColumnClass(col: Int) = if (col == 0) java.lang.Boolean::class.java else String::class.java
+        override fun isCellEditable(row: Int, col: Int) = col == 0
         override fun getValueAt(row: Int, col: Int): Any {
             val u = updates[row]
             return when (col) {
-                0 -> u.manager
-                1 -> u.depName
-                2 -> u.currentVersion
-                3 -> u.newVersion
-                4 -> u.updateType
+                0 -> u.selected
+                1 -> u.manager
+                2 -> u.depName
+                3 -> u.currentValue
+                4 -> u.newValue
+                5 -> u.updateType
                 else -> ""
+            }
+        }
+        override fun setValueAt(value: Any?, row: Int, col: Int) {
+            if (col == 0 && value is Boolean) {
+                updates[row] = updates[row].copy(selected = value)
+                fireTableCellUpdated(row, col)
+                updateApplyButton()
             }
         }
     }
@@ -71,15 +93,49 @@ class RenovatePanel : JPanel(BorderLayout()) {
         rowHeight = 22
         autoCreateRowSorter = true
         setDefaultRenderer(Object::class.java, UpdateTypeCellRenderer())
-        columnModel.getColumn(0).preferredWidth = 100
-        columnModel.getColumn(1).preferredWidth = 300
-        columnModel.getColumn(2).preferredWidth = 120
-        columnModel.getColumn(3).preferredWidth = 120
-        columnModel.getColumn(4).preferredWidth = 80
+        columnModel.getColumn(0).preferredWidth = 30
+        columnModel.getColumn(0).maxWidth = 30
+        columnModel.getColumn(1).preferredWidth = 100
+        columnModel.getColumn(2).preferredWidth = 280
+        columnModel.getColumn(3).preferredWidth = 110
+        columnModel.getColumn(4).preferredWidth = 110
+        columnModel.getColumn(5).preferredWidth = 70
     }
 
     private val runButton = JButton("Scan for Updates").apply {
         addActionListener { runLocalScan() }
+    }
+
+    private val applyButton = JButton("Apply Selected").apply {
+        isEnabled = false
+        addActionListener { applySelected() }
+    }
+
+    private val selectAllButton = JButton("All").apply {
+        toolTipText = "Select all updates"
+        addActionListener {
+            updates.forEach { it.selected = true }
+            tableModel.fireTableDataChanged()
+            updateApplyButton()
+        }
+    }
+
+    private val selectNoneButton = JButton("None").apply {
+        toolTipText = "Deselect all updates"
+        addActionListener {
+            updates.forEach { it.selected = false }
+            tableModel.fireTableDataChanged()
+            updateApplyButton()
+        }
+    }
+
+    private val selectPatchButton = JButton("Patch only").apply {
+        toolTipText = "Select only patch updates (safest)"
+        addActionListener {
+            updates.forEach { it.selected = it.updateType == "patch" }
+            tableModel.fireTableDataChanged()
+            updateApplyButton()
+        }
     }
 
     private val summaryLabel = JLabel(" ").apply {
@@ -89,8 +145,13 @@ class RenovatePanel : JPanel(BorderLayout()) {
     init {
         minimumSize = Dimension(0, 0)
 
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 8, 4)).apply {
+        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 6, 4)).apply {
             add(runButton)
+            add(applyButton)
+            add(JLabel("  Select:"))
+            add(selectAllButton)
+            add(selectNoneButton)
+            add(selectPatchButton)
             add(statusLabel)
         }
 
@@ -124,7 +185,16 @@ class RenovatePanel : JPanel(BorderLayout()) {
         updates.clear()
         tableModel.fireTableDataChanged()
         summaryLabel.text = " "
+        updateApplyButton()
     }
+
+    private fun updateApplyButton() {
+        val count = updates.count { it.selected }
+        applyButton.isEnabled = count > 0
+        applyButton.text = if (count > 0) "Apply Selected ($count)" else "Apply Selected"
+    }
+
+    // ── Scan ─────────────────────────────────────────────────────────────
 
     private fun runLocalScan() {
         val dir = currentProjectPath
@@ -136,10 +206,10 @@ class RenovatePanel : JPanel(BorderLayout()) {
         val reportFile = File(dir, "target/renovate-report.json")
         reportFile.parentFile?.mkdirs()
 
-        runButton.isEnabled = false
+        setButtonsEnabled(false)
         updates.clear()
         tableModel.fireTableDataChanged()
-        summaryLabel.text = "Scanning…"
+        summaryLabel.text = "Scanning\u2026"
 
         object : SwingWorker<List<DepUpdate>, String>() {
             override fun doInBackground(): List<DepUpdate> {
@@ -156,12 +226,10 @@ class RenovatePanel : JPanel(BorderLayout()) {
                 }
                 val exitCode = proc.waitFor()
                 if (exitCode != 0 || !reportFile.exists()) return emptyList()
-
                 return parseReport(reportFile)
             }
 
             override fun process(chunks: List<String>) {
-                // Show progress in summary label — last meaningful line
                 for (line in chunks) {
                     val trimmed = line.trim()
                     if (trimmed.startsWith("INFO:") || trimmed.startsWith("WARN:") || trimmed.startsWith("DEBUG:")) {
@@ -173,7 +241,7 @@ class RenovatePanel : JPanel(BorderLayout()) {
             override fun done() {
                 val result = try { get() } catch (e: Exception) {
                     summaryLabel.text = "Error: ${e.cause?.message ?: e.message}"
-                    runButton.isEnabled = true
+                    setButtonsEnabled(true)
                     return
                 }
                 updates.clear()
@@ -194,11 +262,119 @@ class RenovatePanel : JPanel(BorderLayout()) {
                     if (other > 0) parts += "$other other"
                     summaryLabel.text = "${updates.size} updates available: ${parts.joinToString(", ")}"
                 }
-                runButton.isEnabled = true
+                setButtonsEnabled(true)
+                updateApplyButton()
                 reportFile.delete()
             }
         }.execute()
     }
+
+    // ── Apply ────────────────────────────────────────────────────────────
+
+    private fun applySelected() {
+        val dir = currentProjectPath ?: return
+        val selected = updates.filter { it.selected }
+        if (selected.isEmpty()) return
+
+        val msg = buildString {
+            append("Apply ${selected.size} update(s)?\n\n")
+            val majors = selected.filter { it.updateType == "major" }
+            if (majors.isNotEmpty()) {
+                append("WARNING: ${majors.size} major update(s) may contain breaking changes:\n")
+                majors.forEach { append("  \u2022 ${it.depName} ${it.currentValue} \u2192 ${it.newValue}\n") }
+                append("\n")
+            }
+            append("Files will be modified in:\n$dir")
+        }
+        val confirm = JOptionPane.showConfirmDialog(this, msg, "Apply Updates",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE)
+        if (confirm != JOptionPane.OK_OPTION) return
+
+        // Group replacements by file, dedup shared variables
+        val replacements = buildReplacements(dir, selected)
+        var applied = 0
+        var errors = 0
+
+        for ((filePath, fileReplacements) in replacements) {
+            try {
+                val file = File(filePath)
+                var content = file.readText(Charsets.UTF_8)
+                for ((oldValue, newValue) in fileReplacements) {
+                    val before = content
+                    content = content.replace(oldValue, newValue)
+                    if (content != before) applied++
+                }
+                file.writeText(content, Charsets.UTF_8)
+            } catch (e: Exception) {
+                errors++
+            }
+        }
+
+        if (errors == 0) {
+            summaryLabel.text = "Applied $applied update(s). Run a build to verify."
+        } else {
+            summaryLabel.text = "Applied $applied update(s), $errors error(s). Check files manually."
+        }
+
+        // Remove applied updates from the table
+        updates.removeAll { it.selected }
+        tableModel.fireTableDataChanged()
+        updateApplyButton()
+    }
+
+    /**
+     * Build a map of file path -> list of (oldString, newString) replacements.
+     * Deduplicates shared Maven properties (e.g. jackson.version used by multiple deps).
+     */
+    private fun buildReplacements(projectDir: String, selected: List<DepUpdate>): Map<String, List<Pair<String, String>>> {
+        val result = mutableMapOf<String, MutableList<Pair<String, String>>>()
+        val appliedProperties = mutableSetOf<String>() // "file:propertyName" dedup key
+
+        for (update in selected) {
+            val filePath = File(projectDir, update.packageFile).absolutePath
+
+            // Dedup shared Maven properties — e.g. jackson-module-kotlin and jackson-databind
+            // both point to <jackson.version>2.17.2</jackson.version>
+            if (update.sharedVariableName.isNotEmpty()) {
+                val key = "${update.packageFile}:${update.sharedVariableName}"
+                if (key in appliedProperties) continue
+                appliedProperties += key
+                // Replace the property value: >currentValue< → >newValue<
+                val oldTag = ">${update.currentValue}</${update.sharedVariableName}>"
+                val newTag = ">${update.newValue}</${update.sharedVariableName}>"
+                result.getOrPut(filePath) { mutableListOf() } += oldTag to newTag
+                continue
+            }
+
+            // Dockerfile: replace the full image string
+            if (update.replaceString.isNotEmpty()) {
+                val oldStr = update.replaceString
+                val newStr = if (update.autoReplaceTemplate.isNotEmpty() && update.newDigest.isNotEmpty()) {
+                    // Pin digest: image:tag@sha256:digest
+                    update.autoReplaceTemplate
+                        .replace("{{depName}}", update.depName)
+                        .replace("{{newValue}}", update.newValue)
+                        .replace("{{newDigest}}", update.newDigest)
+                } else if (update.newValue != "?" && update.currentValue != update.newValue) {
+                    oldStr.replace(update.currentValue, update.newValue)
+                } else continue
+                result.getOrPut(filePath) { mutableListOf() } += oldStr to newStr
+                continue
+            }
+
+            // Direct version replacement (non-shared Maven dep, or inline version)
+            if (update.currentValue.isNotEmpty() && update.newValue != "?") {
+                // For Maven: replace >currentValue</artifactId-related-tag> patterns
+                // Use a targeted replacement: >oldVersion< to >newVersion< near the dep
+                val oldVer = ">${update.currentValue}<"
+                val newVer = ">${update.newValue}<"
+                result.getOrPut(filePath) { mutableListOf() } += oldVer to newVer
+            }
+        }
+        return result
+    }
+
+    // ── Report parsing ───────────────────────────────────────────────────
 
     private fun parseReport(reportFile: File): List<DepUpdate> {
         val mapper = ObjectMapper()
@@ -212,31 +388,51 @@ class RenovatePanel : JPanel(BorderLayout()) {
         while (fields.hasNext()) {
             val (manager, files) = fields.next()
             for (file in files) {
+                val pkgFile = file.path("packageFile").asText("")
                 for (dep in file.path("deps")) {
                     val depUpdates = dep.path("updates")
                     if (depUpdates.isEmpty) continue
                     val depName = dep.path("depName").asText("")
-                    val current = dep.path("currentVersion").asText(
-                        dep.path("currentValue").asText("?")
+                    val currentValue = dep.path("currentValue").asText(
+                        dep.path("currentVersion").asText("?")
                     )
+                    val sharedVar = dep.path("sharedVariableName").asText("")
+                    val frp = dep.path("fileReplacePosition").asInt(-1)
+                    val replaceStr = dep.path("replaceString").asText("")
+                    val autoReplace = dep.path("autoReplaceStringTemplate").asText("")
+
                     for (update in depUpdates) {
-                        val newVer = update.path("newVersion").asText(
-                            update.path("newValue").asText("?")
+                        val newValue = update.path("newValue").asText(
+                            update.path("newVersion").asText("?")
                         )
                         val updateType = update.path("updateType").asText("?")
-                        result += DepUpdate(manager, depName, current, newVer, updateType)
+                        val newDigest = update.path("newDigest").asText("")
+                        result += DepUpdate(
+                            manager = manager,
+                            packageFile = pkgFile,
+                            depName = depName,
+                            currentValue = currentValue,
+                            newValue = newValue,
+                            updateType = updateType,
+                            sharedVariableName = sharedVar,
+                            fileReplacePosition = frp,
+                            replaceString = replaceStr,
+                            autoReplaceTemplate = autoReplace,
+                            newDigest = newDigest,
+                        )
                     }
                 }
             }
         }
-        // Sort: major first, then minor, then patch, then alphabetical
         val typeOrder = mapOf("major" to 0, "minor" to 1, "patch" to 2)
         result.sortWith(compareBy<DepUpdate> { typeOrder[it.updateType] ?: 3 }.thenBy { it.depName })
         return result
     }
 
+    // ── Status check ─────────────────────────────────────────────────────
+
     private fun checkRenovateStatus() {
-        statusLabel.text = "Checking…"
+        statusLabel.text = "Checking\u2026"
         object : SwingWorker<Pair<Boolean, String>, Void>() {
             override fun doInBackground(): Pair<Boolean, String> {
                 val found = ProcessExecutor.isOnPath("renovate")
@@ -260,13 +456,21 @@ class RenovatePanel : JPanel(BorderLayout()) {
         }.execute()
     }
 
-    /** Colour-codes the update type column and highlights major updates. */
+    private fun setButtonsEnabled(enabled: Boolean) {
+        runButton.isEnabled = enabled
+        applyButton.isEnabled = enabled && updates.any { it.selected }
+        selectAllButton.isEnabled = enabled
+        selectNoneButton.isEnabled = enabled
+        selectPatchButton.isEnabled = enabled
+    }
+
+    /** Colour-codes the update type column. */
     private class UpdateTypeCellRenderer : DefaultTableCellRenderer() {
         override fun getTableCellRendererComponent(
             table: JTable, value: Any?, isSelected: Boolean, hasFocus: Boolean, row: Int, col: Int,
         ): Component {
             val c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col)
-            if (!isSelected && col == 4) {
+            if (!isSelected && col == 5) {
                 foreground = when (value) {
                     "major" -> Color(0xF44336)
                     "minor" -> Color(0xFFA726)
