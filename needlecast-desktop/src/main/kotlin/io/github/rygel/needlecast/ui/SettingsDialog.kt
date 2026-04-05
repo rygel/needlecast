@@ -11,9 +11,11 @@ import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
+import java.awt.GraphicsEnvironment
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
+import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.JButton
@@ -25,9 +27,11 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTabbedPane
+import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.ListSelectionModel
 import javax.swing.SwingConstants
+import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
 
 class SettingsDialog(
@@ -137,15 +141,14 @@ class SettingsDialog(
         }
         val versionLabel = JLabel("", SwingConstants.CENTER)
 
-        val panel = JPanel(BorderLayout(0, 8)).apply {
-            border = BorderFactory.createEmptyBorder(12, 14, 12, 14)
-        }
+        val outputArea = buildOutputArea()
 
-        val infoLabel = JLabel(
-            "<html>Renovate keeps your dependencies up to date by opening automated PRs.<br>" +
-            "Install it globally so it can also be run locally via <code>renovate-local.sh</code>.</html>"
-        ).apply { border = BorderFactory.createEmptyBorder(0, 0, 8, 0) }
+        // All action buttons — disabled while any command is running
+        val allActionButtons = mutableListOf<JButton>()
+        fun lockButtons() = allActionButtons.forEach { it.isEnabled = false }
+        fun unlockButtons() = allActionButtons.forEach { it.isEnabled = true }
 
+        // ── Installation status ──────────────────────────────────────────
         val statusPanel = JPanel(BorderLayout(0, 2)).apply {
             border = BorderFactory.createTitledBorder("Installation status")
             add(statusLabel, BorderLayout.CENTER)
@@ -156,36 +159,142 @@ class SettingsDialog(
             border = BorderFactory.createTitledBorder("Install via package manager")
         }
         val buttonsPanel = JPanel(FlowLayout(FlowLayout.CENTER, 8, 4))
-
-        val managers = buildInstallOptions()
-        managers.forEach { (label, cmd) ->
-            buttonsPanel.add(JButton(label).apply {
+        buildInstallOptions().forEach { (label, cmd) ->
+            val btn = JButton(label).apply {
                 toolTipText = cmd
                 addActionListener {
-                    sendToTerminal("$cmd\n")
-                    JOptionPane.showMessageDialog(
-                        this@SettingsDialog,
-                        "Command sent to terminal:\n$cmd",
-                        "Installing Renovate",
-                        JOptionPane.INFORMATION_MESSAGE,
-                    )
+                    lockButtons()
+                    runCommandStreaming(cmd, outputArea) {
+                        unlockButtons()
+                        checkRenovate(statusLabel, versionLabel)
+                    }
                 }
-            })
+            }
+            allActionButtons.add(btn)
+            buttonsPanel.add(btn)
         }
         installPanel.add(buttonsPanel, BorderLayout.CENTER)
 
         val recheckButton = JButton("↻ Recheck").apply {
             addActionListener { checkRenovate(statusLabel, versionLabel) }
         }
-        val bottomPanel = JPanel(FlowLayout(FlowLayout.CENTER)).apply { add(recheckButton) }
 
-        panel.add(infoLabel, BorderLayout.NORTH)
-        val centerPanel = JPanel(BorderLayout(0, 8)).apply {
-            add(statusPanel, BorderLayout.NORTH)
-            add(installPanel, BorderLayout.CENTER)
+        // ── Run Renovate ─────────────────────────────────────────────────
+        val envToken = System.getenv("RENOVATE_TOKEN") ?: System.getenv("GITHUB_TOKEN") ?: ""
+        val tokenField = javax.swing.JPasswordField(envToken, 28).apply {
+            toolTipText = "GitHub token with Contents R/W and Pull requests R/W"
         }
-        panel.add(centerPanel, BorderLayout.CENTER)
-        panel.add(bottomPanel, BorderLayout.SOUTH)
+        val repoField = JTextField(detectGitRepo() ?: "", 22).apply {
+            toolTipText = "GitHub repo (owner/name)"
+        }
+        val dryRunCheckbox = javax.swing.JCheckBox("Dry run (no PRs created)", false)
+
+        val runLocalButton = JButton("Run (local CLI)").apply {
+            toolTipText = "Run 'renovate' directly (must be installed)"
+            addActionListener {
+                val token = String(tokenField.password).trim()
+                val repo = repoField.text.trim()
+                if (token.isEmpty()) {
+                    JOptionPane.showMessageDialog(this@SettingsDialog,
+                        "A GitHub token is required.\nSet RENOVATE_TOKEN / GITHUB_TOKEN or enter one above.",
+                        "Missing token", JOptionPane.WARNING_MESSAGE)
+                    return@addActionListener
+                }
+                if (repo.isEmpty()) {
+                    JOptionPane.showMessageDialog(this@SettingsDialog,
+                        "Enter the GitHub repository (owner/name).",
+                        "Missing repository", JOptionPane.WARNING_MESSAGE)
+                    return@addActionListener
+                }
+                val dryFlag = if (dryRunCheckbox.isSelected) " --dry-run=full" else ""
+                lockButtons()
+                runCommandStreaming("renovate$dryFlag --platform=github $repo", outputArea,
+                    env = mapOf("RENOVATE_TOKEN" to token, "LOG_LEVEL" to "info")) {
+                    unlockButtons()
+                }
+            }
+        }
+        allActionButtons.add(runLocalButton)
+
+        val runDockerButton = JButton("Run (Docker)").apply {
+            toolTipText = "Run Renovate inside a Docker container"
+            addActionListener {
+                val token = String(tokenField.password).trim()
+                val repo = repoField.text.trim()
+                if (token.isEmpty()) {
+                    JOptionPane.showMessageDialog(this@SettingsDialog,
+                        "A GitHub token is required.\nSet RENOVATE_TOKEN / GITHUB_TOKEN or enter one above.",
+                        "Missing token", JOptionPane.WARNING_MESSAGE)
+                    return@addActionListener
+                }
+                if (repo.isEmpty()) {
+                    JOptionPane.showMessageDialog(this@SettingsDialog,
+                        "Enter the GitHub repository (owner/name).",
+                        "Missing repository", JOptionPane.WARNING_MESSAGE)
+                    return@addActionListener
+                }
+                val dryFlag = if (dryRunCheckbox.isSelected) " --dry-run=full" else ""
+                val cmd = "docker run --rm" +
+                    " -e RENOVATE_TOKEN=$token" +
+                    " -e LOG_LEVEL=info" +
+                    " ghcr.io/renovatebot/renovate:latest" +
+                    "$dryFlag --platform=github $repo"
+                lockButtons()
+                runCommandStreaming(cmd, outputArea) { unlockButtons() }
+            }
+        }
+        allActionButtons.add(runDockerButton)
+
+        val runPanel = JPanel(GridBagLayout()).apply {
+            border = BorderFactory.createTitledBorder("Run Renovate")
+        }
+        val gc = GridBagConstraints().apply {
+            insets = Insets(3, 6, 3, 6); anchor = GridBagConstraints.WEST; fill = GridBagConstraints.HORIZONTAL
+        }
+        gc.gridx = 0; gc.gridy = 0; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
+        runPanel.add(JLabel("Token:"), gc)
+        gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; gc.gridwidth = 2
+        runPanel.add(tokenField, gc)
+
+        gc.gridx = 0; gc.gridy = 1; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE; gc.gridwidth = 1
+        runPanel.add(JLabel("Repository:"), gc)
+        gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; gc.gridwidth = 2
+        runPanel.add(repoField, gc)
+
+        gc.gridx = 0; gc.gridy = 2; gc.gridwidth = 3; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
+        runPanel.add(dryRunCheckbox, gc)
+
+        gc.gridy = 3; gc.gridwidth = 3
+        runPanel.add(JPanel(FlowLayout(FlowLayout.CENTER, 8, 2)).apply {
+            add(runLocalButton); add(runDockerButton)
+        }, gc)
+
+        // ── Layout ───────────────────────────────────────────────────────
+        val topSection = JPanel(GridBagLayout()).apply {
+            val tc = GridBagConstraints().apply {
+                gridx = 0; fill = GridBagConstraints.HORIZONTAL; weightx = 1.0; insets = Insets(0, 0, 4, 0)
+            }
+            tc.gridy = 0; add(JLabel(
+                "<html>Renovate keeps your dependencies up to date by opening automated PRs.<br>" +
+                "Install it globally so it can also be run locally via <code>renovate-local.sh</code>.</html>"
+            ).apply { border = BorderFactory.createEmptyBorder(0, 0, 4, 0) }, tc)
+            tc.gridy = 1; add(statusPanel, tc)
+            tc.gridy = 2; add(installPanel, tc)
+            tc.gridy = 3; add(JPanel(FlowLayout(FlowLayout.CENTER)).apply { add(recheckButton) }, tc)
+            tc.gridy = 4; add(runPanel, tc)
+        }
+
+        val panel = JPanel(BorderLayout(0, 8)).apply {
+            border = BorderFactory.createEmptyBorder(12, 14, 12, 14)
+        }
+        panel.add(JScrollPane(topSection).apply {
+            border = BorderFactory.createEmptyBorder()
+            verticalScrollBar.unitIncrement = 16
+        }, BorderLayout.CENTER)
+        panel.add(JScrollPane(outputArea).apply {
+            border = BorderFactory.createTitledBorder("Output")
+            preferredSize = Dimension(0, 160)
+        }, BorderLayout.SOUTH)
 
         checkRenovate(statusLabel, versionLabel)
         return panel
@@ -245,42 +354,52 @@ class SettingsDialog(
             add(versionLabel, BorderLayout.SOUTH)
         }
 
+        val outputArea = buildOutputArea()
+
         val installPanel = JPanel(BorderLayout(0, 4)).apply {
             border = BorderFactory.createTitledBorder("Install via package manager")
         }
         val buttonsPanel = JPanel(FlowLayout(FlowLayout.CENTER, 8, 4))
 
+        val installButtons = mutableListOf<JButton>()
         buildApmInstallOptions().forEach { (label, cmd) ->
-            buttonsPanel.add(JButton(label).apply {
+            val btn = JButton(label).apply {
                 toolTipText = cmd
                 addActionListener {
-                    sendToTerminal("$cmd\n")
-                    JOptionPane.showMessageDialog(
-                        this@SettingsDialog,
-                        "Command sent to terminal:\n$cmd",
-                        "Installing APM",
-                        JOptionPane.INFORMATION_MESSAGE,
-                    )
+                    installButtons.forEach { it.isEnabled = false }
+                    runCommandStreaming(cmd, outputArea) {
+                        installButtons.forEach { it.isEnabled = true }
+                        checkApm(statusLabel, versionLabel)
+                    }
                 }
-            })
+            }
+            installButtons.add(btn)
+            buttonsPanel.add(btn)
         }
         installPanel.add(buttonsPanel, BorderLayout.CENTER)
 
         val recheckButton = JButton("↻ Recheck").apply {
             addActionListener { checkApm(statusLabel, versionLabel) }
         }
-        val bottomPanel = JPanel(FlowLayout(FlowLayout.CENTER)).apply { add(recheckButton) }
+
+        val topSection = JPanel(BorderLayout(0, 8)).apply {
+            add(infoLabel, BorderLayout.NORTH)
+            val mid = JPanel(BorderLayout(0, 8)).apply {
+                add(statusPanel, BorderLayout.NORTH)
+                add(installPanel, BorderLayout.CENTER)
+                add(JPanel(FlowLayout(FlowLayout.CENTER)).apply { add(recheckButton) }, BorderLayout.SOUTH)
+            }
+            add(mid, BorderLayout.CENTER)
+        }
 
         val panel = JPanel(BorderLayout(0, 8)).apply {
             border = BorderFactory.createEmptyBorder(12, 14, 12, 14)
         }
-        val centerPanel = JPanel(BorderLayout(0, 8)).apply {
-            add(statusPanel,  BorderLayout.NORTH)
-            add(installPanel, BorderLayout.CENTER)
-        }
-        panel.add(infoLabel,    BorderLayout.NORTH)
-        panel.add(centerPanel,  BorderLayout.CENTER)
-        panel.add(bottomPanel,  BorderLayout.SOUTH)
+        panel.add(topSection, BorderLayout.NORTH)
+        panel.add(JScrollPane(outputArea).apply {
+            border = BorderFactory.createTitledBorder("Output")
+            preferredSize = Dimension(0, 160)
+        }, BorderLayout.CENTER)
 
         checkApm(statusLabel, versionLabel)
         return panel
@@ -800,6 +919,90 @@ class SettingsDialog(
             gc.gridy = 15; gc.fill = GridBagConstraints.BOTH; gc.weighty = 1.0; gc.anchor = GridBagConstraints.WEST
             add(JPanel(), gc)
         }
+    }
+
+    // ── Embedded output helpers ─────────────────────────────────────────
+
+    private fun buildOutputArea(): JTextArea = JTextArea().apply {
+        isEditable = false
+        font = Font(monoFont(), Font.PLAIN, 11)
+        lineWrap = true
+        wrapStyleWord = false
+        rows = 8
+    }
+
+    /**
+     * Runs [command] in a shell and streams stdout+stderr line-by-line into [outputArea].
+     * Buttons should be disabled before calling; [onFinished] re-enables them on the EDT.
+     */
+    private fun runCommandStreaming(
+        command: String,
+        outputArea: JTextArea,
+        env: Map<String, String> = emptyMap(),
+        onFinished: () -> Unit,
+    ) {
+        outputArea.text = ""
+        outputArea.append("$ $command\n")
+
+        object : SwingWorker<Int, String>() {
+            override fun doInBackground(): Int {
+                val argv = if (IS_WINDOWS) listOf("cmd", "/c", command) else listOf("sh", "-c", command)
+                val pb = ProcessBuilder(argv).redirectErrorStream(true)
+                pb.environment()["PATH"] = System.getenv("PATH") ?: ""
+                env.forEach { (k, v) -> pb.environment()[k] = v }
+                val proc = pb.start()
+                proc.inputStream.bufferedReader().useLines { lines ->
+                    for (line in lines) publish(line)
+                }
+                return proc.waitFor()
+            }
+
+            override fun process(chunks: List<String>) {
+                for (line in chunks) {
+                    outputArea.append("$line\n")
+                    outputArea.caretPosition = outputArea.document.length
+                }
+            }
+
+            override fun done() {
+                val exitCode = try { get() } catch (e: Exception) {
+                    outputArea.append("\nError: ${e.cause?.message ?: e.message}\n")
+                    -1
+                }
+                if (exitCode == 0) {
+                    outputArea.append("\nCompleted successfully.\n")
+                } else if (exitCode > 0) {
+                    outputArea.append("\nCommand failed (exit code $exitCode).\n")
+                }
+                outputArea.caretPosition = outputArea.document.length
+                onFinished()
+            }
+        }.execute()
+    }
+
+    /** Detect the GitHub repo (owner/name) from the git remote of the current working directory. */
+    private fun detectGitRepo(): String? {
+        val result = ProcessExecutor.run(listOf("git", "remote", "get-url", "origin"), timeoutMs = 3_000L)
+            ?: return null
+        if (result.exitCode != 0) return null
+        val url = result.output.trim()
+        // SSH: git@github.com:owner/repo.git  or  HTTPS: https://github.com/owner/repo.git
+        val sshMatch = Regex("""git@github\.com:(.+?)(?:\.git)?$""").find(url)
+        if (sshMatch != null) return sshMatch.groupValues[1]
+        val httpsMatch = Regex("""https?://github\.com/(.+?)(?:\.git)?$""").find(url)
+        if (httpsMatch != null) return httpsMatch.groupValues[1]
+        return null
+    }
+
+    private fun monoFont(): String {
+        val os = System.getProperty("os.name", "").lowercase()
+        val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
+        val preferred = when {
+            os.contains("win") -> listOf("Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Consolas")
+            os.contains("mac") -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Monaco")
+            else -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono")
+        }
+        return preferred.firstOrNull { it in available } ?: Font.MONOSPACED
     }
 
     companion object {
