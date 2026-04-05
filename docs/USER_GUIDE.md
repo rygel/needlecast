@@ -14,7 +14,7 @@ Needlecast is a project launcher for developers. It organizes your projects into
 
 ### Installation
 
-**Windows** — Download `needlecast-VERSION-windows.exe` from [Releases](https://github.com/rygel/needlecast/releases). Run the installer. Needlecast appears in the Start Menu.
+**Windows (64-bit)** — Download `needlecast-VERSION-win64.exe` from [Releases](https://github.com/rygel/needlecast/releases). Run the installer. Needlecast appears in the Start Menu.
 
 **macOS** — Download `needlecast-VERSION-macos.dmg`. Open the DMG and drag Needlecast to Applications.
 

@@ -44,7 +44,7 @@ DisableProgramGroupPage=yes
 
 ; ── Output ────────────────────────────────────────────────────────────────────
 OutputDir={#OutputDir}
-OutputBaseFilename=needlecast-{#AppVersion}-windows
+OutputBaseFilename=needlecast-{#AppVersion}-win64
 SetupIconFile=..\needlecast-desktop\src\main\resources\icons\needlecast.ico
 
 ; ── Compression ───────────────────────────────────────────────────────────────
