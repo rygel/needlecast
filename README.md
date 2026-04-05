@@ -78,6 +78,21 @@
 - `Ctrl+scroll` to zoom, double-click to reset to fit
 - Re-clicking a file that has changed on disk reloads it automatically
 
+**Log Viewer**
+- Dockable panel that discovers `.log` files in the active project
+- Live tailing with 500ms polling and log rotation detection
+- Colour-coded log levels: ERROR (red), WARN (orange), DEBUG/TRACE (grey)
+- Level filtering toggles, follow mode (auto-scroll), and incremental search (`Ctrl+F`)
+- Supports Logback, Log4j2, JSON structured logs, and plain text with stack trace grouping
+
+**Renovate (dependency updates)**
+- Dockable panel that scans the active project for outdated dependencies
+- Runs `renovate --platform=local` — no token or GitHub access needed
+- Results shown in a sortable table: dependency, current version, available version, update type
+- Colour-coded: major (red), minor (orange), patch (green)
+- Select updates and apply them directly to project files (Maven properties, Dockerfiles, etc.)
+- Install Renovate via Settings → Renovate tab (npm, Scoop, Chocolatey, Homebrew)
+
 **AI & Prompts**
 - Prompt Library — reusable templates with `{variable}` substitution, paste into active terminal
 - AI Tools menu with auto-detected CLI tools (Claude, Gemini, Codex, apm, …)
@@ -88,10 +103,19 @@
 - README preview below the command list when a project is selected
 - Git log viewer with `git show` on click
 - Keyboard shortcut editor — rebind any default shortcut
+- Automatic update checks every 15 minutes with Sparkle4j
 
 ## Screenshots
 
-Screenshots are auto-generated in CI on every push. Download the latest from the [Screenshots workflow](https://github.com/rygel/needlecast/actions/workflows/screenshots.yml) artifacts.
+| Main Window | Renovate Panel | Log Viewer |
+|:-----------:|:--------------:|:----------:|
+| ![Main Window](docs/screenshots/01-main-window.png) | ![Renovate](docs/screenshots/08-renovate.png) | ![Log Viewer](docs/screenshots/09-log-viewer.png) |
+
+| Settings | Prompt Library | Project Switcher |
+|:--------:|:--------------:|:----------------:|
+| ![Settings](docs/screenshots/02-settings.png) | ![Prompts](docs/screenshots/03-prompt-library.png) | ![Switcher](docs/screenshots/05-project-switcher.png) |
+
+Screenshots are auto-generated in CI on every push to develop.
 
 ## Requirements
 
@@ -108,7 +132,7 @@ Or build a JAR first:
 
 ```bash
 mvn -pl needlecast-desktop -am package -DskipTests
-java -jar needlecast-desktop/target/needlecast-desktop-0.6.4.jar
+java -jar needlecast-desktop/target/needlecast-desktop-0.6.9.jar
 ```
 
 ## Building from source
