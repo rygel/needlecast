@@ -44,13 +44,13 @@ class RenovatePanel : JPanel(BorderLayout()) {
 
     private val envToken = System.getenv("RENOVATE_TOKEN") ?: System.getenv("GITHUB_TOKEN") ?: ""
     private val tokenField = JPasswordField(envToken, 28).apply {
-        toolTipText = "GitHub token with Contents R/W and Pull requests R/W"
+        toolTipText = "GitHub token with Contents R/W and Pull requests R/W (only for GitHub/Docker mode)"
     }
     private val repoField = JTextField(detectGitRepo() ?: "", 22).apply {
         toolTipText = "GitHub repo (owner/name)"
     }
-    private val dryRunCheckbox = javax.swing.JCheckBox("Dry run (no PRs created)", false)
 
+    private var currentProjectPath: String? = null
     private val allActionButtons = mutableListOf<JButton>()
 
     init {
@@ -62,41 +62,62 @@ class RenovatePanel : JPanel(BorderLayout()) {
             add(versionLabel, BorderLayout.SOUTH)
         }
 
-        // ── Run section ──────────────────────────────────────────────────
-        val runLocalButton = JButton("Run (local CLI)").apply {
-            toolTipText = "Run 'renovate' directly (must be installed)"
-            addActionListener { runRenovate(docker = false) }
+        // ── Local scan (no token needed) ─────────────────────────────────
+        val localScanButton = JButton("Local Scan").apply {
+            toolTipText = "Scan the current project for outdated dependencies (no token needed)"
+            addActionListener { runLocalScan() }
         }
-        allActionButtons.add(runLocalButton)
+        allActionButtons.add(localScanButton)
+
+        val localPanel = JPanel(GridBagLayout()).apply {
+            border = BorderFactory.createTitledBorder("Local scan (no token required)")
+        }
+        val lc = GridBagConstraints().apply {
+            insets = Insets(3, 6, 3, 6); anchor = GridBagConstraints.WEST
+        }
+        lc.gridx = 0; lc.gridy = 0; lc.gridwidth = 2; lc.fill = GridBagConstraints.HORIZONTAL; lc.weightx = 1.0
+        localPanel.add(JLabel(
+            "<html>Scan the selected project directory for outdated dependencies.<br>" +
+            "No PRs are created — results are shown in the output below.</html>"
+        ), lc)
+        lc.gridy = 1; lc.gridwidth = 1; lc.fill = GridBagConstraints.NONE; lc.weightx = 0.0
+        localPanel.add(localScanButton, lc)
+
+        // ── GitHub mode (needs token) ────────────────────────────────────
+        val runGitHubButton = JButton("Run (GitHub CLI)").apply {
+            toolTipText = "Run Renovate against GitHub to create/update PRs (needs token)"
+            addActionListener { runGitHub(docker = false) }
+        }
+        allActionButtons.add(runGitHubButton)
 
         val runDockerButton = JButton("Run (Docker)").apply {
-            toolTipText = "Run Renovate inside a Docker container"
-            addActionListener { runRenovate(docker = true) }
+            toolTipText = "Run Renovate via Docker against GitHub (needs token)"
+            addActionListener { runGitHub(docker = true) }
         }
         allActionButtons.add(runDockerButton)
 
-        val runPanel = JPanel(GridBagLayout()).apply {
-            border = BorderFactory.createTitledBorder("Run Renovate")
+        val ghPanel = JPanel(GridBagLayout()).apply {
+            border = BorderFactory.createTitledBorder("GitHub mode (creates PRs — token required)")
         }
         val gc = GridBagConstraints().apply {
             insets = Insets(3, 6, 3, 6); anchor = GridBagConstraints.WEST; fill = GridBagConstraints.HORIZONTAL
         }
         gc.gridx = 0; gc.gridy = 0; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
-        runPanel.add(JLabel("Token:"), gc)
+        ghPanel.add(JLabel("Token:"), gc)
         gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; gc.gridwidth = 2
-        runPanel.add(tokenField, gc)
+        ghPanel.add(tokenField, gc)
 
         gc.gridx = 0; gc.gridy = 1; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE; gc.gridwidth = 1
-        runPanel.add(JLabel("Repository:"), gc)
+        ghPanel.add(JLabel("Repository:"), gc)
         gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; gc.gridwidth = 2
-        runPanel.add(repoField, gc)
+        ghPanel.add(repoField, gc)
 
         gc.gridx = 0; gc.gridy = 2; gc.gridwidth = 3; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
-        runPanel.add(dryRunCheckbox, gc)
+        ghPanel.add(javax.swing.JCheckBox("Dry run (no PRs created)", false).also { dryRunCb = it }, gc)
 
         gc.gridy = 3; gc.gridwidth = 3
-        runPanel.add(JPanel(FlowLayout(FlowLayout.CENTER, 8, 2)).apply {
-            add(runLocalButton); add(runDockerButton)
+        ghPanel.add(JPanel(FlowLayout(FlowLayout.CENTER, 8, 2)).apply {
+            add(runGitHubButton); add(runDockerButton)
         }, gc)
 
         // ── Layout ───────────────────────────────────────────────────────
@@ -105,11 +126,12 @@ class RenovatePanel : JPanel(BorderLayout()) {
                 gridx = 0; fill = GridBagConstraints.HORIZONTAL; weightx = 1.0; insets = Insets(0, 0, 4, 0)
             }
             tc.gridy = 0; add(JLabel(
-                "<html>Renovate keeps your dependencies up to date by opening automated PRs.<br>" +
-                "Configure a GitHub token and repository, then run locally or via Docker.</html>"
+                "<html>Renovate keeps your dependencies up to date.<br>" +
+                "Use <b>Local Scan</b> to check for updates, or <b>GitHub mode</b> to create PRs.</html>"
             ).apply { border = BorderFactory.createEmptyBorder(4, 6, 4, 6) }, tc)
             tc.gridy = 1; add(statusPanel, tc)
-            tc.gridy = 2; add(runPanel, tc)
+            tc.gridy = 2; add(localPanel, tc)
+            tc.gridy = 3; add(ghPanel, tc)
         }
 
         add(JScrollPane(topSection).apply {
@@ -123,8 +145,11 @@ class RenovatePanel : JPanel(BorderLayout()) {
         checkRenovateStatus()
     }
 
+    private lateinit var dryRunCb: javax.swing.JCheckBox
+
     /** Update the repo field when a project is selected. */
     fun loadProject(path: String?) {
+        currentProjectPath = path
         if (path == null) return
         val repo = detectGitRepo(path)
         if (repo != null) repoField.text = repo
@@ -132,12 +157,26 @@ class RenovatePanel : JPanel(BorderLayout()) {
 
     // ── Run logic ────────────────────────────────────────────────────────
 
-    private fun runRenovate(docker: Boolean) {
+    private fun runLocalScan() {
+        val dir = currentProjectPath
+        if (dir == null) {
+            JOptionPane.showMessageDialog(this,
+                "Select a project first.", "No project", JOptionPane.WARNING_MESSAGE)
+            return
+        }
+        runCommandStreaming("renovate --platform=local",
+            env = mapOf("LOG_LEVEL" to "info"),
+            workingDir = dir)
+    }
+
+    private fun runGitHub(docker: Boolean) {
         val token = String(tokenField.password).trim()
         val repo = repoField.text.trim()
         if (token.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                "A GitHub token is required.\nSet RENOVATE_TOKEN / GITHUB_TOKEN or enter one above.",
+                "A GitHub token is required for GitHub mode.\n" +
+                "Set RENOVATE_TOKEN / GITHUB_TOKEN or enter one above.\n\n" +
+                "For a token-free scan, use Local Scan instead.",
                 "Missing token", JOptionPane.WARNING_MESSAGE)
             return
         }
@@ -147,7 +186,7 @@ class RenovatePanel : JPanel(BorderLayout()) {
                 "Missing repository", JOptionPane.WARNING_MESSAGE)
             return
         }
-        val dryFlag = if (dryRunCheckbox.isSelected) " --dry-run=full" else ""
+        val dryFlag = if (dryRunCb.isSelected) " --dry-run=full" else ""
 
         if (docker) {
             val cmd = "docker run --rm" +
@@ -162,7 +201,7 @@ class RenovatePanel : JPanel(BorderLayout()) {
         }
     }
 
-    private fun runCommandStreaming(command: String, env: Map<String, String> = emptyMap()) {
+    private fun runCommandStreaming(command: String, env: Map<String, String> = emptyMap(), workingDir: String? = null) {
         allActionButtons.forEach { it.isEnabled = false }
         outputArea.text = ""
         outputArea.append("$ $command\n")
@@ -173,6 +212,7 @@ class RenovatePanel : JPanel(BorderLayout()) {
                 val pb = ProcessBuilder(argv).redirectErrorStream(true)
                 pb.environment()["PATH"] = System.getenv("PATH") ?: ""
                 env.forEach { (k, v) -> pb.environment()[k] = v }
+                workingDir?.let { pb.directory(java.io.File(it)) }
                 val proc = pb.start()
                 proc.inputStream.bufferedReader().useLines { lines ->
                     for (line in lines) publish(line)
