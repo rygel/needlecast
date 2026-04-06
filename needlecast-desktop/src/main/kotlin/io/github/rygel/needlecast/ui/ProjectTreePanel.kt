@@ -746,7 +746,11 @@ class ProjectTreePanel(
     private inner class ProjectTreeCellRenderer : TreeCellRenderer {
 
         private val colorStripe = JPanel().apply { preferredSize = Dimension(4, 0); isOpaque = true }
-        private val nameLabel   = JLabel().apply { font = font.deriveFont(Font.BOLD, 12f) }
+        private val nameLabel   = JLabel().apply {
+            font = font.deriveFont(Font.BOLD, 12f)
+            // Allow truncation with ellipsis — don't force the parent wider
+            minimumSize = Dimension(0, 0)
+        }
         private val activeDot   = JLabel("\u25CF").apply {
             font = font.deriveFont(Font.PLAIN, 10f); foreground = Color(0x4CAF50)
             border = BorderFactory.createEmptyBorder(0, 0, 0, 2)
@@ -759,6 +763,8 @@ class ProjectTreePanel(
         }
         private val branchLabel = JLabel().apply {
             font = Font(Font.MONOSPACED, Font.PLAIN, 10); foreground = Color(0x888888)
+            // Allow truncation — don't force the parent wider than available space
+            minimumSize = Dimension(0, 0)
         }
         private val tagsPanel = object : JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)) {
             /** Single-row preferred size — never wrap to a second line. */
@@ -813,24 +819,25 @@ class ProjectTreePanel(
         private val innerPanel = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
         }
-        private var currentDepth = 0
-
         private val projectPanel = object : JPanel(BorderLayout()) {
             override fun getPreferredSize(): Dimension {
                 val base = super.getPreferredSize()
-                // Try multiple sources for the available width
-                var availableWidth = tree.width
-                if (availableWidth <= 0) {
-                    availableWidth = (tree.parent as? javax.swing.JViewport)?.width ?: 0
-                }
-                if (availableWidth <= 0) return base
-                // Subtract indent for this depth — do NOT call tree.getRowBounds()
-                // as that re-enters getPreferredSize and causes StackOverflow
-                val ui = tree.ui as? javax.swing.plaf.basic.BasicTreeUI
-                val perLevel = (ui?.leftChildIndent ?: 8) + (ui?.rightChildIndent ?: 13)
-                val indent = currentDepth * perLevel
-                val w = (availableWidth - indent).coerceAtLeast(base.width)
-                return Dimension(w, base.height.coerceAtLeast(30))
+                // Use tree/viewport width so the cell fills the available space.
+                // The cell is laid out at this width, so inner components (name, tags)
+                // adapt via BorderLayout — names truncate, tags clip to fit.
+                var w = tree.width
+                if (w <= 0) w = (tree.parent as? javax.swing.JViewport)?.width ?: 0
+                if (w <= 0) return base
+                // Use the wider of content width and available width — this allows
+                // the tree to scroll horizontally if needed, but fills space when possible.
+                return Dimension(w.coerceAtLeast(base.width), base.height)
+            }
+
+            override fun setBounds(x: Int, y: Int, width: Int, height: Int) {
+                // The tree sets bounds to the preferred size. Force layout at
+                // the actual width so inner components adapt.
+                super.setBounds(x, y, width, height)
+                doLayout()
             }
         }.apply { isOpaque = true }
 
@@ -848,7 +855,6 @@ class ProjectTreePanel(
             t: JTree, value: Any?, selected: Boolean, expanded: Boolean, leaf: Boolean, row: Int, hasFocus: Boolean,
         ): Component {
             val node = value as? DefaultMutableTreeNode
-            currentDepth = node?.level ?: 0
             val bg = if (selected) (UIManager.getColor("Tree.selectionBackground") ?: t.background) else t.background
             val fg = if (selected) (UIManager.getColor("Tree.selectionForeground") ?: t.foreground) else t.foreground
 
