@@ -822,15 +822,13 @@ class ProjectTreePanel(
         private val projectPanel = object : JPanel(BorderLayout()) {
             override fun getPreferredSize(): Dimension {
                 val base = super.getPreferredSize()
-                // Use tree/viewport width so the cell fills the available space.
-                // The cell is laid out at this width, so inner components (name, tags)
-                // adapt via BorderLayout — names truncate, tags clip to fit.
+                // Use tree/viewport width — constrain to visible area.
+                // On HiDPI/4K, base.width can be wider than the panel, causing
+                // content to overflow and become invisible. Always use available width.
                 var w = tree.width
                 if (w <= 0) w = (tree.parent as? javax.swing.JViewport)?.width ?: 0
                 if (w <= 0) return base
-                // Use the wider of content width and available width — this allows
-                // the tree to scroll horizontally if needed, but fills space when possible.
-                return Dimension(w.coerceAtLeast(base.width), base.height)
+                return Dimension(w, base.height)
             }
 
             override fun setBounds(x: Int, y: Int, width: Int, height: Int) {
