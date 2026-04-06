@@ -874,11 +874,28 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private fun checkForUpdates() {
+        Thread {
+            try {
+                updateLogger.info("Periodic update check")
+                val item = buildSparkle4j(0)?.checkNow()
+                if (item != null) {
+                    updateLogger.info("Update available: {}", item.version())
+                    SwingUtilities.invokeLater {
+                        statusBar.showUpdateAvailable(item.version()) { openReleasesPage() }
+                    }
+                }
+            } catch (e: Exception) {
+                updateLogger.warn("Update check failed", e)
+            }
+        }.also { it.isDaemon = true; it.name = "update-check" }.start()
+    }
+
+    private fun openReleasesPage() {
         try {
-            updateLogger.info("Periodic update check")
-            buildSparkle4j(0)?.checkInBackground()
+            java.awt.Desktop.getDesktop()
+                .browse(java.net.URI("https://github.com/rygel/needlecast/releases/latest"))
         } catch (e: Exception) {
-            updateLogger.warn("Update check failed", e)
+            updateLogger.warn("Could not open releases page", e)
         }
     }
 
@@ -901,6 +918,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     "Check for Updates", JOptionPane.INFORMATION_MESSAGE)
             } else {
                 updateLogger.info("Update found: {}", item.version())
+                statusBar.showUpdateAvailable(item.version()) { openReleasesPage() }
+                openReleasesPage()
             }
         } catch (e: Exception) {
             updateLogger.error("Manual update check failed", e)
