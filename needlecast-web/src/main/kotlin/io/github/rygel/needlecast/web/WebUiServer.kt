@@ -27,13 +27,10 @@ class WebUiServer(private val port: Int = 4000) {
 
     private val app = Javalin.create { cfg ->
         cfg.staticFiles.add("/webui", Location.CLASSPATH)
-        cfg.showJavalinBanner = false
-    }
 
-    fun start() {
-        app.get("/") { ctx -> ctx.redirect("/index.html") }
+        cfg.routes.get("/") { ctx -> ctx.redirect("/index.html") }
 
-        app.ws("/ws/term") { ws ->
+        cfg.routes.ws("/ws/term") { ws ->
             ws.onConnect { ctx ->
                 val session = PtySession()
                 ctx.attribute("pty", session)
@@ -61,7 +58,9 @@ class WebUiServer(private val port: Int = 4000) {
                 ctx.attribute<PtySession>("pty")?.close()
             }
         }
+    }
 
+    fun start() {
         app.start(port)
         logger.info("Web UI running at http://localhost:$port")
     }

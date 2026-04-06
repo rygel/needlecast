@@ -257,12 +257,14 @@ private data class DemoProject(val dir: File, val displayName: String)
 
 private fun createDemoProjects(root: Path): List<DemoProject> {
     val projects = listOf(
-        Triple("needlecast",    "needlecast",    ::scaffoldMaven),
-        Triple("web-dashboard", "web-dashboard", ::scaffoldNpm),
-        Triple("api-service",   "api-service",   ::scaffoldGradle),
-        Triple("ml-pipeline",   "ml-pipeline",   ::scaffoldPython),
-        Triple("rust-engine",   "rust-engine",   ::scaffoldRust),
-        Triple("go-service",    "go-service",    ::scaffoldGo),
+        Triple("needlecast",                      "needlecast",                       ::scaffoldMaven),
+        Triple("web-dashboard",                   "web-dashboard",                    ::scaffoldNpm),
+        Triple("api-service",                     "api-service",                      ::scaffoldGradle),
+        Triple("ml-pipeline",                     "ml-pipeline",                      ::scaffoldPython),
+        Triple("rust-engine",                     "rust-engine",                      ::scaffoldRust),
+        Triple("go-service",                      "go-service",                       ::scaffoldGo),
+        Triple("enterprise-microservice-gateway", "enterprise-microservice-gateway",  ::scaffoldMaven),
+        Triple("react-native-shopping-app",       "react-native-shopping-app",        ::scaffoldNpm),
     )
     return projects.map { (dirName, label, scaffold) ->
         val dir = root.resolve(dirName).toFile().also { it.mkdirs() }
@@ -335,6 +337,8 @@ private fun buildDemoConfig(projects: List<DemoProject>): AppConfig {
     val mlPipeline = projects[3]
     val rustEngine = projects[4]
     val goService = projects[5]
+    val enterpriseGw = projects[6]
+    val shoppingApp = projects[7]
 
     val projectTree = listOf(
         ProjectTreeEntry.Folder(
@@ -396,6 +400,26 @@ private fun buildDemoConfig(projects: List<DemoProject>): AppConfig {
                         displayName = goService.displayName,
                     ),
                     tags = listOf("go", "grpc"),
+                ),
+            ),
+        ),
+        ProjectTreeEntry.Folder(
+            name  = "Enterprise",
+            color = "#E65100",
+            children = listOf(
+                ProjectTreeEntry.Project(
+                    directory = ProjectDirectory(
+                        path = enterpriseGw.dir.absolutePath,
+                        displayName = enterpriseGw.displayName,
+                    ),
+                    tags = listOf("spring-boot", "kubernetes", "microservice", "api-gateway"),
+                ),
+                ProjectTreeEntry.Project(
+                    directory = ProjectDirectory(
+                        path = shoppingApp.dir.absolutePath,
+                        displayName = shoppingApp.displayName,
+                    ),
+                    tags = listOf("react-native", "typescript", "mobile", "e-commerce"),
                 ),
             ),
         ),
