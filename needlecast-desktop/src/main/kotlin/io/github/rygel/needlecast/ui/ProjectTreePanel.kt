@@ -926,25 +926,23 @@ class ProjectTreePanel(
                     innerPanel.background = bg
 
                     // Calculate available width for this cell.
-                    // Use the row's x-position to avoid trimming too early when
-                    // the tree indentation/handles differ from the UI's indent math.
+                    // IMPORTANT: Do NOT call tree.getPathBounds() here — it re-enters the
+                    // layout cache's size calculation and causes a StackOverflowError.
+                    // Instead, compute the indentation offset from node depth + UI indent settings.
                     val vp = tree.parent as? javax.swing.JViewport
                     val vpWidth = vp?.width ?: tree.width
                     if (vpWidth > 0) {
-                        val pathBounds = node?.let { tree.getPathBounds(TreePath(it.path)) }
                         val insets = tree.insets
                         val leftInset = insets?.left ?: 0
                         val rightInset = insets?.right ?: 0
-                        val startX = pathBounds?.x ?: run {
-                            val treeUI = tree.ui as? javax.swing.plaf.basic.BasicTreeUI
-                            val totalIndent = treeUI?.let {
-                                val left = it.leftChildIndent
-                                val right = it.rightChildIndent
-                                val depth = node?.level ?: 0
-                                depth * (left + right)
-                            } ?: 0
-                            leftInset + totalIndent
-                        }
+                        val treeUI = tree.ui as? javax.swing.plaf.basic.BasicTreeUI
+                        val totalIndent = treeUI?.let {
+                            val left = it.leftChildIndent
+                            val right = it.rightChildIndent
+                            val depth = node?.level ?: 0
+                            depth * (left + right)
+                        } ?: 0
+                        val startX = leftInset + totalIndent
                         val cellWidth = (vpWidth - startX - rightInset).coerceAtLeast(50)
                         projectPanel.forcedWidth = cellWidth
                         val cellHeight = projectPanel.preferredSize.height
@@ -975,18 +973,6 @@ class ProjectTreePanel(
     }
 
     private inner class FullWidthTreeUI : javax.swing.plaf.basic.BasicTreeUI() {
-        override fun getPathBounds(tree: JTree?, path: TreePath?): Rectangle? {
-            val bounds = super.getPathBounds(tree, path) ?: return null
-            if (tree == null) return bounds
-            val vp = tree.parent as? javax.swing.JViewport
-            val vpWidth = vp?.width ?: tree.width
-            if (vpWidth <= 0) return bounds
-            val insets = tree.insets
-            val rightInset = insets?.right ?: 0
-            val newWidth = (vpWidth - bounds.x - rightInset).coerceAtLeast(1)
-            bounds.width = newWidth
-            return bounds
-        }
 
         override fun paintRow(
             g: java.awt.Graphics,
