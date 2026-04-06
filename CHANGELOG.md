@@ -2,6 +2,16 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.12] — 2026-04-06
+
+### Added
+- **ProjectTreeDebug tool** — lightweight harness to reproduce and debug project tree layout issues
+
+### Changed
+- **Project tree row rendering** — rows now paint full-width, with tags right-aligned to the control width and branch labels unaffected
+- **Screenshot tour** — demo projects are real git repos with branches/dirty state so branch labels are visible in screenshots
+- **Screenshots updated** — refreshed UI captures across the docs gallery
+
 ## [0.6.10] — 2026-04-05
 
 ### Changed

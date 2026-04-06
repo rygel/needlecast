@@ -18,6 +18,7 @@ import java.awt.Font
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
+import java.awt.Rectangle
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.io.File
@@ -62,6 +63,12 @@ class ProjectTreePanel(
     private val treeModel = DefaultTreeModel(rootNode)
     private val tree = object : JTree(treeModel) {
         override fun getScrollableTracksViewportWidth(): Boolean = true
+        override fun updateUI() {
+            super.updateUI()
+            if (ui !is FullWidthTreeUI) {
+                setUI(FullWidthTreeUI())
+            }
+        }
     }.apply {
         isRootVisible = false
         showsRootHandles = true
@@ -120,10 +127,16 @@ class ProjectTreePanel(
     }
 
     init {
+        tree.ui = FullWidthTreeUI()
         tree.cellRenderer = ProjectTreeCellRenderer()
         tree.dragEnabled = true
         tree.dropMode = DropMode.ON_OR_INSERT
         tree.transferHandler = TreeTransferHandler()
+        tree.addComponentListener(object : java.awt.event.ComponentAdapter() {
+            override fun componentResized(e: java.awt.event.ComponentEvent) {
+                invalidateTreeLayout()
+            }
+        })
 
         fun iconBtn(icon: javax.swing.Icon?, text: String, tip: String) = JButton(icon).apply {
             if (icon == null) this.text = text
@@ -766,7 +779,7 @@ class ProjectTreePanel(
             // Allow truncation — don't force the parent wider than available space
             minimumSize = Dimension(0, 0)
         }
-        private val tagsPanel = object : JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)) {
+        private val tagsPanel = object : JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)) {
             /** Single-row preferred size — never wrap to a second line. */
             override fun getPreferredSize(): Dimension {
                 var w = 0
@@ -776,25 +789,28 @@ class ProjectTreePanel(
                     if (i > 0) w += gap
                     w += components[i].preferredSize.width
                 }
-                return Dimension(w, h)
+                val forced = projectPanel.forcedWidth
+                val width = if (forced > 0) forced else w
+                return Dimension(width, h)
             }
             /** Constrain max size to prevent overflow beyond allocated width. */
             override fun getMaximumSize(): Dimension = Dimension(Short.MAX_VALUE.toInt(), 16)
-            /** Lay out children in a single row; hide any that don't fit. */
+            /** Lay out children right-aligned; hide any that don't fit. */
             override fun doLayout() {
                 val gap = (layout as FlowLayout).hgap
-                var x = 0
-                for (i in 0 until componentCount) {
+                var x = width
+                for (i in componentCount - 1 downTo 0) {
                     val c = components[i]
                     val pref = c.preferredSize
-                    if (x + pref.width > width && i > 0) {
-                        // Hide tags that don't fit
+                    val nextX = x - pref.width
+                    if (nextX < 0 && i < componentCount - 1) {
+                        // Hide tags that don't fit on the left
                         c.setBounds(0, 0, 0, 0)
                         c.isVisible = false
                     } else {
                         c.isVisible = true
-                        c.setBounds(x, 0, pref.width, height.coerceAtLeast(pref.height))
-                        x += pref.width + gap
+                        c.setBounds(nextX, 0, pref.width, height.coerceAtLeast(pref.height))
+                        x = nextX - gap
                     }
                 }
             }
@@ -806,7 +822,15 @@ class ProjectTreePanel(
             add(dotsPanel,  BorderLayout.WEST)
             add(nameLabel,  BorderLayout.CENTER)
         }
-        private val bottomRow = JPanel(BorderLayout(4, 0)).apply {
+        private val bottomRow = object : JPanel(BorderLayout(4, 0)) {
+            override fun getPreferredSize(): Dimension {
+                val base = super.getPreferredSize()
+                val vp = tree.parent as? javax.swing.JViewport
+                val vpWidth = vp?.width ?: tree.width
+                val width = if (vpWidth > 0) vpWidth else base.width
+                return Dimension(width, base.height)
+            }
+        }.apply {
             isOpaque = false
             add(branchLabel, BorderLayout.WEST)
             add(tagsPanel,   BorderLayout.CENTER)
@@ -820,25 +844,14 @@ class ProjectTreePanel(
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
         }
         private val projectPanel = object : JPanel(BorderLayout()) {
+            var forcedWidth: Int = 0
             override fun getPreferredSize(): Dimension {
                 val base = super.getPreferredSize()
-                // Use tree/viewport width so the cell fills the available space.
-                // The cell is laid out at this width, so inner components (name, tags)
-                // adapt via BorderLayout — names truncate, tags clip to fit.
-                var w = tree.width
-                if (w <= 0) w = (tree.parent as? javax.swing.JViewport)?.width ?: 0
-                if (w <= 0) return base
-                // Use the wider of content width and available width — this allows
-                // the tree to scroll horizontally if needed, but fills space when possible.
-                return Dimension(w.coerceAtLeast(base.width), base.height)
+                val w = if (forcedWidth > 0) forcedWidth else base.width
+                return Dimension(w, base.height)
             }
-
-            override fun setBounds(x: Int, y: Int, width: Int, height: Int) {
-                // The tree sets bounds to the preferred size. Force layout at
-                // the actual width so inner components adapt.
-                super.setBounds(x, y, width, height)
-                doLayout()
-            }
+            override fun getMinimumSize(): Dimension = getPreferredSize()
+            override fun getMaximumSize(): Dimension = getPreferredSize()
         }.apply { isOpaque = true }
 
         private val folderLabel = JLabel().apply {
@@ -911,6 +924,40 @@ class ProjectTreePanel(
 
                     projectPanel.background = bg
                     innerPanel.background = bg
+
+                    // Calculate available width for this cell.
+                    // Use the row's x-position to avoid trimming too early when
+                    // the tree indentation/handles differ from the UI's indent math.
+                    val vp = tree.parent as? javax.swing.JViewport
+                    val vpWidth = vp?.width ?: tree.width
+                    if (vpWidth > 0) {
+                        val pathBounds = node?.let { tree.getPathBounds(TreePath(it.path)) }
+                        val insets = tree.insets
+                        val leftInset = insets?.left ?: 0
+                        val rightInset = insets?.right ?: 0
+                        val startX = pathBounds?.x ?: run {
+                            val treeUI = tree.ui as? javax.swing.plaf.basic.BasicTreeUI
+                            val totalIndent = treeUI?.let {
+                                val left = it.leftChildIndent
+                                val right = it.rightChildIndent
+                                val depth = node?.level ?: 0
+                                depth * (left + right)
+                            } ?: 0
+                            leftInset + totalIndent
+                        }
+                        val cellWidth = (vpWidth - startX - rightInset).coerceAtLeast(50)
+                        projectPanel.forcedWidth = cellWidth
+                        val cellHeight = projectPanel.preferredSize.height
+                        projectPanel.setSize(cellWidth, cellHeight)
+                        projectPanel.invalidate()
+                        projectPanel.validate()
+                        innerPanel.doLayout()
+                        cellPanel.doLayout()
+                        nameRow.doLayout()
+                        bottomRow.doLayout()
+                        tagsPanel.doLayout()
+                    }
+
                     projectPanel
                 }
                 else -> JLabel(value?.toString() ?: "").apply { foreground = fg; background = bg; isOpaque = true }
@@ -924,6 +971,56 @@ class ProjectTreePanel(
             isOpaque = true
             border = BorderFactory.createEmptyBorder(1, 4, 1, 4)
             preferredSize = Dimension(preferredSize.width, 14)
+        }
+    }
+
+    private inner class FullWidthTreeUI : javax.swing.plaf.basic.BasicTreeUI() {
+        override fun getPathBounds(tree: JTree?, path: TreePath?): Rectangle? {
+            val bounds = super.getPathBounds(tree, path) ?: return null
+            if (tree == null) return bounds
+            val vp = tree.parent as? javax.swing.JViewport
+            val vpWidth = vp?.width ?: tree.width
+            if (vpWidth <= 0) return bounds
+            val insets = tree.insets
+            val rightInset = insets?.right ?: 0
+            val newWidth = (vpWidth - bounds.x - rightInset).coerceAtLeast(1)
+            bounds.width = newWidth
+            return bounds
+        }
+
+        override fun paintRow(
+            g: java.awt.Graphics,
+            clipBounds: Rectangle?,
+            insets: Insets?,
+            bounds: Rectangle?,
+            path: TreePath?,
+            row: Int,
+            isExpanded: Boolean,
+            hasBeenExpanded: Boolean,
+            isLeaf: Boolean,
+        ) {
+            val t = tree ?: return
+            if (bounds == null || path == null) return
+            if (t.isEditing && editingRow == row) return
+            val vp = t.parent as? javax.swing.JViewport
+            val vpWidth = vp?.width ?: t.width
+            val rightInset = t.insets?.right ?: 0
+            val fullWidth = (vpWidth - bounds.x - rightInset).coerceAtLeast(1)
+            val fullBounds = Rectangle(bounds.x, bounds.y, fullWidth, bounds.height)
+            val leadIndex = t.leadSelectionRow
+            val selected = t.isRowSelected(row)
+            val renderer = currentCellRenderer?.getTreeCellRendererComponent(
+                t,
+                path.lastPathComponent,
+                selected,
+                isExpanded,
+                isLeaf,
+                row,
+                leadIndex == row,
+            )
+            if (renderer != null) {
+                rendererPane.paintComponent(g, renderer, t, fullBounds.x, fullBounds.y, fullBounds.width, fullBounds.height, true)
+            }
         }
     }
 

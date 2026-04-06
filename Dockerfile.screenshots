@@ -9,6 +9,7 @@ FROM maven:3.9-eclipse-temurin-21-jammy
 
 # X11 / virtual framebuffer + font dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
         xvfb \
         libxtst6 \
         libxrender1 \
