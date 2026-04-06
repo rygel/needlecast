@@ -132,7 +132,9 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: needlecast-windows-installer
-          path: build/needlecast-*-win64.exe
+          path: |
+            build/needlecast-*-win64.exe
+            build/needlecast-*-windows-portable.zip
           retention-days: 90
 
       - name: Upload installer artifact (macOS)
@@ -140,7 +142,9 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: needlecast-macos-installer
-          path: build/needlecast-*-macos.dmg
+          path: |
+            build/needlecast-*-macos.dmg
+            build/needlecast-*-macos-portable.zip
           retention-days: 90
 
       - name: Upload installer artifact (Linux)
@@ -148,7 +152,9 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: needlecast-linux-installer
-          path: build/needlecast-*-linux-amd64.deb
+          path: |
+            build/needlecast-*-linux-amd64.deb
+            build/needlecast-*-linux-portable.tar.gz
           retention-days: 90
 
       - name: Attach installer to GitHub release
@@ -158,7 +164,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          find build/ \( -name "*.exe" -o -name "*.dmg" -o -name "*.deb" \) \
+          find build/ \( -name "*.exe" -o -name "*.dmg" -o -name "*.deb" \
+            -o -name "*-portable.zip" -o -name "*-portable.tar.gz" \) \
             -maxdepth 1 -exec gh release upload "$RELEASE_TAG" {} \;
 
   update-appcast:
@@ -297,7 +304,7 @@ jobs:
           echo ""
           echo "=== Checking expected assets exist ==="
           ASSETS=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json assets --jq '.assets[].name')
-          for PATTERN in "needlecast-${VERSION}.jar" "needlecast-${VERSION}-win64.exe" "needlecast-${VERSION}-macos.dmg" "needlecast-${VERSION}-linux-amd64.deb" "appcast.xml"; do
+          for PATTERN in "needlecast-${VERSION}.jar" "needlecast-${VERSION}-win64.exe" "needlecast-${VERSION}-windows-portable.zip" "needlecast-${VERSION}-macos.dmg" "needlecast-${VERSION}-macos-portable.zip" "needlecast-${VERSION}-linux-amd64.deb" "needlecast-${VERSION}-linux-portable.tar.gz" "appcast.xml"; do
             if echo "$ASSETS" | grep -q "$PATTERN"; then
               echo "  OK: $PATTERN found"
             else

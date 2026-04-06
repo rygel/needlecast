@@ -82,6 +82,11 @@ if [[ "$OS" == "Darwin" ]]; then
       --app-version "$JPACKAGE_VERSION"
     echo "DMG created in $BUILD_DIR/"
 
+    echo "Building macOS portable zip..."
+    PORTABLE="$BUILD_DIR/needlecast-${APP_VERSION}-macos-portable.zip"
+    (cd "$BUILD_DIR/jpackage" && zip -r "$PORTABLE" "$APP_NAME.app")
+    echo "Portable archive: $PORTABLE"
+
 elif [[ "$OS" == "Linux" ]]; then
     echo "Building Linux .deb (version $JPACKAGE_VERSION)..."
     jpackage \
@@ -93,4 +98,9 @@ elif [[ "$OS" == "Linux" ]]; then
       --linux-shortcut \
       --linux-menu-group "Development"
     echo "deb created in $BUILD_DIR/"
+
+    echo "Building Linux portable tar.gz..."
+    PORTABLE="$BUILD_DIR/needlecast-${APP_VERSION}-linux-portable.tar.gz"
+    tar czf "$PORTABLE" -C "$BUILD_DIR/jpackage" "$APP_NAME"
+    echo "Portable archive: $PORTABLE"
 fi
