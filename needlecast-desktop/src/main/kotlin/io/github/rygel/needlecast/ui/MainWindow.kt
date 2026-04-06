@@ -191,7 +191,6 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         addWindowListener(object : WindowAdapter() {
             override fun windowOpened(e: WindowEvent) {
                 applyDockingLayout()
-                applyEditorPaneDefaults()
                 applyTheme(ThemeRegistry.isDark(ctx.config.theme))
                 updateTimer.start()
                 // After the window is laid out, force the project tree to
@@ -649,35 +648,10 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private fun setTheme(themeId: String) {
         val dark = ThemeRegistry.apply(themeId)
-        applyEditorPaneDefaults()
         SwingUtilities.updateComponentTreeUI(this)
         applyTheme(dark)
         ctx.updateConfig(ctx.config.copy(theme = themeId))
         ctx.reloadTheme()
-    }
-
-    /**
-     * Set JEditorPane HTML defaults from the current L&F so that HTML content
-     * (e.g. the sparkle4j update dialog) inherits the theme's text color.
-     */
-    /**
-     * Inject theme-aware CSS into the JEditorPane/HTMLEditorKit default stylesheet.
-     * This ensures all HTML-rendering components (including sparkle4j's update dialog)
-     * use the current theme's text/background colors instead of hardcoded black-on-white.
-     */
-    private fun applyEditorPaneDefaults() {
-        val fg = UIManager.getColor("EditorPane.foreground") ?: UIManager.getColor("Label.foreground") ?: return
-        val bg = UIManager.getColor("EditorPane.background") ?: UIManager.getColor("Panel.background") ?: return
-        val fgHex = "#%02X%02X%02X".format(fg.red, fg.green, fg.blue)
-        val bgHex = "#%02X%02X%02X".format(bg.red, bg.green, bg.blue)
-        val rule = "body { color: $fgHex; background-color: $bgHex; } " +
-            "a { color: #5C9CE6; } " +
-            "p { color: $fgHex; } " +
-            "li { color: $fgHex; } " +
-            "h1, h2, h3 { color: $fgHex; }"
-        // HTMLEditorKit shares a static default stylesheet across all instances.
-        // Access it via any instance and add our rules — they persist globally.
-        javax.swing.text.html.HTMLEditorKit().styleSheet.addRule(rule)
     }
 
     private fun buildViewMenu(title: String): JMenu {
