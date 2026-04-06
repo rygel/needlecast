@@ -63,6 +63,11 @@ if ($jpackageVersion -match '^0\.') { $jpackageVersion = '1' + $jpackageVersion.
 
 Write-Host "App image created under $buildDir\jpackage"
 
+# ── Portable zip ──────────────────────────────────────────────────────────────
+$portableZip = Join-Path $buildDir "needlecast-$appVersion-windows-portable.zip"
+Compress-Archive -Path (Join-Path $buildDir "jpackage\$appName") -DestinationPath $portableZip
+Write-Host "Portable archive: $portableZip"
+
 # ── Inno Setup installer ──────────────────────────────────────────────────────
 $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\iscc.exe"
 if (-not (Test-Path $iscc)) {
