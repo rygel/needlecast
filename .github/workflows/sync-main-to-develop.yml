@@ -23,5 +23,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           git checkout develop || git checkout -b develop
-          git merge main --no-edit
+          git merge main --no-edit -X ours
           git push origin develop
