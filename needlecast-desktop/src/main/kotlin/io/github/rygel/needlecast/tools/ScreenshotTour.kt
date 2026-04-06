@@ -93,6 +93,7 @@ fun main(args: Array<String>) {
         } catch (e: Exception) { e.printStackTrace() }
     }
     Thread.sleep(500)
+    waitForProjectTreeData(w, projects.size)
 
     try {
         // ── 01: Main window — project tree with folders and projects ──────
@@ -251,25 +252,85 @@ private fun closeTopDialog() {
     }
 }
 
+private fun waitForProjectTreeData(window: MainWindow, expectedProjects: Int) {
+    val deadline = System.currentTimeMillis() + 8000
+    while (System.currentTimeMillis() < deadline) {
+        var scanSize = 0
+        var gitSize = 0
+        SwingUtilities.invokeAndWait {
+            try {
+                val field = window.javaClass.getDeclaredField("projectTreePanel")
+                field.isAccessible = true
+                val treePanel = field.get(window)
+                val scanField = treePanel.javaClass.getDeclaredField("scanResults")
+                val gitField = treePanel.javaClass.getDeclaredField("gitStatusCache")
+                scanField.isAccessible = true
+                gitField.isAccessible = true
+                scanSize = (scanField.get(treePanel) as? Map<*, *>)?.size ?: 0
+                gitSize = (gitField.get(treePanel) as? Map<*, *>)?.size ?: 0
+            } catch (_: Exception) {
+                scanSize = expectedProjects
+                gitSize = expectedProjects
+            }
+        }
+        if (scanSize >= expectedProjects && gitSize >= expectedProjects) return
+        Thread.sleep(150)
+    }
+}
+
 // ── Demo data ─────────────────────────────────────────────────────────────────
 
 private data class DemoProject(val dir: File, val displayName: String)
 
 private fun createDemoProjects(root: Path): List<DemoProject> {
-    val projects = listOf(
-        Triple("needlecast",                      "needlecast",                       ::scaffoldMaven),
-        Triple("web-dashboard",                   "web-dashboard",                    ::scaffoldNpm),
-        Triple("api-service",                     "api-service",                      ::scaffoldGradle),
-        Triple("ml-pipeline",                     "ml-pipeline",                      ::scaffoldPython),
-        Triple("rust-engine",                     "rust-engine",                      ::scaffoldRust),
-        Triple("go-service",                      "go-service",                       ::scaffoldGo),
-        Triple("enterprise-microservice-gateway", "enterprise-microservice-gateway",  ::scaffoldMaven),
-        Triple("react-native-shopping-app",       "react-native-shopping-app",        ::scaffoldNpm),
+    data class DemoSpec(
+        val dirName: String,
+        val label: String,
+        val scaffold: (File) -> Unit,
+        val branch: String,
+        val dirty: Boolean,
     )
-    return projects.map { (dirName, label, scaffold) ->
+    val projects = listOf(
+        DemoSpec("needlecast",                      "needlecast",                      ::scaffoldMaven,  "main",                false),
+        DemoSpec("web-dashboard",                   "web-dashboard",                   ::scaffoldNpm,    "feature/ux-refresh",   true),
+        DemoSpec("api-service",                     "api-service",                     ::scaffoldGradle, "develop",              false),
+        DemoSpec("ml-pipeline",                     "ml-pipeline",                     ::scaffoldPython, "experiment/ablation",  true),
+        DemoSpec("rust-engine",                     "rust-engine",                     ::scaffoldRust,   "perf/fast-path",       false),
+        DemoSpec("go-service",                      "go-service",                      ::scaffoldGo,     "release/v1.8",         false),
+        DemoSpec("enterprise-microservice-gateway", "enterprise-microservice-gateway", ::scaffoldMaven,  "hotfix/auth-headers",  true),
+        DemoSpec("react-native-shopping-app",       "react-native-shopping-app",       ::scaffoldNpm,    "feature/cart-v2",      false),
+    )
+    return projects.map { (dirName, label, scaffold, branch, dirty) ->
         val dir = root.resolve(dirName).toFile().also { it.mkdirs() }
         scaffold(dir)
+        initGitRepo(dir, branch, dirty)
         DemoProject(dir, label)
+    }
+}
+
+private fun initGitRepo(dir: File, branch: String, dirty: Boolean) {
+    if (!runGit(dir, "init")) return
+    runGit(dir, "config", "user.email", "demo@needlecast.local")
+    runGit(dir, "config", "user.name", "Needlecast Demo")
+    runGit(dir, "add", ".")
+    runGit(dir, "commit", "-m", "Initial commit")
+    runGit(dir, "branch", "-M", branch)
+    if (dirty) {
+        val readme = dir.resolve("README.md")
+        readme.appendText("\nUncommitted demo change.\n")
+    }
+}
+
+private fun runGit(dir: File, vararg args: String): Boolean {
+    return try {
+        val cmd = listOf("git", "-C", dir.absolutePath) + args.toList()
+        val proc = ProcessBuilder(cmd)
+            .redirectErrorStream(true)
+            .start()
+        proc.inputStream.bufferedReader().use { it.readText() }
+        proc.waitFor() == 0
+    } catch (_: Exception) {
+        false
     }
 }
 
