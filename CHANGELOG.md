@@ -2,6 +2,31 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.15] — 2026-04-08
+
+### Fixed
+- **Project list clicks sometimes not registered** — `dragEnabled=true` caused Swing's drag gesture recognizer to intercept every `mousePressed` and defer selection until it could distinguish a click from a drag. Replaced with a `MouseMotionAdapter` that only starts the drag when the mouse actually moves while pressed; normal clicks now register immediately.
+
+---
+
+## [0.6.14] — 2026-04-06
+
+### Added
+- **Update badge in status bar** — when a newer version is available, a persistent `⬆ x.y.z available` label appears on the right side of the status bar. Clicking it opens the releases page. No dialog, no interruption.
+- **Portable builds** — each release now ships a no-install portable archive alongside the installer: `needlecast-VERSION-windows-portable.zip`, `needlecast-VERSION-macos-portable.zip`, `needlecast-VERSION-linux-portable.tar.gz`. Unzip and run, no setup required.
+
+### Fixed
+- **main→develop sync conflicts** — the automated sync workflow now uses `-X ours` so screenshot conflicts after a release are resolved automatically without manual intervention.
+
+---
+
+## [0.6.13] — 2026-04-06
+
+### Fixed
+- **Project tree drag-and-drop broken** — dropping a project silently did nothing; root cause was a `StackOverflowError` thrown inside `treeModel.insertNodeInto()`. The cell renderer called `tree.getPathBounds()` to compute the indentation offset for full-width sizing, which re-entered `VariableHeightLayoutCache` mid-calculation, looping back into the renderer indefinitely. Fixed by computing the indent from `node.level × (leftChildIndent + rightChildIndent)` directly, avoiding the layout cache entirely.
+
+---
+
 ## [0.6.12] — 2026-04-06
 
 ### Added
