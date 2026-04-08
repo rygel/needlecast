@@ -698,7 +698,6 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             addSeparator()
             add(groupSubmenu("Dark Themes",  "dark",  ctx.i18n.translate("menu.view.darkTheme"),  ThemeRegistry.GROUP_DARK))
             add(groupSubmenu("Light Themes", "light", ctx.i18n.translate("menu.view.lightTheme"), ThemeRegistry.GROUP_LIGHT))
-            add(groupSubmenu("Catppuccin",   ThemeRegistry.GROUP_CATPPUCCIN))
             addSeparator()
             add(showConsoleCb)
             add(showExplorerCb)
