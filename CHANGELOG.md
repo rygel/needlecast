@@ -2,6 +2,13 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.16] — 2026-04-08
+
+### Changed
+- **Config directory renamed** — the config folder is now `~/.needlecast` (was `~/.quicklaunch`). Existing configs are migrated automatically on first launch.
+
+---
+
 ## [0.6.15] — 2026-04-08
 
 ### Added
