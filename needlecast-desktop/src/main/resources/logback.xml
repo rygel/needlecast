@@ -1,6 +1,6 @@
 <configuration>
 
-    <!-- Rolling file appender: INFO and above → ~/.quicklaunch/quicklaunch.log -->
+    <!-- Rolling file appender: INFO and above → ~/.needlecast/needlecast.log -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${user.home}/.needlecast/needlecast.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">

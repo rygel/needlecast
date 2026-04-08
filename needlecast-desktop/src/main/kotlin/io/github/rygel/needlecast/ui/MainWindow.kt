@@ -112,7 +112,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
 
     private val dockingLayoutFile: File = Path.of(
-        System.getProperty("user.home"), ".quicklaunch", "docking-layout.xml"
+        System.getProperty("user.home"), ".needlecast", "docking-layout.xml"
     ).toFile()
 
     init {
