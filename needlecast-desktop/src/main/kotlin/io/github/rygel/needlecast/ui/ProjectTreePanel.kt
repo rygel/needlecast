@@ -22,6 +22,7 @@ import java.awt.Rectangle
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.io.File
+import java.net.URI
 import javax.swing.BorderFactory
 import javax.swing.DropMode
 import javax.swing.JButton
@@ -1029,6 +1030,11 @@ class ProjectTreePanel(
             }
         }
 
+        /** Fallback flavor for Linux file managers that advertise folders via text/uri-list. */
+        private val uriListFlavor: DataFlavor? = try {
+            DataFlavor("text/uri-list;class=java.lang.String")
+        } catch (_: Exception) { null }
+
         override fun getSourceActions(c: JComponent) = MOVE
 
         override fun createTransferable(c: JComponent): Transferable? {
@@ -1041,10 +1047,13 @@ class ProjectTreePanel(
             }
         }
 
-        /** Retrieves the dragged node from the transferable without relying on a mutable field. */
         private fun nodeFrom(support: TransferSupport): DefaultMutableTreeNode? =
             try { support.transferable.getTransferData(flavor) as? DefaultMutableTreeNode }
             catch (_: Exception) { null }
+
+        private fun isExternalDrop(support: TransferSupport): Boolean =
+            support.isDataFlavorSupported(DataFlavor.javaFileListFlavor) ||
+                    (uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor))
 
         /**
          * JTree sometimes reports an INSERT drop even when the cursor is centered on a folder row.
@@ -1061,66 +1070,75 @@ class ProjectTreePanel(
             return if (p.y in top..bottom) rowNode else null
         }
 
-        override fun canImport(support: TransferSupport): Boolean {
-            if (!support.isDrop || !support.isDataFlavorSupported(flavor)) return false
-            try {
-                support.dropAction = MOVE
-                support.setShowDropLocation(true)
-            } catch (_: Exception) {
-                // Ignore: some DnD implementations may reject explicit dropAction changes
+        /**
+         * Resolves the drop target (parent node + insertion index) from a [JTree.DropLocation].
+         * Shared by internal reorder and external folder drop.
+         */
+        private fun resolveDropTarget(
+            dl: JTree.DropLocation,
+            overrideFolder: DefaultMutableTreeNode?,
+        ): Pair<DefaultMutableTreeNode, Int>? {
+            if (overrideFolder != null) return Pair(overrideFolder, overrideFolder.childCount)
+            if (dl.path == null) return Pair(rootNode, rootNode.childCount)
+            val targetNode = dl.path.lastPathComponent as? DefaultMutableTreeNode ?: return null
+            return if (dl.childIndex == -1) {
+                when (targetNode.userObject) {
+                    is ProjectTreeEntry.Folder -> Pair(targetNode, targetNode.childCount)
+                    else -> {
+                        val parent = targetNode.parent as? DefaultMutableTreeNode ?: rootNode
+                        Pair(parent, parent.getIndex(targetNode) + 1)
+                    }
+                }
+            } else {
+                val parent = when (targetNode.userObject) {
+                    is ProjectTreeEntry.Folder -> targetNode
+                    else -> targetNode.parent as? DefaultMutableTreeNode ?: rootNode
+                }
+                val idx = if (parent === targetNode) dl.childIndex else parent.getIndex(targetNode).coerceAtLeast(0)
+                Pair(parent, idx)
             }
-            val dl = support.dropLocation as? JTree.DropLocation ?: return false
-            val overrideTarget = centeredFolderDrop(dl)
-            val targetPath = overrideTarget?.let { TreePath(it.path) } ?: dl.path ?: return true   // dropping at root level → OK
-            val targetNode = targetPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
-            val src = nodeFrom(support) ?: return false
+        }
 
-            // Reject dropping onto itself or any of its descendants
-            var n: TreeNode? = targetNode
-            while (n != null) {
-                if (n === src) return false
-                n = n.parent
+        override fun canImport(support: TransferSupport): Boolean {
+            if (!support.isDrop) return false
+            return when {
+                support.isDataFlavorSupported(flavor) -> {
+                    try {
+                        support.dropAction = MOVE
+                        support.setShowDropLocation(true)
+                    } catch (_: Exception) {}
+                    val dl = support.dropLocation as? JTree.DropLocation ?: return false
+                    val overrideTarget = centeredFolderDrop(dl)
+                    val targetPath = overrideTarget?.let { TreePath(it.path) } ?: dl.path
+                        ?: return true  // dropping at root level → OK
+                    val targetNode = targetPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
+                    val src = nodeFrom(support) ?: return false
+                    // Reject dropping onto itself or any of its descendants
+                    var n: TreeNode? = targetNode
+                    while (n != null) {
+                        if (n === src) return false
+                        n = n.parent
+                    }
+                    true
+                }
+                isExternalDrop(support) -> {
+                    support.setShowDropLocation(true)
+                    true
+                }
+                else -> false
             }
-            return true
         }
 
         override fun importData(support: TransferSupport): Boolean {
             if (!canImport(support)) return false
+            return if (isExternalDrop(support)) importExternal(support) else importInternal(support)
+        }
+
+        private fun importInternal(support: TransferSupport): Boolean {
             val node = nodeFrom(support) ?: return false
-            val dl   = support.dropLocation as? JTree.DropLocation ?: return false
+            val dl = support.dropLocation as? JTree.DropLocation ?: return false
+            val (newParent, rawIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
 
-            // Determine new parent and insertion index
-            val overrideFolder = centeredFolderDrop(dl)
-            val (newParent, rawIndex) = if (overrideFolder != null) {
-                Pair(overrideFolder, overrideFolder.childCount)
-            } else if (dl.path == null) {
-                // Dropped below all rows → append to root
-                Pair(rootNode, rootNode.childCount)
-            } else {
-                val targetNode = dl.path.lastPathComponent as? DefaultMutableTreeNode ?: return false
-                if (dl.childIndex == -1) {
-                    // Dropped ON a node
-                    when (targetNode.userObject) {
-                        is ProjectTreeEntry.Folder ->
-                            Pair(targetNode, targetNode.childCount)
-                        else -> {
-                            // Insert after the target (as sibling)
-                            val parent = targetNode.parent as? DefaultMutableTreeNode ?: rootNode
-                            Pair(parent, parent.getIndex(targetNode) + 1)
-                        }
-                    }
-                } else {
-                    // Dropped BETWEEN children of targetNode
-                    val parent = when (targetNode.userObject) {
-                        is ProjectTreeEntry.Folder -> targetNode
-                        else -> targetNode.parent as? DefaultMutableTreeNode ?: rootNode
-                    }
-                    val idx = if (parent === targetNode) dl.childIndex else parent.getIndex(targetNode).coerceAtLeast(0)
-                    Pair(parent, idx)
-                }
-            }
-
-            // Remove from old location
             val oldParent = node.parent as? DefaultMutableTreeNode ?: return false
             val oldIndex  = oldParent.getIndex(node)
             treeModel.removeNodeFromParent(node)
@@ -1132,15 +1150,82 @@ class ProjectTreePanel(
                 rawIndex.coerceAtMost(newParent.childCount)
 
             treeModel.insertNodeInto(node, newParent, insertIndex)
-
-            // Expand the target folder so the dropped node is immediately visible
             if (newParent !== rootNode) tree.expandPath(TreePath(newParent.path))
-
             val tp = treePath(node)
             tree.selectionPath = tp
             tree.scrollPathToVisible(tp)
             persist()
             return true
+        }
+
+        /** Handles a drop of one or more folders dragged from the OS file manager. */
+        private fun importExternal(support: TransferSupport): Boolean {
+            val dirs = dirsFromExternal(support)
+            if (dirs.isEmpty()) return false
+            val dl = support.dropLocation as? JTree.DropLocation ?: return false
+            val (newParent, startIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
+
+            val existingPaths = collectAllPaths(rootNode)
+            var insertIdx = startIndex.coerceAtMost(newParent.childCount)
+            var lastNode: DefaultMutableTreeNode? = null
+
+            for (dir in dirs) {
+                val absPath = dir.absolutePath
+                if (absPath in existingPaths) continue
+                val directory = ProjectDirectory(path = absPath)
+                val node = DefaultMutableTreeNode(ProjectTreeEntry.Project(directory = directory))
+                treeModel.insertNodeInto(node, newParent, insertIdx)
+                existingPaths += absPath
+                insertIdx++
+                lastNode = node
+                scanProject(directory)
+            }
+
+            if (lastNode == null) return false  // all dropped dirs were duplicates
+            if (newParent !== rootNode) tree.expandPath(TreePath(newParent.path))
+            val tp = treePath(lastNode)
+            tree.selectionPath = tp
+            tree.scrollPathToVisible(tp)
+            persist()
+            return true
+        }
+
+        /**
+         * Extracts directories from an OS drag.
+         * - Windows / macOS: [DataFlavor.javaFileListFlavor]
+         * - Linux (GTK file managers): same flavor via AWT, with [uriListFlavor] as fallback
+         */
+        @Suppress("UNCHECKED_CAST")
+        private fun dirsFromExternal(support: TransferSupport): List<File> {
+            if (support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                return try {
+                    (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
+                        ?.filterIsInstance<File>()
+                        ?.filter { it.isDirectory }
+                        ?: emptyList()
+                } catch (_: Exception) { emptyList() }
+            }
+            val uriF = uriListFlavor ?: return emptyList()
+            return try {
+                val text = support.transferable.getTransferData(uriF) as? String ?: return emptyList()
+                text.lines()
+                    .map { it.trim() }
+                    .filter { it.startsWith("file://") && !it.startsWith("#") }
+                    .mapNotNull { runCatching { File(URI(it)) }.getOrNull() }
+                    .filter { it.isDirectory }
+            } catch (_: Exception) { emptyList() }
+        }
+
+        /** Walks the tree and returns all project paths currently registered. */
+        private fun collectAllPaths(root: DefaultMutableTreeNode): MutableSet<String> {
+            val set = mutableSetOf<String>()
+            fun walk(n: DefaultMutableTreeNode) {
+                val e = n.userObject
+                if (e is ProjectTreeEntry.Project) set += e.directory.path
+                for (i in 0 until n.childCount) walk(n.getChildAt(i) as DefaultMutableTreeNode)
+            }
+            walk(root)
+            return set
         }
     }
 }
