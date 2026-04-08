@@ -129,9 +129,15 @@ class ProjectTreePanel(
     init {
         tree.ui = FullWidthTreeUI()
         tree.cellRenderer = ProjectTreeCellRenderer()
-        tree.dragEnabled = true
         tree.dropMode = DropMode.ON_OR_INSERT
         tree.transferHandler = TreeTransferHandler()
+        tree.addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
+            override fun mouseDragged(e: java.awt.event.MouseEvent) {
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    tree.transferHandler?.exportAsDrag(tree, e, TransferHandler.MOVE)
+                }
+            }
+        })
         tree.addComponentListener(object : java.awt.event.ComponentAdapter() {
             override fun componentResized(e: java.awt.event.ComponentEvent) {
                 invalidateTreeLayout()

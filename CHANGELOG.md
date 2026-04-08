@@ -4,8 +4,12 @@ All notable changes to Needlecast are documented here.
 
 ## [0.6.15] — 2026-04-08
 
+### Added
+- **Config backups** — up to 5 rotating numbered backups are created before each config save (`config.json.bak.1` … `.bak.5`). Corrupt or overwritten configs can be recovered from the backup next to the config file.
+
 ### Fixed
 - **Project list clicks sometimes not registered** — `dragEnabled=true` caused Swing's drag gesture recognizer to intercept every `mousePressed` and defer selection until it could distinguish a click from a drag. Replaced with a `MouseMotionAdapter` that only starts the drag when the mouse actually moves while pressed; normal clicks now register immediately.
+- **Terminal cannot be opened by double-click or right-click** — same `dragEnabled=true` issue on the project `JTree`: drag gesture recognizer intercepted mouse events before they reached the double-click and context menu handlers. Removed `dragEnabled` on the tree and replaced with a `MouseMotionAdapter` that initiates drag only when the mouse actually moves.
 
 ---
 

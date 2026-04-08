@@ -64,5 +64,5 @@ body:
     id: logs
     attributes:
       label: Relevant log output
-      description: Paste from `~/.quicklaunch/quicklaunch.log` if applicable.
+      description: Paste from `~/.needlecast/needlecast.log` if applicable.
       render: text
