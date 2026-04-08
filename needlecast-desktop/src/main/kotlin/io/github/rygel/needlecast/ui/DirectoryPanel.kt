@@ -34,6 +34,7 @@ import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
+import javax.swing.TransferHandler
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
@@ -133,7 +134,13 @@ class DirectoryPanel(
             getSourceGroupId = { currentGroup?.id },
             getSelectedProject = { list.selectedValue },
         )
-        list.dragEnabled = true
+        list.addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
+            override fun mouseDragged(e: java.awt.event.MouseEvent) {
+                if (SwingUtilities.isLeftMouseButton(e)) {
+                    list.transferHandler?.exportAsDrag(list, e, TransferHandler.MOVE)
+                }
+            }
+        })
 
         list.addListSelectionListener { e ->
             if (!e.valueIsAdjusting) {
