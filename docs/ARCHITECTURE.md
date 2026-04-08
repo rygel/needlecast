@@ -59,7 +59,7 @@ Components that need to react to config changes register via `addConfigListener`
 
 ## Config storage and migration
 
-`JsonConfigStore` deserialises `~/.quicklaunch/config.json` with Jackson then passes the result through `ConfigMigrator.migrate()`. Migrations are sequential: version 0 → 1 → … → `CURRENT_VERSION`. Adding a migration means incrementing `CURRENT_VERSION` and adding a step to `migrations`.
+`JsonConfigStore` deserialises `~/.needlecast/config.json` with Jackson then passes the result through `ConfigMigrator.migrate()`. Migrations are sequential: version 0 → 1 → … → `CURRENT_VERSION`. Adding a migration means incrementing `CURRENT_VERSION` and adding a step to `migrations`.
 
 ## Process execution
 

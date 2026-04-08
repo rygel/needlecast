@@ -96,6 +96,6 @@ class JsonConfigStore(
         const val MAX_BACKUPS = 5
 
         fun defaultConfigPath(): Path =
-            Path.of(System.getProperty("user.home"), ".quicklaunch", "config.json")
+            Path.of(System.getProperty("user.home"), ".needlecast", "config.json")
     }
 }
