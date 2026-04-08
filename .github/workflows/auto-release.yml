@@ -45,8 +45,9 @@ jobs:
         if: steps.version.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="$RELEASE_VERSION"
           TAG="v$VERSION"
 
           # Check if tag already exists

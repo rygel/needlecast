@@ -20,7 +20,7 @@ jobs:
 
       - name: Run Semgrep
         run: |
-          pip install semgrep
+          pip install semgrep==1.157.0
           semgrep --config p/default --config p/kotlin --config p/java \
             --sarif --output semgrep.sarif || true
 
