@@ -14,13 +14,27 @@ jobs:
   open-release-pr:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Sync main into develop (pre-resolve binary conflicts)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git checkout develop
+          # Only merge if main has commits not yet in develop
+          if git merge-base --is-ancestor origin/main origin/develop; then
+            echo "main is already fully merged into develop — no sync needed"
+            exit 0
+          fi
+          git merge origin/main --no-edit -X ours
+          git push origin develop
 
       - name: Build commit summary (develop commits not yet in main)
         id: summary
