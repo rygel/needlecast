@@ -49,10 +49,9 @@ data class ThemeEntry(
  */
 object ThemeRegistry {
 
-    const val GROUP_BASE       = "Base"
-    const val GROUP_DARK       = "Dark"
-    const val GROUP_LIGHT      = "Light"
-    const val GROUP_CATPPUCCIN = "Catppuccin"
+    const val GROUP_BASE  = "Base"
+    const val GROUP_DARK  = "Dark"
+    const val GROUP_LIGHT = "Light"
 
     val themes: LinkedHashMap<String, ThemeEntry> = linkedMapOf(
         // ── Base ──────────────────────────────────────────────────────────
@@ -89,11 +88,11 @@ object ThemeRegistry {
         "atom-one-light" to ThemeEntry("Atom One Light",  false, GROUP_LIGHT) { FlatMTAtomOneLightIJTheme.setup()  },
         "light-owl"      to ThemeEntry("Light Owl",       false, GROUP_LIGHT) { FlatMTLightOwlIJTheme.setup()      },
 
-        // ── Catppuccin ────────────────────────────────────────────────────
-        "catppuccin-mocha"     to ThemeEntry("Mocha",     true,  GROUP_CATPPUCCIN) { applyJson("catppuccin-mocha")     },
-        "catppuccin-macchiato" to ThemeEntry("Macchiato", true,  GROUP_CATPPUCCIN) { applyJson("catppuccin-macchiato") },
-        "catppuccin-frappe"    to ThemeEntry("Frappe",    true,  GROUP_CATPPUCCIN) { applyJson("catppuccin-frappe")    },
-        "catppuccin-latte"     to ThemeEntry("Latte",     false, GROUP_CATPPUCCIN) { applyJson("catppuccin-latte")     },
+        // ── Catppuccin (dark flavors in Dark group, light in Light group) ─
+        "catppuccin-mocha"     to ThemeEntry("Catppuccin Mocha",     true,  GROUP_DARK)  { applyJson("catppuccin-mocha")     },
+        "catppuccin-macchiato" to ThemeEntry("Catppuccin Macchiato", true,  GROUP_DARK)  { applyJson("catppuccin-macchiato") },
+        "catppuccin-frappe"    to ThemeEntry("Catppuccin Frappé",    true,  GROUP_DARK)  { applyJson("catppuccin-frappe")    },
+        "catppuccin-latte"     to ThemeEntry("Catppuccin Latte",     false, GROUP_LIGHT) { applyJson("catppuccin-latte")     },
     )
 
     /**
