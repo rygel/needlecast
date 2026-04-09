@@ -94,6 +94,7 @@ class ProjectTreePanel(
 
     /** Captured in mousePressed so createTransferable can find the node even before selection updates. */
     private var dragPressedPath: TreePath? = null
+    private var dragPressPoint: java.awt.Point? = null
 
     companion object {
         private val logger = LoggerFactory.getLogger(ProjectTreePanel::class.java)
@@ -134,7 +135,11 @@ class ProjectTreePanel(
         tree.transferHandler = TreeTransferHandler()
         tree.addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
             override fun mouseDragged(e: java.awt.event.MouseEvent) {
-                if (SwingUtilities.isLeftMouseButton(e)) {
+                if (!SwingUtilities.isLeftMouseButton(e)) return
+                val press = dragPressPoint ?: return
+                val threshold = java.awt.dnd.DragSource.getDragThreshold()
+                if (Math.abs(e.x - press.x) > threshold || Math.abs(e.y - press.y) > threshold) {
+                    dragPressPoint = null  // fire once per press
                     tree.transferHandler?.exportAsDrag(tree, e, TransferHandler.MOVE)
                 }
             }
@@ -185,9 +190,14 @@ class ProjectTreePanel(
 
         tree.addTreeSelectionListener {
             val node = tree.lastSelectedPathComponent as? DefaultMutableTreeNode ?: return@addTreeSelectionListener
-            when (val entry = node.userObject) {
-                is ProjectTreeEntry.Project -> onProjectSelected(scanResults[entry.directory.path])
-                else -> onProjectSelected(null)
+            val project = when (val entry = node.userObject) {
+                is ProjectTreeEntry.Project -> scanResults[entry.directory.path]
+                else -> null
+            }
+            // Defer to allow the selection highlight repaint to fire first,
+            // so the click feels instant even if downstream work (dir listing, etc.) is slow.
+            SwingUtilities.invokeLater {
+                onProjectSelected(project)
             }
         }
 
@@ -199,6 +209,7 @@ class ProjectTreePanel(
                     val closest = tree.getClosestPathForLocation(e.x, e.y)
                     val bounds  = if (closest != null) tree.getPathBounds(closest) else null
                     dragPressedPath = if (bounds != null && e.y >= bounds.y && e.y < bounds.y + bounds.height) closest else null
+                    dragPressPoint  = if (dragPressedPath != null) java.awt.Point(e.x, e.y) else null
                 }
                 if (SwingUtilities.isRightMouseButton(e)) {
                     val path = tree.getPathForLocation(e.x, e.y)
@@ -297,7 +308,18 @@ class ProjectTreePanel(
                     buildFileWatcher.watch(dir.path)
                 }
                 val pending = pendingSelectPath
-                if (pending == dir.path) selectByPath(pending)
+                if (pending == dir.path) {
+                    selectByPath(pending)
+                } else {
+                    // If this project is already selected, push the fresh scan result
+                    // to listeners (file explorer, commands panel, etc.) without
+                    // changing the selection path.
+                    val selNode = tree.lastSelectedPathComponent as? DefaultMutableTreeNode
+                    val selEntry = selNode?.userObject as? ProjectTreeEntry.Project
+                    if (selEntry?.directory?.path == dir.path) {
+                        onProjectSelected(result)
+                    }
+                }
             }
         }.execute()
     }
@@ -865,6 +887,9 @@ class ProjectTreePanel(
             border = BorderFactory.createEmptyBorder(3, 6, 3, 6)
         }
 
+        /** Cache key for the last tags/badges rendered — avoids removeAll()+rebuild on every paint. */
+        private var lastTagsCacheKey: String? = null
+
         init {
             innerPanel.add(cellPanel, BorderLayout.CENTER)
             projectPanel.add(colorStripe, BorderLayout.WEST)
@@ -914,14 +939,20 @@ class ProjectTreePanel(
                         branchLabel.toolTipText = null
                     }
 
-                    tagsPanel.removeAll()
+                    // Rebuild tags only when scan result / tags actually changed — avoids
+                    // removeAll()+badge allocation on every repaint of every visible row.
                     val scanned = scanResults[entry.directory.path]
-                    when {
-                        scanned == null    -> {}
-                        scanned.scanFailed -> tagsPanel.add(badge("⚠", "#B71C1C"))
-                        else -> {
-                            scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
-                            entry.tags.forEach { tag -> tagsPanel.add(badge(tag, "#546E7A")) }
+                    val tagsKey = "${entry.directory.path}|${scanned?.buildTools?.joinToString { it.tagLabel }}|${entry.tags.joinToString()}"
+                    if (tagsKey != lastTagsCacheKey) {
+                        lastTagsCacheKey = tagsKey
+                        tagsPanel.removeAll()
+                        when {
+                            scanned == null    -> {}
+                            scanned.scanFailed -> tagsPanel.add(badge("⚠", "#B71C1C"))
+                            else -> {
+                                scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
+                                entry.tags.forEach { tag -> tagsPanel.add(badge(tag, "#546E7A")) }
+                            }
                         }
                     }
 
@@ -932,10 +963,11 @@ class ProjectTreePanel(
                     projectPanel.background = bg
                     innerPanel.background = bg
 
-                    // Calculate available width for this cell.
+                    // Set forcedWidth so tagsPanel.getPreferredSize() and bottomRow layout correctly.
+                    // CellRendererPane.paintComponent (called with shouldValidate=true) handles
+                    // setBounds + validate — no need to call them here.
                     // IMPORTANT: Do NOT call tree.getPathBounds() here — it re-enters the
                     // layout cache's size calculation and causes a StackOverflowError.
-                    // Instead, compute the indentation offset from node depth + UI indent settings.
                     val vp = tree.parent as? javax.swing.JViewport
                     val vpWidth = vp?.width ?: tree.width
                     if (vpWidth > 0) {
@@ -950,17 +982,7 @@ class ProjectTreePanel(
                             depth * (left + right)
                         } ?: 0
                         val startX = leftInset + totalIndent
-                        val cellWidth = (vpWidth - startX - rightInset).coerceAtLeast(50)
-                        projectPanel.forcedWidth = cellWidth
-                        val cellHeight = projectPanel.preferredSize.height
-                        projectPanel.setSize(cellWidth, cellHeight)
-                        projectPanel.invalidate()
-                        projectPanel.validate()
-                        innerPanel.doLayout()
-                        cellPanel.doLayout()
-                        nameRow.doLayout()
-                        bottomRow.doLayout()
-                        tagsPanel.doLayout()
+                        projectPanel.forcedWidth = (vpWidth - startX - rightInset).coerceAtLeast(50)
                     }
 
                     projectPanel
@@ -980,6 +1002,16 @@ class ProjectTreePanel(
     }
 
     private inner class FullWidthTreeUI : javax.swing.plaf.basic.BasicTreeUI() {
+
+        /** Force variable-height rows so hit-detection matches the two-line cell renderer height.
+         *  FlatLaf sets Tree.rowHeight to a fixed value (e.g. 24 px); our renderer returns ~40 px.
+         *  Without this, clicks on the lower half of each row fall outside BasicTreeUI's hit bounds
+         *  and are silently dropped. rowHeight = 0 tells VariableHeightLayoutCache to ask the
+         *  renderer for the actual height of each row. */
+        override fun installDefaults() {
+            super.installDefaults()
+            tree.rowHeight = 0
+        }
 
         override fun paintRow(
             g: java.awt.Graphics,
