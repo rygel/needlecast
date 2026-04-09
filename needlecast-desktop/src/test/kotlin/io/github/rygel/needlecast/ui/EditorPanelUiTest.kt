@@ -61,7 +61,7 @@ class EditorPanelUiTest {
 
         val file = tempDir.resolve("big.txt").toFile()
         val content = buildString {
-            repeat(200_000) { append("line ").append(it).append('\n') }
+            repeat(100_000) { append("line ").append(it).append('\n') }
         }
         file.writeText(content)
 

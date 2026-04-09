@@ -66,6 +66,21 @@ class DockingLayoutUiTest {
         val all = robot.finder().findAll { c -> c is DockablePanel }
         val panel = all.filterIsInstance<DockablePanel>().firstOrNull { it.dockableId == persistentId }
             ?: return null
+        if (!panel.isShowing) {
+            val tabbed = javax.swing.SwingUtilities.getAncestorOfClass(JTabbedPane::class.java, panel) as? JTabbedPane
+            if (tabbed != null) {
+                GuiActionRunner.execute {
+                    for (i in 0 until tabbed.tabCount) {
+                        val comp = tabbed.getComponentAt(i)
+                        if (javax.swing.SwingUtilities.isDescendingFrom(panel, comp)) {
+                            tabbed.selectedIndex = i
+                            break
+                        }
+                    }
+                }
+                robot.waitForIdle()
+            }
+        }
         if (!panel.isShowing) return null
         return panel.bounds
     }

@@ -60,6 +60,7 @@ class GitLogPanelUiTest {
         val huge = buildString {
             repeat(50_000) { append("line ").append(it).append(" lorem ipsum dolor sit amet\n") }
         }
+        val maxDiffChars = 400_000
         val gitService = object : GitService {
             override fun readStatus(dir: String): GitStatus = GitStatus.NotARepo
             override fun log(dir: String, maxEntries: Int): String = "abc123 Commit one\n"
@@ -74,7 +75,10 @@ class GitLogPanelUiTest {
 
         GuiActionRunner.execute { list.selectedIndex = 0 }
 
-        val totalLength = huge.length
+        val totalLength = if (huge.length > maxDiffChars) {
+            val omitted = huge.length - maxDiffChars
+            maxDiffChars + "\n\n[Diff truncated: omitted ${omitted} characters]".length
+        } else huge.length
         Thread.sleep(50)
         val partialLength = GuiActionRunner.execute(object : GuiQuery<Int>() {
             override fun executeInEDT(): Int = diffArea.document.length
@@ -85,6 +89,15 @@ class GitLogPanelUiTest {
         )
 
         waitForDocLength(totalLength, 5_000)
+        if (huge.length > maxDiffChars) {
+            val text = GuiActionRunner.execute(object : GuiQuery<String>() {
+                override fun executeInEDT(): String = diffArea.text
+            })
+            org.junit.jupiter.api.Assertions.assertTrue(
+                text.contains("Diff truncated"),
+                "Expected truncation notice in rendered diff"
+            )
+        }
     }
 
     private fun waitForListSize(size: Int, timeoutMs: Long) {

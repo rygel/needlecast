@@ -43,6 +43,9 @@ import javax.swing.filechooser.FileNameExtensionFilter
 
 class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
+    private val dockingEnabled = System.getProperty("needlecast.skipDocking")
+        ?.equals("true", ignoreCase = true) != true
+
     private val statusBar      = StatusBar()
     private val consolePanel   = ConsolePanel()
     private val claudeHookServer: ClaudeHookServer? =
@@ -164,29 +167,33 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         defaultCloseOperation = DO_NOTHING_ON_CLOSE
         minimumSize = Dimension(800, 500)
 
-        // Initialize ModernDocking before the content pane is built (RootDockingPanel registers itself)
-        Docking.initialize(this)
-        DockingUI.initialize()
-        Settings.setActiveHighlighterEnabled(ctx.config.dockingActiveHighlight)
-        // Suppress the default border/gap FlatLaf draws around tabbed-pane content areas
-        UIManager.getDefaults()["TabbedPane.contentBorderInsets"] = Insets(0, 0, 0, 0)
-        UIManager.getDefaults()["TabbedPane.tabsOverlapBorder"]   = true
+        if (dockingEnabled) {
+            // Initialize ModernDocking before the content pane is built (RootDockingPanel registers itself)
+            Docking.initialize(this)
+            DockingUI.initialize()
+            Settings.setActiveHighlighterEnabled(ctx.config.dockingActiveHighlight)
+            // Suppress the default border/gap FlatLaf draws around tabbed-pane content areas
+            UIManager.getDefaults()["TabbedPane.contentBorderInsets"] = Insets(0, 0, 0, 0)
+            UIManager.getDefaults()["TabbedPane.tabsOverlapBorder"]   = true
 
-        // Register all dockables before any dock() calls
-        Docking.registerDockable(projectTreeDockable)
-        Docking.registerDockable(terminalDockable)
-        Docking.registerDockable(commandsDockable)
-        Docking.registerDockable(gitLogDockable)
-        Docking.registerDockable(logViewerDockable)
-        Docking.registerDockable(explorerDockable)
-        Docking.registerDockable(editorDockable)
-        Docking.registerDockable(consoleDockable)
-        Docking.registerDockable(renovateDockable)
-        Docking.registerDockable(promptInputDockable)
-        Docking.registerDockable(commandInputDockable)
-        installPanelHoverHighlighter()
+            // Register all dockables before any dock() calls
+            Docking.registerDockable(projectTreeDockable)
+            Docking.registerDockable(terminalDockable)
+            Docking.registerDockable(commandsDockable)
+            Docking.registerDockable(gitLogDockable)
+            Docking.registerDockable(logViewerDockable)
+            Docking.registerDockable(explorerDockable)
+            Docking.registerDockable(editorDockable)
+            Docking.registerDockable(consoleDockable)
+            Docking.registerDockable(renovateDockable)
+            Docking.registerDockable(promptInputDockable)
+            Docking.registerDockable(commandInputDockable)
+            installPanelHoverHighlighter()
 
-        contentPane = buildLayout()
+            contentPane = buildLayout()
+        } else {
+            contentPane = buildSimpleLayout()
+        }
         jMenuBar = buildMenuBar()
 
         registerKeyboardShortcuts()
@@ -198,13 +205,15 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         addWindowListener(object : WindowAdapter() {
             override fun windowOpened(e: WindowEvent) {
-                applyDockingLayout()
+                if (dockingEnabled) {
+                    applyDockingLayout()
+                    // After the window is laid out, force the project tree to
+                    // recalculate cell widths (tree.width is 0 during initial render)
+                    SwingUtilities.invokeLater { projectTreePanel.invalidateTreeLayout() }
+                }
                 applyTheme(ThemeRegistry.isDark(ctx.config.theme))
                 updateTimer.start()
                 updateDiagnosticSettings(ctx.config)
-                // After the window is laid out, force the project tree to
-                // recalculate cell widths (tree.width is 0 during initial render)
-                SwingUtilities.invokeLater { projectTreePanel.invalidateTreeLayout() }
             }
 
             override fun windowClosing(e: WindowEvent) {
@@ -234,14 +243,40 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         })
     }
 
+    override fun dispose() {
+        if (dockingEnabled) {
+            try {
+                allDockables.forEach { dockable ->
+                    if (Docking.isDockableRegistered(dockable.dockableId)) {
+                        Docking.deregisterDockable(dockable)
+                    }
+                }
+                Docking.deregisterDockingPanel(this)
+                Docking.uninitialize()
+            } catch (_: Exception) {
+                // Defensive: avoid disposal failures when the docking registry is already cleared.
+            }
+        }
+        super.dispose()
+    }
+
     // ── Layout ───────────────────────────────────────────────────────────────
 
     private fun buildLayout(): java.awt.Container {
-        // RootDockingPanel(window) registers itself — no explicit registerDockingPanel call needed
+        // RootDockingPanel does not auto-register; we must register it for Docking API lookups.
         val rootPanel = RootDockingPanel(this)
+        if (!Docking.getRootPanels().containsKey(this)) {
+            Docking.registerDockingPanel(rootPanel, this)
+        }
 
         val content = JPanel(BorderLayout())
         content.add(rootPanel, BorderLayout.CENTER)
+        content.add(statusBar, BorderLayout.SOUTH)
+        return content
+    }
+
+    private fun buildSimpleLayout(): java.awt.Container {
+        val content = JPanel(BorderLayout())
         content.add(statusBar, BorderLayout.SOUTH)
         return content
     }
@@ -351,6 +386,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.dock(promptInputDockable,  terminalDockable,   DockingRegion.SOUTH,  0.85)
         // 9. Command input tabbed with prompt input
         Docking.dock(commandInputDockable, promptInputDockable, DockingRegion.CENTER)
+
+        SwingUtilities.invokeLater { selectPrimaryTabs() }
     }
 
     /** Undock every panel, delete the saved layout file, re-apply the built-in default. */
@@ -363,6 +400,25 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         setupDefaultDockingLayout()
         AppState.setAutoPersist(true)
         statusBar.setStatus("Layout reset to default")
+    }
+
+    private fun selectPrimaryTabs() {
+        selectDockableTab(projectTreeDockable)
+        selectDockableTab(terminalDockable)
+        selectDockableTab(commandsDockable)
+        selectDockableTab(promptInputDockable)
+    }
+
+    private fun selectDockableTab(dockable: DockablePanel) {
+        val tabbed = SwingUtilities.getAncestorOfClass(javax.swing.JTabbedPane::class.java, dockable) as? javax.swing.JTabbedPane
+            ?: return
+        for (i in 0 until tabbed.tabCount) {
+            val comp = tabbed.getComponentAt(i)
+            if (SwingUtilities.isDescendingFrom(dockable, comp)) {
+                tabbed.selectedIndex = i
+                return
+            }
+        }
     }
 
     // ── View toggles ─────────────────────────────────────────────────────────

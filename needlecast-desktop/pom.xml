@@ -76,6 +76,10 @@
             <groupId>org.jetbrains.jediterm</groupId>
             <artifactId>jediterm-pty</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.jetbrains.jediterm</groupId>
+            <artifactId>jediterm-typeahead</artifactId>
+        </dependency>
 
         <!-- pty4j: required by jediterm-pty at runtime -->
         <dependency>
@@ -306,11 +310,12 @@
                                 --add-opens java.desktop/sun.awt=ALL-UNNAMED
                                 --add-opens java.desktop/javax.swing=ALL-UNNAMED
                                 --add-opens java.desktop/sun.swing=ALL-UNNAMED
+                                --add-opens java.base/java.util=ALL-UNNAMED
                                 --add-opens java.base/java.lang.reflect=ALL-UNNAMED
                             </argLine>
                             <properties>
                                 <configurationParameters>
-                                    junit.jupiter.execution.timeout.default=60s
+                                    junit.jupiter.execution.timeout.default=20s
                                 </configurationParameters>
                             </properties>
                         </configuration>

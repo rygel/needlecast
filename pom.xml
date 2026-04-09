@@ -92,6 +92,11 @@
                 <version>${jediterm.version}</version>
             </dependency>
             <dependency>
+                <groupId>org.jetbrains.jediterm</groupId>
+                <artifactId>jediterm-typeahead</artifactId>
+                <version>${jediterm.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.jetbrains.pty4j</groupId>
                 <artifactId>pty4j</artifactId>
                 <version>${pty4j.version}</version>
