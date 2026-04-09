@@ -132,7 +132,7 @@ Or build a JAR first:
 
 ```bash
 mvn -pl needlecast-desktop -am package -DskipTests
-java -jar needlecast-desktop/target/needlecast-desktop-0.6.9.jar
+java -jar needlecast-desktop/target/needlecast-desktop-0.6.17.jar
 ```
 
 ## Building from source

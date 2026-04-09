@@ -3,6 +3,7 @@ package io.github.rygel.needlecast.ui.explorer
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
+import io.github.rygel.needlecast.ui.TextChunker
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.Theme
@@ -52,6 +53,8 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private var isModified = false
     private var isLoadingFile = false
     private var editorFontSize = 12
+    private var loadWorker: javax.swing.SwingWorker<String, Void>? = null
+    private var loadSeq: Long = 0L
 
     private val fileLabel = JLabel("No file open")
     private val editor = RSyntaxTextArea(20, 80).apply {
@@ -196,6 +199,8 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     }
 
     fun openFile(file: File) {
+        loadWorker?.cancel(true)
+        TextChunker.cancel(editor)
         val maxBytes = 2 * 1024 * 1024L
         if (file.length() > maxBytes) {
             isLoadingFile = true
@@ -207,25 +212,38 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             isModified = false
             return
         }
-
-        val content = run {
-            var result: String? = null
-            for (cs in readCharsets) {
-                try { result = Files.readString(file.toPath(), cs); break }
-                catch (_: MalformedInputException) { }
-            }
-            result!! // ISO_8859_1 is last and never throws
-        }
-
+        val seq = ++loadSeq
         isLoadingFile = true
         editor.syntaxEditingStyle = syntaxStyleFor(file)
-        editor.text = content
+        editor.text = "Loading\u2026"
         editor.caretPosition = 0
-        isLoadingFile = false
-
         currentFile = file
         isModified = false
         fileLabel.text = file.name
+
+        loadWorker = object : javax.swing.SwingWorker<String, Void>() {
+            override fun doInBackground(): String {
+                var result: String? = null
+                for (cs in readCharsets) {
+                    try { result = Files.readString(file.toPath(), cs); break }
+                    catch (_: MalformedInputException) { }
+                }
+                return result!! // ISO_8859_1 is last and never throws
+            }
+
+            override fun done() {
+                if (isCancelled || seq != loadSeq) return
+                val content = try { get() } catch (_: Exception) {
+                    isLoadingFile = false
+                    editor.text = "Failed to load file."
+                    return
+                }
+                TextChunker.setTextChunked(editor, content) {
+                    editor.caretPosition = 0
+                    isLoadingFile = false
+                }
+            }
+        }.also { it.execute() }
     }
 
     private fun saveFile() {

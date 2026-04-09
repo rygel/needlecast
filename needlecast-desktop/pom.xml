@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.rygel</groupId>
         <artifactId>needlecast-parent</artifactId>
-        <version>0.6.16</version>
+        <version>0.6.17</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -18,6 +18,8 @@
 
     <properties>
         <mainClass>io.github.rygel.needlecast.MainKt</mainClass>
+        <!-- Default: exclude UI tests unless explicitly enabled -->
+        <uiTestExclude>**/*UiTest</uiTestExclude>
     </properties>
 
     <dependencies>
@@ -73,6 +75,10 @@
         <dependency>
             <groupId>org.jetbrains.jediterm</groupId>
             <artifactId>jediterm-pty</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.jediterm</groupId>
+            <artifactId>jediterm-typeahead</artifactId>
         </dependency>
 
         <!-- pty4j: required by jediterm-pty at runtime -->
@@ -142,7 +148,7 @@
 
         <!-- sparkle4j — in-app update checking and silent update application -->
         <dependency>
-            <groupId>io.github.sparkle4j</groupId>
+            <groupId>io.github.rygel</groupId>
             <artifactId>sparkle4j</artifactId>
         </dependency>
     </dependencies>
@@ -265,7 +271,7 @@
                     <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
                     <!-- UI tests (*UiTest) require Xvfb — run only via -Ptest-desktop -->
                     <excludes>
-                        <exclude>**/*UiTest</exclude>
+                        <exclude>${uiTestExclude}</exclude>
                     </excludes>
                     <properties>
                         <configurationParameters>
@@ -285,6 +291,9 @@
         -->
         <profile>
             <id>test-desktop</id>
+            <properties>
+                <uiTestExclude></uiTestExclude>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -301,11 +310,12 @@
                                 --add-opens java.desktop/sun.awt=ALL-UNNAMED
                                 --add-opens java.desktop/javax.swing=ALL-UNNAMED
                                 --add-opens java.desktop/sun.swing=ALL-UNNAMED
+                                --add-opens java.base/java.util=ALL-UNNAMED
                                 --add-opens java.base/java.lang.reflect=ALL-UNNAMED
                             </argLine>
                             <properties>
                                 <configurationParameters>
-                                    junit.jupiter.execution.timeout.default=60s
+                                    junit.jupiter.execution.timeout.default=20s
                                 </configurationParameters>
                             </properties>
                         </configuration>

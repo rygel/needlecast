@@ -16,6 +16,10 @@ concurrency:
 jobs:
   build-jar:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MAVEN_GITHUB_ACTOR: ${{ secrets.SPARKLE4J_ACTOR || github.actor }}
+      MAVEN_GITHUB_TOKEN: ${{ secrets.SPARKLE4J_TOKEN || secrets.GITHUB_TOKEN }}
     permissions:
       contents: read
       packages: read
@@ -29,14 +33,14 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-          server-id: github-sparkle4j
-          server-username: GITHUB_ACTOR
-          server-password: GITHUB_TOKEN
+          server-id: github-rygel
+          server-username: MAVEN_GITHUB_ACTOR
+          server-password: MAVEN_GITHUB_TOKEN
 
       - name: Build fat JAR
         env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ env.MAVEN_GITHUB_ACTOR }}
+          GITHUB_TOKEN: ${{ env.MAVEN_GITHUB_TOKEN }}
         run: mvn -pl needlecast-desktop -am package -DskipTests -T 4
 
       - name: Upload JAR artifact
@@ -48,6 +52,7 @@ jobs:
 
   package-native:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     needs: build-jar
     permissions:
       contents: read

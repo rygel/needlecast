@@ -36,10 +36,10 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
+import javax.swing.SwingWorker
 import javax.swing.JTextField
 import javax.swing.JTree
 import javax.swing.SwingUtilities
-import javax.swing.SwingWorker
 import javax.swing.TransferHandler
 import javax.swing.UIManager
 import javax.swing.event.DocumentEvent
@@ -69,6 +69,8 @@ class ProjectTreePanel(
             if (ui !is FullWidthTreeUI) {
                 setUI(FullWidthTreeUI())
             }
+            // Keep variable-height rows even after LAF changes.
+            rowHeight = 0
         }
     }.apply {
         isRootVisible = false
@@ -81,6 +83,25 @@ class ProjectTreePanel(
     private var activePaths: Set<String> = emptySet()
     private var pendingSelectPath: String? = null
     private val agentStatuses = mutableMapOf<String, AgentStatus>()
+    private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
+    private val scanQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<ProjectDirectory, DetectedProject>>()
+    private val scanApplyTimer = Timer(25) { drainScanQueue() }.apply { isRepeats = false }
+    private val scanApplyPending = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val clickTraceForced = System.getProperty("needlecast.tree.clickTrace")?.equals("true", ignoreCase = true) == true ||
+        (System.getenv("NEEDLECAST_TREE_CLICK_TRACE")?.equals("true", ignoreCase = true) == true) ||
+        (System.getenv("NEEDLECAST_TREE_CLICK_TRACE") == "1")
+    private fun isClickTraceEnabled(): Boolean = clickTraceForced || ctx.config.treeClickTraceEnabled
+    private var clickSeq: Long = 0L
+    private var lastClickTimeNs: Long = 0L
+    private var lastClickKey: String? = null
+    private var lastClickRow: Int = -1
+    private val scanExecutor = java.util.concurrent.Executors.newFixedThreadPool(2).also { exec ->
+        ctx.register(object : io.github.rygel.needlecast.Disposable {
+            override fun dispose() {
+                exec.shutdownNow()
+            }
+        })
+    }
 
     /** Pulses the agent dot while any project is THINKING. */
     private var blinkOn = false
@@ -291,8 +312,8 @@ class ProjectTreePanel(
     // ── Scanning ─────────────────────────────────────────────────────────────
 
     private fun scanProject(dir: ProjectDirectory) {
-        object : SwingWorker<DetectedProject, Void>() {
-            override fun doInBackground(): DetectedProject = try {
+        scanExecutor.execute {
+            val result = try {
                 ctx.scanner.scan(dir) ?: DetectedProject(dir, emptySet(), emptyList())
             } catch (e: Exception) {
                 logger.warn("Failed to scan '${dir.label()}'", e)
@@ -326,25 +347,20 @@ class ProjectTreePanel(
 
     private fun rescheduleProjectScan(path: String) {
         val dir = findProjectEntry(rootNode, path)?.directory ?: return
-        object : SwingWorker<DetectedProject?, Void>() {
-            override fun doInBackground(): DetectedProject? =
-                try { ctx.scanner.scan(dir) } catch (_: Exception) { null }
-
-            override fun done() {
-                val result = try { get() } catch (_: Exception) { null } ?: return
-                scanResults[path] = result
-                tree.repaint()
-            }
-        }.execute()
+        scanExecutor.execute {
+            val result = try { ctx.scanner.scan(dir) } catch (_: Exception) { null } ?: return@execute
+            scanQueue.add(dir to result)
+            scheduleScanApply()
+        }
     }
 
     private fun fetchGitStatus(path: String) {
-        object : SwingWorker<GitStatus, Void>() {
+        object : javax.swing.SwingWorker<GitStatus, Void>() {
             override fun doInBackground(): GitStatus = ctx.gitService.readStatus(path)
             override fun done() {
                 val status = try { get() } catch (_: Exception) { return }
                 gitStatusCache[path] = status
-                tree.repaint()
+                requestTreeRepaint()
             }
         }.execute()
     }
@@ -379,14 +395,68 @@ class ProjectTreePanel(
 
     fun setActivePaths(paths: Set<String>) {
         activePaths = paths
-        tree.repaint()
+        requestTreeRepaint()
     }
 
     fun updateProjectStatus(path: String, status: AgentStatus) {
         agentStatuses[path] = status
         if (agentStatuses.values.any { it == AgentStatus.THINKING }) blinkTimer.start()
         else blinkTimer.stop()
-        tree.repaint()
+        requestTreeRepaint()
+    }
+
+    private fun requestTreeRepaint() {
+        repaintTimer.restart()
+    }
+
+    private fun drainScanQueue() {
+        val maxPerTick = 10
+        var updated = false
+        var processed = 0
+        while (processed < maxPerTick) {
+            val next = scanQueue.poll() ?: break
+            val (dir, result) = next
+            scanResults[dir.path] = result
+            updated = true
+            if (!result.scanFailed) {
+                fetchGitStatus(dir.path)
+                Thread {
+                    buildFileWatcher.watch(dir.path)
+                }.apply { isDaemon = true; name = "build-file-watch-${dir.label()}" }.start()
+            }
+            val pending = pendingSelectPath
+            if (pending == dir.path) {
+                selectByPath(pending)
+            } else {
+                // If this project is already selected, push the fresh scan result
+                // to listeners (file explorer, commands panel, etc.) without
+                // changing the selection path.
+                val selNode = tree.lastSelectedPathComponent as? DefaultMutableTreeNode
+                val selEntry = selNode?.userObject as? ProjectTreeEntry.Project
+                if (selEntry?.directory?.path == dir.path) {
+                    onProjectSelected(result)
+                }
+            }
+            processed++
+        }
+        if (updated) requestTreeRepaint()
+        if (scanQueue.isNotEmpty()) {
+            scanApplyTimer.restart()
+        } else {
+            scanApplyPending.set(false)
+        }
+    }
+
+    private fun scheduleScanApply() {
+        if (scanApplyPending.compareAndSet(false, true)) {
+            SwingUtilities.invokeLater { scanApplyTimer.restart() }
+        }
+    }
+
+    private fun entryKey(entry: Any?): String? = when (entry) {
+        is ProjectTreeEntry.Folder -> "folder:${entry.name}"
+        is ProjectTreeEntry.Project -> "project:${entry.directory.path}"
+        else -> null
     }
 
     fun selectByPath(path: String) {

@@ -81,7 +81,15 @@ class SettingsDialogUiTest {
         }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
-        fixture.tabbedPane().requireTabTitles("External Editors", "Renovate", "APM", "Shortcuts", "Language")
+        fixture.tabbedPane().requireTabTitles(
+            "External Editors",
+            "AI Tools",
+            "Renovate",
+            "APM",
+            "Shortcuts",
+            "Language",
+            "Layout & Terminal",
+        )
         fixture.cleanUp()
     }
 

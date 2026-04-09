@@ -572,6 +572,10 @@ data class AppConfig(
     val panelHoverHighlight: Boolean = false,
     /** Whether ModernDocking draws an active-panel highlight border (Settings.setActiveHighlighterEnabled). */
     val dockingActiveHighlight: Boolean = false,
+    /** Enable detailed project tree click tracing (logs to ~/.needlecast/needlecast.log). */
+    val treeClickTraceEnabled: Boolean = false,
+    /** Enable EDT stall monitoring (logs to ~/.needlecast/needlecast.log). */
+    val edtStallTraceEnabled: Boolean = false,
     /**
      * Global default shell used when a project has no per-project [ProjectDirectory.shellExecutable].
      * Null means OS default (cmd.exe on Windows, /bin/bash on Unix).

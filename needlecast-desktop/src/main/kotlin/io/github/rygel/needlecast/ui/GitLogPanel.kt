@@ -40,6 +40,9 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
     }
 
     private var currentPath: String? = null
+    private var pendingDiffWorker: SwingWorker<String, Void>? = null
+
+    private val maxDiffChars = 400_000
 
     init {
         minimumSize = java.awt.Dimension(0, 0)
@@ -61,7 +64,8 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
     fun loadProject(path: String?) {
         currentPath = path
         logModel.clear()
-        diffArea.text = ""
+        TextChunker.cancel(diffArea)
+        diffArea.text = if (path == null) "" else "Loading commits\u2026"
         if (path == null) return
 
         object : SwingWorker<List<GitCommit>, Void>() {
@@ -78,23 +82,35 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
             override fun done() {
                 val commits = try { get() } catch (_: Exception) { return }
                 commits.forEach { logModel.addElement(it) }
-                if (logModel.size > 0) logList.selectedIndex = 0
+                if (logModel.size > 0) {
+                    diffArea.text = "Select a commit to view details."
+                    diffArea.caretPosition = 0
+                } else {
+                    diffArea.text = "No commits found."
+                }
             }
         }.execute()
     }
 
     private fun showCommit(hash: String) {
         val path = currentPath ?: return
-        object : SwingWorker<String, Void>() {
+        pendingDiffWorker?.cancel(true)
+        pendingDiffWorker = object : SwingWorker<String, Void>() {
             override fun doInBackground(): String =
                 gitService.show(path, hash) ?: "Could not load commit $hash"
 
             override fun done() {
+                if (isCancelled) return
                 val text = try { get() } catch (_: Exception) { return }
-                diffArea.text = text
-                diffArea.caretPosition = 0
+                val rendered = if (text.length > maxDiffChars) {
+                    val omitted = text.length - maxDiffChars
+                    text.take(maxDiffChars) + "\n\n[Diff truncated: omitted ${omitted} characters]"
+                } else text
+                TextChunker.setTextChunked(diffArea, rendered) {
+                    diffArea.caretPosition = 0
+                }
             }
-        }.execute()
+        }.also { it.execute() }
     }
 
     private class CommitCellRenderer : ListCellRenderer<GitCommit> {

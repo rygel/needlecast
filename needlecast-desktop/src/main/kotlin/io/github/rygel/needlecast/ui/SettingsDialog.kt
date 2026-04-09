@@ -617,11 +617,42 @@ class SettingsDialog(
                 io.github.andrewauclair.moderndocking.settings.Settings.setActiveHighlighterEnabled(dockingHighlightCb.isSelected)
             }
 
-            // ── Terminal section ──────────────────────────────────────────
+            // ── Diagnostics section ───────────────────────────────────────
             gc.gridy = 3; gc.insets = Insets(12, 4, 4, 4)
+            add(JLabel("Diagnostics").apply { font = font.deriveFont(Font.BOLD) }, gc)
+
+            val clickTraceCb = javax.swing.JCheckBox(
+                "Enable project tree click tracing",
+                ctx.config.treeClickTraceEnabled,
+            )
+            gc.gridy = 4; gc.insets = Insets(4, 4, 4, 4)
+            add(clickTraceCb, gc)
+            clickTraceCb.addActionListener {
+                ctx.updateConfig(ctx.config.copy(treeClickTraceEnabled = clickTraceCb.isSelected))
+            }
+
+            val edtTraceCb = javax.swing.JCheckBox(
+                "Enable EDT stall monitor",
+                ctx.config.edtStallTraceEnabled,
+            )
+            gc.gridy = 5
+            add(edtTraceCb, gc)
+            edtTraceCb.addActionListener {
+                ctx.updateConfig(ctx.config.copy(edtStallTraceEnabled = edtTraceCb.isSelected))
+            }
+
+            val diagNote = JLabel("<html><i>Logs go to ~/.needlecast/needlecast.log. Enable only while diagnosing lag.</i></html>").apply {
+                font = font.deriveFont(Font.PLAIN, font.size2D - 1f)
+                foreground = foreground.darker()
+            }
+            gc.gridy = 6; gc.insets = Insets(0, 4, 4, 4)
+            add(diagNote, gc)
+
+            // ── Terminal section ──────────────────────────────────────────
+            gc.gridy = 7; gc.insets = Insets(12, 4, 4, 4)
             add(JLabel("Terminal").apply { font = font.deriveFont(Font.BOLD) }, gc)
 
-            gc.gridy = 4; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.WEST
+            gc.gridy = 8; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.WEST
             val fontSizeSpinner = javax.swing.JSpinner(
                 javax.swing.SpinnerNumberModel(ctx.config.terminalFontSize, 8, 36, 1)
             ).apply { preferredSize = java.awt.Dimension(70, preferredSize.height) }
@@ -635,7 +666,7 @@ class SettingsDialog(
                 onFontSizeChanged(size)
             }
 
-            gc.gridy = 5; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL
+            gc.gridy = 9; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL
             add(JLabel("Default shell (per-project shell overrides this):"), gc)
 
             // Detect installed shells in background, populate combo when ready
@@ -672,9 +703,9 @@ class SettingsDialog(
                 revalidate(); repaint()
             }
 
-            gc.gridy = 6; gc.fill = GridBagConstraints.HORIZONTAL
+            gc.gridy = 10; gc.fill = GridBagConstraints.HORIZONTAL
             add(shellCombo, gc)
-            gc.gridy = 7
+            gc.gridy = 11
             add(shellField, gc)
 
             val applyShellBtn = JButton("Apply").apply {
@@ -689,9 +720,9 @@ class SettingsDialog(
             val shellNote = JLabel("<html><i>Takes effect on next terminal activation.</i></html>").apply {
                 font = font.deriveFont(Font.PLAIN, font.size2D - 1f)
             }
-            gc.gridy = 8; gc.insets = Insets(0, 4, 4, 4)
+            gc.gridy = 12; gc.insets = Insets(0, 4, 4, 4)
             add(shellNote, gc)
-            gc.gridy = 9; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.EAST
+            gc.gridy = 13; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.EAST
             add(applyShellBtn, gc)
 
             // Load shells in background; cancel if the dialog closes before detection finishes
@@ -720,7 +751,7 @@ class SettingsDialog(
             shellWorker.execute()
 
             // ── Terminal colors section ───────────────────────────────────
-            gc.gridy = 10; gc.insets = Insets(16, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL; gc.anchor = GridBagConstraints.WEST
+            gc.gridy = 14; gc.insets = Insets(16, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL; gc.anchor = GridBagConstraints.WEST
             add(JLabel("Terminal Colors").apply { font = font.deriveFont(Font.BOLD) }, gc)
 
             fun colorSwatch(hex: String?): JButton {
@@ -784,17 +815,17 @@ class SettingsDialog(
                 add(bgSwatch)
                 add(resetColorsBtn)
             }
-            gc.gridy = 11; gc.insets = Insets(4, 4, 4, 4)
+            gc.gridy = 15; gc.insets = Insets(4, 4, 4, 4)
             add(colorRow, gc)
 
             val colorNote = JLabel("<html><i>Click a swatch to pick a color. Takes full effect in new terminal tabs.</i></html>").apply {
                 font = font.deriveFont(Font.PLAIN, font.size2D - 1f)
             }
-            gc.gridy = 12; gc.insets = Insets(0, 4, 4, 4)
+            gc.gridy = 16; gc.insets = Insets(0, 4, 4, 4)
             add(colorNote, gc)
 
             // ── Syntax highlight theme section ────────────────────────────
-            gc.gridy = 13; gc.insets = Insets(16, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL; gc.anchor = GridBagConstraints.WEST
+            gc.gridy = 17; gc.insets = Insets(16, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL; gc.anchor = GridBagConstraints.WEST
             add(JLabel("Syntax Theme").apply { font = font.deriveFont(Font.BOLD) }, gc)
 
             val syntaxThemes = linkedMapOf(
@@ -817,11 +848,11 @@ class SettingsDialog(
                 ctx.updateConfig(ctx.config.copy(syntaxTheme = key))
                 onSyntaxThemeChanged()
             }
-            gc.gridy = 14; gc.insets = Insets(4, 4, 4, 4)
+            gc.gridy = 18; gc.insets = Insets(4, 4, 4, 4)
             add(syntaxThemeCombo, gc)
 
             // Spacer
-            gc.gridy = 15; gc.fill = GridBagConstraints.BOTH; gc.weighty = 1.0; gc.anchor = GridBagConstraints.WEST
+            gc.gridy = 19; gc.fill = GridBagConstraints.BOTH; gc.weighty = 1.0; gc.anchor = GridBagConstraints.WEST
             add(JPanel(), gc)
         }
     }

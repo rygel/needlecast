@@ -2,6 +2,21 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.17] — 2026-04-09
+
+### Added
+- **Diagnostics toggles in Settings** — enable project tree click tracing and EDT stall monitoring on demand; logs go to `~/.needlecast/needlecast.log`.
+- **Incremental text rendering helpers** — large text blobs now stream into the UI in chunks to keep the EDT responsive.
+
+### Changed
+- **Project tree responsiveness** — background scanning, batched updates, and coalesced repaints reduce selection lag during rapid clicking.
+- **UI test profile** — `test-desktop` now controls `*UiTest` exclusion so targeted runs can include UI tests when needed.
+
+### Fixed
+- **EDT stalls from large text** — Git Log, Editor, Log Viewer, and Console panels avoid blocking the UI when rendering big diffs, files, or logs.
+
+---
+
 ## [0.6.16] — 2026-04-08
 
 ### Changed

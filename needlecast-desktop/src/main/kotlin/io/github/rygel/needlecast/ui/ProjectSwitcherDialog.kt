@@ -12,17 +12,21 @@ import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
+import javax.swing.AbstractAction
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
+import javax.swing.JComponent
 import javax.swing.JDialog
 import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTextField
+import javax.swing.KeyStroke
 import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
-import javax.swing.SwingUtilities
 
 /**
  * Ctrl+P style floating dialog that lets the user fuzzy-search across all projects in the tree.
@@ -39,7 +43,7 @@ class ProjectSwitcherDialog(
         val subtitle: String get() = if (folderPath.isEmpty()) dir.path else "$folderPath  •  ${dir.path}"
     }
 
-    private val allEntries: List<Entry> = collectProjects(ctx.config.projectTree, "")
+    private val allEntries: List<Entry> = collectProjects(loadProjectTree(), "")
 
     private val listModel  = DefaultListModel<Entry>()
     private val resultList = JList(listModel).apply {
@@ -111,9 +115,31 @@ class ProjectSwitcherDialog(
         panel.add(scroll,      BorderLayout.CENTER)
         contentPane = panel
 
+        bindKeys()
         pack()
         setLocationRelativeTo(owner)
         updateFilter()
+        addWindowListener(object : WindowAdapter() {
+            override fun windowOpened(e: WindowEvent) {
+                searchField.requestFocusInWindow()
+            }
+        })
+    }
+
+    private fun loadProjectTree(): List<ProjectTreeEntry> {
+        val cfg = ctx.config
+        if (cfg.projectTree.isNotEmpty()) return cfg.projectTree
+        if (cfg.groups.isEmpty()) return emptyList()
+        val migrated = cfg.groups.map { group ->
+            ProjectTreeEntry.Folder(
+                id = group.id,
+                name = group.name,
+                color = group.color,
+                children = group.directories.map { dir -> ProjectTreeEntry.Project(directory = dir) },
+            )
+        }
+        ctx.updateConfig(cfg.copy(projectTree = migrated))
+        return migrated
     }
 
     private fun updateFilter() {
@@ -122,10 +148,45 @@ class ProjectSwitcherDialog(
         if (listModel.size > 0) resultList.selectedIndex = 0
     }
 
+    private fun bindKeys() {
+        val input = rootPane.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+        val actions = rootPane.actionMap
+
+        input.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "close")
+        actions.put("close", object : AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent?) = dispose()
+        })
+
+        input.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "confirm")
+        actions.put("confirm", object : AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent?) = confirmSelection()
+        })
+
+        input.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "down")
+        actions.put("down", object : AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
+                if (listModel.size == 0) return
+                val next = minOf(resultList.selectedIndex + 1, listModel.size - 1)
+                resultList.selectedIndex = next
+                resultList.ensureIndexIsVisible(next)
+            }
+        })
+
+        input.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "up")
+        actions.put("up", object : AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent?) {
+                if (listModel.size == 0) return
+                val prev = maxOf(resultList.selectedIndex - 1, 0)
+                resultList.selectedIndex = prev
+                resultList.ensureIndexIsVisible(prev)
+            }
+        })
+    }
+
     private fun confirmSelection() {
         val entry = resultList.selectedValue ?: return
         dispose()
-        SwingUtilities.invokeLater { onSelect("", entry.dir.path) }
+        onSelect("", entry.dir.path)
     }
 
     private inner class EntryCellRenderer : ListCellRenderer<Entry> {
