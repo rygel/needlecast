@@ -33,6 +33,7 @@ import javax.swing.JToolBar
 import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
+import javax.swing.SwingWorker
 
 class CommandPanel(
     private val ctx: AppContext,
@@ -196,27 +197,28 @@ class CommandPanel(
     }
 
     private fun loadReadme(projectPath: String?) {
-        if (projectPath == null) {
-            readmeScroll.isVisible = false
-            readmeArea.text = ""
-            return
-        }
-        val readmeFile = listOf("README.md", "readme.md", "README.txt", "readme.txt")
-            .map { File(projectPath, it) }
-            .firstOrNull { it.exists() && it.isFile }
-        if (readmeFile == null) {
-            readmeScroll.isVisible = false
-            readmeArea.text = ""
-        } else {
-            val preview = readmeFile.bufferedReader().useLines { lines ->
-                lines.take(20).joinToString("\n")
+        readmeScroll.isVisible = false
+        readmeArea.text = ""
+        if (projectPath == null) return
+        object : SwingWorker<String?, Void>() {
+            override fun doInBackground(): String? {
+                val file = listOf("README.md", "readme.md", "README.txt", "readme.txt")
+                    .map { File(projectPath, it) }
+                    .firstOrNull { it.exists() && it.isFile } ?: return null
+                return file.bufferedReader().useLines { it.take(20).joinToString("\n") }
             }
-            readmeArea.text = preview
-            readmeArea.caretPosition = 0
-            readmeScroll.isVisible = true
-        }
-        revalidate()
-        repaint()
+            override fun done() {
+                if (currentProjectPath != projectPath) return  // user switched away
+                val preview = try { get() } catch (_: Exception) { return }
+                if (preview != null) {
+                    readmeArea.text = preview
+                    readmeArea.caretPosition = 0
+                    readmeScroll.isVisible = true
+                    revalidate()
+                    repaint()
+                }
+            }
+        }.execute()
     }
 
     private fun runSelected() {
