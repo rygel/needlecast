@@ -1003,6 +1003,16 @@ class ProjectTreePanel(
 
     private inner class FullWidthTreeUI : javax.swing.plaf.basic.BasicTreeUI() {
 
+        /** Force variable-height rows so hit-detection matches the two-line cell renderer height.
+         *  FlatLaf sets Tree.rowHeight to a fixed value (e.g. 24 px); our renderer returns ~40 px.
+         *  Without this, clicks on the lower half of each row fall outside BasicTreeUI's hit bounds
+         *  and are silently dropped. rowHeight = 0 tells VariableHeightLayoutCache to ask the
+         *  renderer for the actual height of each row. */
+        override fun installDefaults() {
+            super.installDefaults()
+            tree.rowHeight = 0
+        }
+
         override fun paintRow(
             g: java.awt.Graphics,
             clipBounds: Rectangle?,
