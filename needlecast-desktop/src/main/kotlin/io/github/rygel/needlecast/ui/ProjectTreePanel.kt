@@ -36,6 +36,7 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
+import javax.swing.SwingWorker
 import javax.swing.JTextField
 import javax.swing.JTree
 import javax.swing.SwingUtilities
@@ -114,6 +115,7 @@ class ProjectTreePanel(
 
     /** Captured in mousePressed so createTransferable can find the node even before selection updates. */
     private var dragPressedPath: TreePath? = null
+    private var dragPressPoint: java.awt.Point? = null
 
     companion object {
         private val logger = LoggerFactory.getLogger(ProjectTreePanel::class.java)
