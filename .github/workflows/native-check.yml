@@ -32,7 +32,7 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
-          server-id: github-sparkle4j
+          server-id: github-rygel
           server-username: MAVEN_GITHUB_ACTOR
           server-password: MAVEN_GITHUB_TOKEN
 
