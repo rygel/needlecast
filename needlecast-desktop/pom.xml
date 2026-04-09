@@ -148,7 +148,7 @@
 
         <!-- sparkle4j — in-app update checking and silent update application -->
         <dependency>
-            <groupId>io.github.sparkle4j</groupId>
+            <groupId>io.github.rygel</groupId>
             <artifactId>sparkle4j</artifactId>
         </dependency>
     </dependencies>

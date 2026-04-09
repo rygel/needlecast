@@ -177,7 +177,7 @@
                 <version>${javalin.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.sparkle4j</groupId>
+                <groupId>io.github.rygel</groupId>
                 <artifactId>sparkle4j</artifactId>
                 <version>0.5.4</version>
             </dependency>

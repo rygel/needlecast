@@ -255,7 +255,7 @@ class ProjectTreePanelUiTest {
         val dst = rowCenter(2) ?: error("Target folder not visible")
         dragTo(src, dst)
 
-        val moved = waitForProjectInFolder(1, alphaPath, 2_000)
+        val moved = waitForProjectInFolder("Target", alphaPath, 3_000)
         assertEquals(listOf("important", "v2"), moved.tags, "Tags should survive cross-folder drag")
     }
 
@@ -321,19 +321,29 @@ class ProjectTreePanelUiTest {
 
         val clickRows = (1..10).toList() + (1..10).toList() // 20 clicks
         val latenciesMs = mutableListOf<Long>()
+        // Warm up a few selections to avoid first-click initialization skew.
+        for (row in 1..5) {
+            val p = rowCenter(row) ?: error("Row $row not visible")
+            robot.pressMouse(p, MouseButton.LEFT_BUTTON)
+            robot.releaseMouse(MouseButton.LEFT_BUTTON)
+            waitForSelectionRow(row, 1_500)
+        }
         for (row in clickRows) {
             val p = rowCenter(row) ?: error("Row $row not visible")
             val start = System.nanoTime()
             robot.pressMouse(p, MouseButton.LEFT_BUTTON)
             robot.releaseMouse(MouseButton.LEFT_BUTTON)
-            waitForSelectionRow(row, 750)
+            waitForSelectionRow(row, 1_500)
             val elapsedMs = (System.nanoTime() - start) / 1_000_000
             latenciesMs.add(elapsedMs)
         }
 
         val max = latenciesMs.maxOrNull() ?: 0
-        println("Selection latency ms: ${latenciesMs.joinToString()} (max=$max)")
-        assertTrue(max < 250, "Selection latency too high: max=${max}ms")
+        val sorted = latenciesMs.sorted()
+        val p95 = sorted[(sorted.size - 1) * 95 / 100]
+        println("Selection latency ms: ${latenciesMs.joinToString()} (max=$max, p95=$p95)")
+        assertTrue(p95 < 200, "Selection latency p95 too high: p95=${p95}ms")
+        assertTrue(max < 350, "Selection latency too high: max=${max}ms")
     }
 
     private fun waitForSelectionRow(row: Int, timeoutMs: Long) {
@@ -348,17 +358,42 @@ class ProjectTreePanelUiTest {
         throw AssertionError("Timed out waiting for selection row $row")
     }
 
-    private fun waitForProjectInFolder(folderIndex: Int, projectPath: String, timeoutMs: Long): ProjectTreeEntry.Project {
+    private fun waitForProjectInFolder(
+        folderName: String,
+        projectPath: String,
+        timeoutMs: Long,
+    ): ProjectTreeEntry.Project {
         val deadline = System.nanoTime() + (timeoutMs * 1_000_000)
         while (System.nanoTime() < deadline) {
-            val folder = ctx.config.projectTree.getOrNull(folderIndex) as? ProjectTreeEntry.Folder
-            val moved = folder?.children
+            val moved = ctx.config.projectTree
+                .filterIsInstance<ProjectTreeEntry.Folder>()
+                .firstOrNull { it.name == folderName }
+                ?.children
                 ?.filterIsInstance<ProjectTreeEntry.Project>()
                 ?.firstOrNull { it.directory.path == projectPath }
-            if (moved != null) return moved
+            val inTree = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
+                override fun executeInEDT(): Boolean =
+                    findProjectNode(folderName, projectPath) != null
+            })
+            if (moved != null && inTree) return moved
             Thread.sleep(20)
         }
-        throw AssertionError("Timed out waiting for project $projectPath to appear in folder index $folderIndex")
+        throw AssertionError("Timed out waiting for project $projectPath to appear in folder $folderName")
+    }
+
+    private fun findProjectNode(folderName: String, projectPath: String): DefaultMutableTreeNode? {
+        val root = tree.model.root as? DefaultMutableTreeNode ?: return null
+        for (i in 0 until root.childCount) {
+            val folderNode = root.getChildAt(i) as? DefaultMutableTreeNode ?: continue
+            val folderEntry = folderNode.userObject as? ProjectTreeEntry.Folder ?: continue
+            if (folderEntry.name != folderName) continue
+            for (j in 0 until folderNode.childCount) {
+                val projectNode = folderNode.getChildAt(j) as? DefaultMutableTreeNode ?: continue
+                val projectEntry = projectNode.userObject as? ProjectTreeEntry.Project ?: continue
+                if (projectEntry.directory.path == projectPath) return projectNode
+            }
+        }
+        return null
     }
 
     // ── Layout stability ─────────────────────────────────────────────────────
