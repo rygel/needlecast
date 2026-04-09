@@ -1005,14 +1005,14 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         edtMonitorThread = null
     }
 
-    private fun buildSparkle4j(intervalHours: Int = 24): io.github.sparkle4j.Sparkle4jInstance? {
+    private fun buildSparkle4j(intervalHours: Int = 24): io.github.rygel.sparkle4j.Sparkle4jInstance? {
         val version = currentVersion() ?: run {
             updateLogger.warn("Cannot determine app version — update check skipped")
             return null
         }
         updateLogger.info("Building sparkle4j instance: version={}, interval={}h", version, intervalHours)
         return try {
-            io.github.sparkle4j.Sparkle4j.builder()
+            io.github.rygel.sparkle4j.Sparkle4j.builder()
                 .appcastUrl("https://github.com/rygel/needlecast/releases/latest/download/appcast.xml")
                 .currentVersion(version)
                 .appName("Needlecast")
