@@ -3,8 +3,10 @@ package io.github.rygel.needlecast.ui
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.config.JsonConfigStore
 import io.github.rygel.needlecast.model.AppConfig
+import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
+import io.github.rygel.needlecast.scanner.ProjectScanner
 import org.assertj.swing.core.BasicRobot
 import org.assertj.swing.core.MouseButton
 import org.assertj.swing.core.Robot
@@ -48,6 +50,7 @@ class ProjectTreePanelUiTest {
     @BeforeEach
     fun setUp() {
         robot = BasicRobot.robotWithNewAwtHierarchy()
+        robot.settings().delayBetweenEvents(1)
     }
 
     @AfterEach
@@ -56,9 +59,14 @@ class ProjectTreePanelUiTest {
         robot.cleanUp()
     }
 
-    private fun buildCtxAndPanel(config: AppConfig): ProjectTreePanel {
+    private fun buildCtxAndPanel(
+        config: AppConfig,
+        scanner: ProjectScanner = object : ProjectScanner {
+            override fun scan(directory: ProjectDirectory): DetectedProject? = null
+        },
+    ): ProjectTreePanel {
         val store = JsonConfigStore(tempDir.resolve("config.json"))
-        ctx = AppContext(configStore = store)
+        ctx = AppContext(configStore = store, scanner = scanner)
         ctx.updateConfig(config)
         return GuiActionRunner.execute<ProjectTreePanel> { ProjectTreePanel(ctx, {}) }
     }
@@ -252,6 +260,95 @@ class ProjectTreePanelUiTest {
             .find { it.directory.path == alphaPath }
         assertNotNull(moved, "Alpha should be in Target folder after drag")
         assertEquals(listOf("important", "v2"), moved!!.tags, "Tags should survive cross-folder drag")
+    }
+
+    // ── Hit testing ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `clicking lower half and empty row space selects the project`() {
+        val projectPath = tempDir.resolve("clicky-app").also { it.toFile().mkdirs() }.toString()
+        val config = AppConfig(
+            projectTree = listOf(
+                ProjectTreeEntry.Folder(
+                    name = "Apps",
+                    children = listOf(
+                        ProjectTreeEntry.Project(
+                            directory = ProjectDirectory(path = projectPath, displayName = "Clicky App"),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val panel = buildCtxAndPanel(config)
+        fixture = showInFrame(panel)
+
+        val clickPoint = GuiActionRunner.execute(object : GuiQuery<Point>() {
+            override fun executeInEDT(): Point {
+                val bounds = tree.getRowBounds(1) ?: error("Project row not visible")
+                val loc = tree.locationOnScreen
+                val x = loc.x + (tree.width - 6).coerceAtLeast(1)
+                val y = loc.y + bounds.y + (bounds.height * 0.85).toInt()
+                return Point(x, y)
+            }
+        })
+        robot.pressMouse(clickPoint, MouseButton.LEFT_BUTTON)
+        robot.releaseMouse(MouseButton.LEFT_BUTTON)
+        robot.waitForIdle()
+
+        val selectedRow = GuiActionRunner.execute(object : GuiQuery<Int?>() {
+            override fun executeInEDT(): Int? = tree.selectionRows?.firstOrNull()
+        })
+        assertEquals(1, selectedRow, "Clicking the lower-right area of a row should select it")
+    }
+
+    // ── Timing / latency ────────────────────────────────────────────────────
+
+    @Test
+    fun `selection latency stays low under load`() {
+        val children = (1..120).map { i ->
+            val path = tempDir.resolve("project-$i").also { it.toFile().mkdirs() }.toString()
+            ProjectTreeEntry.Project(
+                directory = ProjectDirectory(path = path, displayName = "Project $i"),
+                tags = listOf("tag-$i", "longer-tag-$i"),
+            )
+        }
+        val config = AppConfig(
+            projectTree = listOf(ProjectTreeEntry.Folder(name = "Work", children = children)),
+        )
+        val scanner = object : ProjectScanner {
+            override fun scan(directory: ProjectDirectory): DetectedProject =
+                DetectedProject(directory, emptySet(), emptyList())
+        }
+        val panel = buildCtxAndPanel(config, scanner)
+        fixture = showInFrame(panel, width = 500, height = 700)
+
+        val clickRows = (1..10).toList() + (1..10).toList() // 20 clicks
+        val latenciesMs = mutableListOf<Long>()
+        for (row in clickRows) {
+            val p = rowCenter(row) ?: error("Row $row not visible")
+            val start = System.nanoTime()
+            robot.pressMouse(p, MouseButton.LEFT_BUTTON)
+            robot.releaseMouse(MouseButton.LEFT_BUTTON)
+            waitForSelectionRow(row, 750)
+            val elapsedMs = (System.nanoTime() - start) / 1_000_000
+            latenciesMs.add(elapsedMs)
+        }
+
+        val max = latenciesMs.maxOrNull() ?: 0
+        println("Selection latency ms: ${latenciesMs.joinToString()} (max=$max)")
+        assertTrue(max < 250, "Selection latency too high: max=${max}ms")
+    }
+
+    private fun waitForSelectionRow(row: Int, timeoutMs: Long) {
+        val deadline = System.nanoTime() + (timeoutMs * 1_000_000)
+        while (System.nanoTime() < deadline) {
+            val selected = GuiActionRunner.execute(object : GuiQuery<Int?>() {
+                override fun executeInEDT(): Int? = tree.selectionRows?.firstOrNull()
+            })
+            if (selected == row) return
+            Thread.sleep(5)
+        }
+        throw AssertionError("Timed out waiting for selection row $row")
     }
 
     // ── Layout stability ─────────────────────────────────────────────────────

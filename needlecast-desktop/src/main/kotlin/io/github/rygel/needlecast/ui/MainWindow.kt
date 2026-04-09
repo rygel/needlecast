@@ -64,19 +64,23 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
     private val renovatePanel = RenovatePanel()
 
+    private var pendingProjectSelection: io.github.rygel.needlecast.model.DetectedProject? = null
+    private val projectSelectionTimer = javax.swing.Timer(75) {
+        applyProjectSelection(pendingProjectSelection)
+    }.apply { isRepeats = false }
+    private var lastSelectedPath: String? = null
+    private var lastSelectedCommandsKey: String? = null
+    private val edtTraceForced = System.getProperty("needlecast.edt.trace")?.equals("true", ignoreCase = true) == true ||
+        (System.getenv("NEEDLECAST_EDT_TRACE")?.equals("true", ignoreCase = true) == true) ||
+        (System.getenv("NEEDLECAST_EDT_TRACE") == "1")
+    @Volatile private var edtMonitorRunning = false
+    private var edtMonitorThread: Thread? = null
+
     private val projectTreePanel: ProjectTreePanel = ProjectTreePanel(
         ctx = ctx,
         onProjectSelected = { project ->
-            commandPanel.loadProject(project)
-            gitLogPanel.loadProject(project?.directory?.path)
-            logViewerPanel.loadProject(project?.directory?.path)
-            renovatePanel.loadProject(project?.directory?.path)
-            if (project != null) {
-                explorerPanel.setRootDirectory(File(project.directory.path))
-                terminalPanel.showProject(project.directory.path, project.directory)
-            } else {
-                terminalPanel.deactivate()
-            }
+            pendingProjectSelection = project
+            projectSelectionTimer.restart()
         },
         onActivate = { project ->
             // Per-project shell takes priority; fall back to the global default shell.
@@ -133,6 +137,10 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         terminalPanel.applyFontSize(ctx.config.terminalFontSize)
         terminalPanel.onFontSizeChanged = { size ->
             ctx.updateConfig(ctx.config.copy(terminalFontSize = size))
+        }
+
+        ctx.addConfigListener { cfg ->
+            SwingUtilities.invokeLater { updateDiagnosticSettings(cfg) }
         }
 
         if (claudeHookServer != null) {
@@ -193,6 +201,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 applyDockingLayout()
                 applyTheme(ThemeRegistry.isDark(ctx.config.theme))
                 updateTimer.start()
+                updateDiagnosticSettings(ctx.config)
                 // After the window is laid out, force the project tree to
                 // recalculate cell widths (tree.width is 0 during initial render)
                 SwingUtilities.invokeLater { projectTreePanel.invalidateTreeLayout() }
@@ -216,6 +225,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     logViewerPanel.dispose()
                     terminalPanel.dispose()
                     claudeHookServer?.stop()
+                    edtMonitorRunning = false
                     dispose()
                 } finally {
                     System.exit(0)
@@ -235,6 +245,41 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         content.add(statusBar, BorderLayout.SOUTH)
         return content
     }
+
+    private fun applyProjectSelection(project: io.github.rygel.needlecast.model.DetectedProject?) {
+        val path = project?.directory?.path
+        val pathChanged = path != lastSelectedPath
+        val commandsKey = project?.let { buildCommandsKey(it) }
+        val commandsChanged = commandsKey != lastSelectedCommandsKey
+
+        if (pathChanged) {
+            gitLogPanel.loadProject(path)
+            logViewerPanel.loadProject(path)
+            renovatePanel.loadProject(path)
+        }
+
+        if (project != null) {
+            if (pathChanged) {
+                explorerPanel.setRootDirectory(File(project.directory.path))
+                terminalPanel.showProject(project.directory.path, project.directory)
+            }
+        } else if (pathChanged) {
+            terminalPanel.deactivate()
+        }
+
+        if (pathChanged || commandsChanged) {
+            commandPanel.loadProject(project)
+        }
+
+        lastSelectedPath = path
+        lastSelectedCommandsKey = commandsKey
+    }
+
+    private fun buildCommandsKey(project: io.github.rygel.needlecast.model.DetectedProject): String =
+        project.commands.joinToString(separator = "|") { cmd ->
+            val argv = cmd.argv.joinToString(separator = "\u0000")
+            "${cmd.label}\u0000$argv\u0000${cmd.workingDirectory}"
+        }
 
     /**
      * Called in windowOpened — restores the saved docking layout from disk, or
@@ -846,6 +891,63 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private val updateLogger = org.slf4j.LoggerFactory.getLogger("needlecast.update")
+    private val uiLogger = org.slf4j.LoggerFactory.getLogger("needlecast.ui")
+
+    private fun updateDiagnosticSettings(cfg: io.github.rygel.needlecast.model.AppConfig) {
+        val shouldRun = edtTraceForced || cfg.edtStallTraceEnabled
+        if (shouldRun && !edtMonitorRunning) {
+            startEdtStallMonitor()
+        } else if (!shouldRun && edtMonitorRunning && !edtTraceForced) {
+            stopEdtStallMonitor()
+        }
+    }
+
+    private fun startEdtStallMonitor() {
+        if (edtMonitorRunning) return
+        edtMonitorRunning = true
+        val periodMs = 50L
+        val thresholdMs = 200L
+        val throttleMs = 2_000L
+        edtMonitorThread = Thread({
+            var lastReportAt = 0L
+            while (edtMonitorRunning) {
+                val latch = java.util.concurrent.CountDownLatch(1)
+                val scheduledAt = System.nanoTime()
+                SwingUtilities.invokeLater { latch.countDown() }
+                val ok = try {
+                    latch.await(thresholdMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+                } catch (_: InterruptedException) {
+                    true
+                }
+                if (!ok) {
+                    val nowMs = System.currentTimeMillis()
+                    if (nowMs - lastReportAt >= throttleMs) {
+                        lastReportAt = nowMs
+                        val delayMs = (System.nanoTime() - scheduledAt) / 1_000_000
+                        val edt = Thread.getAllStackTraces().keys.firstOrNull { it.name.startsWith("AWT-EventQueue") }
+                        if (edt != null) {
+                            val stack = Thread.getAllStackTraces()[edt]
+                                ?.joinToString("\n") { "    at ${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})" }
+                                ?: "(stack unavailable)"
+                            uiLogger.warn("EDT stall detected: {} ms\n{}", delayMs, stack)
+                        } else {
+                            uiLogger.warn("EDT stall detected: {} ms (EDT thread not found)", delayMs)
+                        }
+                    }
+                }
+                try { Thread.sleep(periodMs) } catch (_: InterruptedException) {}
+            }
+        }, "edt-stall-monitor").apply {
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun stopEdtStallMonitor() {
+        edtMonitorRunning = false
+        edtMonitorThread?.interrupt()
+        edtMonitorThread = null
+    }
 
     private fun buildSparkle4j(intervalHours: Int = 24): io.github.sparkle4j.Sparkle4jInstance? {
         val version = currentVersion() ?: run {

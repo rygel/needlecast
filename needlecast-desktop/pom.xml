@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.rygel</groupId>
         <artifactId>needlecast-parent</artifactId>
-        <version>0.6.16</version>
+        <version>0.6.17</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -18,6 +18,8 @@
 
     <properties>
         <mainClass>io.github.rygel.needlecast.MainKt</mainClass>
+        <!-- Default: exclude UI tests unless explicitly enabled -->
+        <uiTestExclude>**/*UiTest</uiTestExclude>
     </properties>
 
     <dependencies>
@@ -265,7 +267,7 @@
                     <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
                     <!-- UI tests (*UiTest) require Xvfb — run only via -Ptest-desktop -->
                     <excludes>
-                        <exclude>**/*UiTest</exclude>
+                        <exclude>${uiTestExclude}</exclude>
                     </excludes>
                     <properties>
                         <configurationParameters>
@@ -285,6 +287,9 @@
         -->
         <profile>
             <id>test-desktop</id>
+            <properties>
+                <uiTestExclude></uiTestExclude>
+            </properties>
             <build>
                 <plugins>
                     <plugin>

@@ -196,6 +196,7 @@ Same interface but for shell commands — Git, Maven, Gradle, npm, Docker, Searc
 
 ### Layout & Terminal
 - **Tab placement** — top or bottom
+- **Diagnostics** — enable project tree click tracing and EDT stall monitor (logs to `~/.needlecast/needlecast.log`)
 - **Syntax theme** — Monokai, Eclipse, IntelliJ IDEA, VS, and more
 - **Terminal colors** — custom foreground/background or inherit from theme
 - **Terminal font size**
