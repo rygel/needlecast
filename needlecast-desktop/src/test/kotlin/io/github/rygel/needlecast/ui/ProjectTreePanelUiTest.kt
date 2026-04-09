@@ -255,11 +255,8 @@ class ProjectTreePanelUiTest {
         val dst = rowCenter(2) ?: error("Target folder not visible")
         dragTo(src, dst)
 
-        val target = ctx.config.projectTree[1] as ProjectTreeEntry.Folder
-        val moved = target.children.filterIsInstance<ProjectTreeEntry.Project>()
-            .find { it.directory.path == alphaPath }
-        assertNotNull(moved, "Alpha should be in Target folder after drag")
-        assertEquals(listOf("important", "v2"), moved!!.tags, "Tags should survive cross-folder drag")
+        val moved = waitForProjectInFolder(1, alphaPath, 2_000)
+        assertEquals(listOf("important", "v2"), moved.tags, "Tags should survive cross-folder drag")
     }
 
     // ── Hit testing ─────────────────────────────────────────────────────────
@@ -349,6 +346,19 @@ class ProjectTreePanelUiTest {
             Thread.sleep(5)
         }
         throw AssertionError("Timed out waiting for selection row $row")
+    }
+
+    private fun waitForProjectInFolder(folderIndex: Int, projectPath: String, timeoutMs: Long): ProjectTreeEntry.Project {
+        val deadline = System.nanoTime() + (timeoutMs * 1_000_000)
+        while (System.nanoTime() < deadline) {
+            val folder = ctx.config.projectTree.getOrNull(folderIndex) as? ProjectTreeEntry.Folder
+            val moved = folder?.children
+                ?.filterIsInstance<ProjectTreeEntry.Project>()
+                ?.firstOrNull { it.directory.path == projectPath }
+            if (moved != null) return moved
+            Thread.sleep(20)
+        }
+        throw AssertionError("Timed out waiting for project $projectPath to appear in folder index $folderIndex")
     }
 
     // ── Layout stability ─────────────────────────────────────────────────────
