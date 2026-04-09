@@ -332,12 +332,12 @@ class ProjectTreePanel(
         return migrated
     }
 
-    private fun addEntryNode(parent: DefaultMutableTreeNode, entry: ProjectTreeEntry) {
+    private fun addEntryNode(parent: DefaultMutableTreeNode, entry: ProjectTreeEntry, scan: Boolean = true) {
         val node = DefaultMutableTreeNode(entry)
         parent.add(node)
         when (entry) {
             is ProjectTreeEntry.Folder  -> entry.children.forEach { addEntryNode(node, it) }
-            is ProjectTreeEntry.Project -> scanProject(entry.directory)
+            is ProjectTreeEntry.Project -> if (scan) scanProject(entry.directory)
         }
     }
 
@@ -550,12 +550,24 @@ class ProjectTreePanel(
         val filter = text.trim().lowercase()
         rootNode.removeAllChildren()
         if (filter.isEmpty()) {
-            migrateOrLoad().forEach { addEntryNode(rootNode, it) }
+            val entries = migrateOrLoad()
+            entries.forEach { addEntryNode(rootNode, it, scan = false) }
+            ensureScans(entries)
         } else {
             ctx.config.projectTree.forEach { addFilteredEntry(rootNode, it, filter) }
         }
         treeModel.reload()
         expandAll()
+    }
+
+    private fun ensureScans(entries: List<ProjectTreeEntry>) {
+        fun walk(entry: ProjectTreeEntry) {
+            when (entry) {
+                is ProjectTreeEntry.Project -> if (scanResults[entry.directory.path] == null) scanProject(entry.directory)
+                is ProjectTreeEntry.Folder -> entry.children.forEach { walk(it) }
+            }
+        }
+        entries.forEach { walk(it) }
     }
 
     private fun addFilteredEntry(parent: DefaultMutableTreeNode, entry: ProjectTreeEntry, filter: String): Boolean {
@@ -579,9 +591,7 @@ class ProjectTreePanel(
     // ── Rescan ───────────────────────────────────────────────────────────────
 
     private fun rescanAll() {
-        buildFileWatcher.stop()
-        buildFileWatcher = BuildFileWatcher { path -> rescheduleProjectScan(path) }
-        ctx.register(buildFileWatcher)
+        buildFileWatcher.unwatchAll()
         scanResults.clear()
         gitStatusCache.clear()
         activePaths = emptySet()
@@ -656,29 +666,35 @@ class ProjectTreePanel(
     private fun deleteProjectFromDisk(node: DefaultMutableTreeNode, entry: ProjectTreeEntry.Project) {
         val dir = File(entry.directory.path)
         val name = entry.directory.label()
-        val fileCount = dir.walkTopDown().count()
-        val confirm = JOptionPane.showConfirmDialog(this,
-            "Permanently delete '$name' from disk?\n\n" +
-            "Path: ${dir.absolutePath}\n" +
-            "Contains: $fileCount files/directories\n\n" +
-            "This cannot be undone.",
-            "Delete from Disk", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
-        if (confirm != JOptionPane.YES_OPTION) return
+        object : SwingWorker<Long, Void>() {
+            override fun doInBackground(): Long = runCatching { dir.walkTopDown().count().toLong() }.getOrDefault(-1L)
+            override fun done() {
+                val fileCount = try { get() } catch (_: Exception) { -1 }
+                val countLine = if (fileCount >= 0) "Contains: $fileCount files/directories\n\n" else ""
+                val confirm = JOptionPane.showConfirmDialog(this@ProjectTreePanel,
+                    "Permanently delete '$name' from disk?\n\n" +
+                        "Path: ${dir.absolutePath}\n" +
+                        countLine +
+                        "This cannot be undone.",
+                    "Delete from Disk", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
+                if (confirm != JOptionPane.YES_OPTION) return
 
-        Thread {
-            val deleted = dir.deleteRecursively()
-            SwingUtilities.invokeLater {
-                if (deleted) {
-                    treeModel.removeNodeFromParent(node)
-                    onProjectSelected(null)
-                    persist()
-                } else {
-                    JOptionPane.showMessageDialog(this@ProjectTreePanel,
-                        "Could not delete '$name'. Some files may be locked or protected.",
-                        "Delete Failed", JOptionPane.ERROR_MESSAGE)
-                }
+                Thread {
+                    val deleted = dir.deleteRecursively()
+                    SwingUtilities.invokeLater {
+                        if (deleted) {
+                            treeModel.removeNodeFromParent(node)
+                            onProjectSelected(null)
+                            persist()
+                        } else {
+                            JOptionPane.showMessageDialog(this@ProjectTreePanel,
+                                "Could not delete '$name'. Some files may be locked or protected.",
+                                "Delete Failed", JOptionPane.ERROR_MESSAGE)
+                        }
+                    }
+                }.start()
             }
-        }.start()
+        }.execute()
     }
 
     private fun deleteFolderFromDisk(node: DefaultMutableTreeNode, entry: ProjectTreeEntry.Folder) {
