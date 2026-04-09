@@ -179,7 +179,7 @@
             <dependency>
                 <groupId>io.github.rygel</groupId>
                 <artifactId>sparkle4j</artifactId>
-                <version>0.5.4</version>
+                <version>0.5.5</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
