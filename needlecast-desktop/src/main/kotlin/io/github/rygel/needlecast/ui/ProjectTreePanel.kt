@@ -559,7 +559,7 @@ class ProjectTreePanel(
         val dir = File(entry.directory.path)
         val name = entry.directory.label()
         object : SwingWorker<Long, Void>() {
-            override fun doInBackground(): Long = runCatching { dir.walkTopDown().count() }.getOrDefault(-1)
+            override fun doInBackground(): Long = runCatching { dir.walkTopDown().count().toLong() }.getOrDefault(-1L)
             override fun done() {
                 val fileCount = try { get() } catch (_: Exception) { -1 }
                 val countLine = if (fileCount >= 0) "Contains: $fileCount files/directories\n\n" else ""
