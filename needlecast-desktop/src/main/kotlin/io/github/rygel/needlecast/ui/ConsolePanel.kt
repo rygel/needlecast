@@ -27,6 +27,8 @@ class ConsolePanel : JPanel(BorderLayout()) {
         lineWrap = true
         wrapStyleWord = false
     }
+    private val outputQueue = java.util.concurrent.ConcurrentLinkedQueue<String>()
+    private val outputTimer = javax.swing.Timer(50) { flushOutput() }.apply { isRepeats = false }
 
     private fun buildOutputContextMenu(): javax.swing.JPopupMenu {
         val area = textArea
@@ -75,16 +77,26 @@ class ConsolePanel : JPanel(BorderLayout()) {
     }
 
     fun appendLine(text: String) {
-        SwingUtilities.invokeLater {
-            textArea.append("$text\n")
-            textArea.caretPosition = textArea.document.length
-        }
+        outputQueue.add(text)
+        SwingUtilities.invokeLater { outputTimer.restart() }
     }
 
     fun clear() {
         SwingUtilities.invokeLater {
             textArea.text = ""
             searchBar.clearHighlights()
+        }
+    }
+
+    private fun flushOutput() {
+        val sb = StringBuilder()
+        while (true) {
+            val line = outputQueue.poll() ?: break
+            sb.append(line).append('\n')
+        }
+        if (sb.isNotEmpty()) {
+            textArea.append(sb.toString())
+            textArea.caretPosition = textArea.document.length
         }
     }
 

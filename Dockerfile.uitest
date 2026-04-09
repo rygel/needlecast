@@ -24,7 +24,7 @@ ARG GITHUB_ACTOR=""
 ARG GITHUB_TOKEN=""
 RUN mkdir -p /root/.m2 && \
     if [ -n "$GITHUB_TOKEN" ]; then \
-      printf '<settings><servers><server><id>github-sparkle4j</id><username>%s</username><password>%s</password></server></servers></settings>' \
+      printf '<settings><servers><server><id>github-rygel</id><username>%s</username><password>%s</password></server></servers></settings>' \
         "$GITHUB_ACTOR" "$GITHUB_TOKEN" > /root/.m2/settings.xml; \
     else \
       echo '<settings/>' > /root/.m2/settings.xml; \

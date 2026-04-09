@@ -50,6 +50,10 @@ class LogViewerPanel : JPanel(BorderLayout()) {
     private var tailingEnabled = false
     private val maxTailBytes = 512 * 1024
     private val tailTimer = Timer(500) { pollTail() }.apply { isRepeats = true }
+    private val renderQueue = java.util.ArrayDeque<LogEntry>()
+    private val renderTimer = Timer(10) { renderNextBatch() }.apply { isRepeats = true }
+    private var rendering = false
+    private var searchRebuildPending = false
 
     // ── UI components ────────────────────────────────────────────────────────
 
@@ -303,23 +307,48 @@ class LogViewerPanel : JPanel(BorderLayout()) {
     // ── Display ──────────────────────────────────────────────────────────────
 
     private fun rebuildDisplay() {
+        renderTimer.stop()
+        renderQueue.clear()
+        rendering = true
+        searchRebuildPending = true
         val doc = textPane.styledDocument
         doc.remove(0, doc.length)
-        for (entry in entries) {
-            if (entry.level !in visibleLevels && entry.level != LogLevel.UNKNOWN) continue
-            appendEntry(entry, doc)
-        }
-        if (following) scrollToEnd()
-        rebuildSearchMatches()
+        val filtered = entries.filter { it.level in visibleLevels || it.level == LogLevel.UNKNOWN }
+        renderQueue.addAll(filtered)
+        renderTimer.start()
     }
 
     private fun appendEntries(newEntries: List<LogEntry>) {
+        if (rendering) {
+            newEntries.filterTo(renderQueue) { it.level in visibleLevels || it.level == LogLevel.UNKNOWN }
+            return
+        }
         val doc = textPane.styledDocument
         for (entry in newEntries) {
             if (entry.level !in visibleLevels && entry.level != LogLevel.UNKNOWN) continue
             appendEntry(entry, doc)
         }
         if (following) scrollToEnd()
+    }
+
+    private fun renderNextBatch() {
+        val doc = textPane.styledDocument
+        var count = 0
+        val maxPerTick = 200
+        while (count < maxPerTick && renderQueue.isNotEmpty()) {
+            val entry = renderQueue.removeFirst()
+            appendEntry(entry, doc)
+            count++
+        }
+        if (renderQueue.isEmpty()) {
+            renderTimer.stop()
+            rendering = false
+            if (following) scrollToEnd()
+            if (searchRebuildPending) {
+                searchRebuildPending = false
+                rebuildSearchMatches()
+            }
+        }
     }
 
     private fun appendEntry(entry: LogEntry, doc: javax.swing.text.StyledDocument) {
@@ -339,6 +368,10 @@ class LogViewerPanel : JPanel(BorderLayout()) {
     // ── Search ───────────────────────────────────────────────────────────────
 
     private fun rebuildSearchMatches() {
+        if (rendering) {
+            searchRebuildPending = true
+            return
+        }
         textPane.highlighter.removeAllHighlights()
         val query = searchField.text
         if (query.isEmpty()) {

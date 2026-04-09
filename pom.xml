@@ -6,7 +6,7 @@
 
     <groupId>io.github.rygel</groupId>
     <artifactId>needlecast-parent</artifactId>
-    <version>0.6.16</version>
+    <version>0.6.17</version>
     <packaging>pom</packaging>
     <name>Needlecast (Parent)</name>
 
@@ -44,7 +44,7 @@
             <url>https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/</url>
         </repository>
         <repository>
-            <id>github-sparkle4j</id>
+            <id>github-rygel</id>
             <url>https://maven.pkg.github.com/rygel/sparkle4j</url>
         </repository>
     </repositories>
@@ -89,6 +89,11 @@
             <dependency>
                 <groupId>org.jetbrains.jediterm</groupId>
                 <artifactId>jediterm-pty</artifactId>
+                <version>${jediterm.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jetbrains.jediterm</groupId>
+                <artifactId>jediterm-typeahead</artifactId>
                 <version>${jediterm.version}</version>
             </dependency>
             <dependency>
@@ -172,9 +177,9 @@
                 <version>${javalin.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.sparkle4j</groupId>
+                <groupId>io.github.rygel</groupId>
                 <artifactId>sparkle4j</artifactId>
-                <version>0.5.4</version>
+                <version>0.5.5</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

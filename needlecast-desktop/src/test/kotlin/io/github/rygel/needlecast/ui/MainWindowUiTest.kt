@@ -27,12 +27,15 @@ class MainWindowUiTest {
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
     private lateinit var window: MainWindow
+    private var previousSkipDocking: String? = null
 
     @TempDir
     lateinit var tempDir: Path
 
     @BeforeEach
     fun setUp() {
+        previousSkipDocking = System.getProperty("needlecast.skipDocking")
+        System.setProperty("needlecast.skipDocking", "true")
         robot = BasicRobot.robotWithNewAwtHierarchy()
         val store = JsonConfigStore(tempDir.resolve("config.json"))
         val ctx = AppContext(configStore = store)
@@ -47,6 +50,11 @@ class MainWindowUiTest {
     fun tearDown() {
         fixture.cleanUp()
         robot.cleanUp()
+        if (previousSkipDocking == null) {
+            System.clearProperty("needlecast.skipDocking")
+        } else {
+            System.setProperty("needlecast.skipDocking", previousSkipDocking)
+        }
     }
 
     @Test

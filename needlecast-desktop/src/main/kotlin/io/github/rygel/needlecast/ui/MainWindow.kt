@@ -43,6 +43,9 @@ import javax.swing.filechooser.FileNameExtensionFilter
 
 class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
+    private val dockingEnabled = System.getProperty("needlecast.skipDocking")
+        ?.equals("true", ignoreCase = true) != true
+
     private val statusBar      = StatusBar()
     private val consolePanel   = ConsolePanel()
     private val claudeHookServer: ClaudeHookServer? =
@@ -64,19 +67,23 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
     private val renovatePanel = RenovatePanel()
 
+    private var pendingProjectSelection: io.github.rygel.needlecast.model.DetectedProject? = null
+    private val projectSelectionTimer = javax.swing.Timer(75) {
+        applyProjectSelection(pendingProjectSelection)
+    }.apply { isRepeats = false }
+    private var lastSelectedPath: String? = null
+    private var lastSelectedCommandsKey: String? = null
+    private val edtTraceForced = System.getProperty("needlecast.edt.trace")?.equals("true", ignoreCase = true) == true ||
+        (System.getenv("NEEDLECAST_EDT_TRACE")?.equals("true", ignoreCase = true) == true) ||
+        (System.getenv("NEEDLECAST_EDT_TRACE") == "1")
+    @Volatile private var edtMonitorRunning = false
+    private var edtMonitorThread: Thread? = null
+
     private val projectTreePanel: ProjectTreePanel = ProjectTreePanel(
         ctx = ctx,
         onProjectSelected = { project ->
-            commandPanel.loadProject(project)
-            gitLogPanel.loadProject(project?.directory?.path)
-            logViewerPanel.loadProject(project?.directory?.path)
-            renovatePanel.loadProject(project?.directory?.path)
-            if (project != null) {
-                explorerPanel.setRootDirectory(File(project.directory.path))
-                terminalPanel.showProject(project.directory.path, project.directory)
-            } else {
-                terminalPanel.deactivate()
-            }
+            pendingProjectSelection = project
+            projectSelectionTimer.restart()
         },
         onActivate = { project ->
             // Per-project shell takes priority; fall back to the global default shell.
@@ -135,6 +142,10 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             ctx.updateConfig(ctx.config.copy(terminalFontSize = size))
         }
 
+        ctx.addConfigListener { cfg ->
+            SwingUtilities.invokeLater { updateDiagnosticSettings(cfg) }
+        }
+
         if (claudeHookServer != null) {
             claudeHookServer.start()
             Thread({ ClaudeHookServer.installHooks(claudeHookServer.port) }, "claude-hooks-installer")
@@ -156,29 +167,33 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         defaultCloseOperation = DO_NOTHING_ON_CLOSE
         minimumSize = Dimension(800, 500)
 
-        // Initialize ModernDocking before the content pane is built (RootDockingPanel registers itself)
-        Docking.initialize(this)
-        DockingUI.initialize()
-        Settings.setActiveHighlighterEnabled(ctx.config.dockingActiveHighlight)
-        // Suppress the default border/gap FlatLaf draws around tabbed-pane content areas
-        UIManager.getDefaults()["TabbedPane.contentBorderInsets"] = Insets(0, 0, 0, 0)
-        UIManager.getDefaults()["TabbedPane.tabsOverlapBorder"]   = true
+        if (dockingEnabled) {
+            // Initialize ModernDocking before the content pane is built (RootDockingPanel registers itself)
+            Docking.initialize(this)
+            DockingUI.initialize()
+            Settings.setActiveHighlighterEnabled(ctx.config.dockingActiveHighlight)
+            // Suppress the default border/gap FlatLaf draws around tabbed-pane content areas
+            UIManager.getDefaults()["TabbedPane.contentBorderInsets"] = Insets(0, 0, 0, 0)
+            UIManager.getDefaults()["TabbedPane.tabsOverlapBorder"]   = true
 
-        // Register all dockables before any dock() calls
-        Docking.registerDockable(projectTreeDockable)
-        Docking.registerDockable(terminalDockable)
-        Docking.registerDockable(commandsDockable)
-        Docking.registerDockable(gitLogDockable)
-        Docking.registerDockable(logViewerDockable)
-        Docking.registerDockable(explorerDockable)
-        Docking.registerDockable(editorDockable)
-        Docking.registerDockable(consoleDockable)
-        Docking.registerDockable(renovateDockable)
-        Docking.registerDockable(promptInputDockable)
-        Docking.registerDockable(commandInputDockable)
-        installPanelHoverHighlighter()
+            // Register all dockables before any dock() calls
+            Docking.registerDockable(projectTreeDockable)
+            Docking.registerDockable(terminalDockable)
+            Docking.registerDockable(commandsDockable)
+            Docking.registerDockable(gitLogDockable)
+            Docking.registerDockable(logViewerDockable)
+            Docking.registerDockable(explorerDockable)
+            Docking.registerDockable(editorDockable)
+            Docking.registerDockable(consoleDockable)
+            Docking.registerDockable(renovateDockable)
+            Docking.registerDockable(promptInputDockable)
+            Docking.registerDockable(commandInputDockable)
+            installPanelHoverHighlighter()
 
-        contentPane = buildLayout()
+            contentPane = buildLayout()
+        } else {
+            contentPane = buildSimpleLayout()
+        }
         jMenuBar = buildMenuBar()
 
         registerKeyboardShortcuts()
@@ -190,12 +205,15 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         addWindowListener(object : WindowAdapter() {
             override fun windowOpened(e: WindowEvent) {
-                applyDockingLayout()
+                if (dockingEnabled) {
+                    applyDockingLayout()
+                    // After the window is laid out, force the project tree to
+                    // recalculate cell widths (tree.width is 0 during initial render)
+                    SwingUtilities.invokeLater { projectTreePanel.invalidateTreeLayout() }
+                }
                 applyTheme(ThemeRegistry.isDark(ctx.config.theme))
                 updateTimer.start()
-                // After the window is laid out, force the project tree to
-                // recalculate cell widths (tree.width is 0 during initial render)
-                SwingUtilities.invokeLater { projectTreePanel.invalidateTreeLayout() }
+                updateDiagnosticSettings(ctx.config)
             }
 
             override fun windowClosing(e: WindowEvent) {
@@ -216,6 +234,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     logViewerPanel.dispose()
                     terminalPanel.dispose()
                     claudeHookServer?.stop()
+                    edtMonitorRunning = false
                     dispose()
                 } finally {
                     System.exit(0)
@@ -224,17 +243,78 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         })
     }
 
+    override fun dispose() {
+        if (dockingEnabled) {
+            try {
+                allDockables.forEach { dockable ->
+                    if (Docking.isDockableRegistered(dockable.dockableId)) {
+                        Docking.deregisterDockable(dockable)
+                    }
+                }
+                Docking.deregisterDockingPanel(this)
+                Docking.uninitialize()
+            } catch (_: Exception) {
+                // Defensive: avoid disposal failures when the docking registry is already cleared.
+            }
+        }
+        super.dispose()
+    }
+
     // ── Layout ───────────────────────────────────────────────────────────────
 
     private fun buildLayout(): java.awt.Container {
-        // RootDockingPanel(window) registers itself — no explicit registerDockingPanel call needed
+        // RootDockingPanel does not auto-register; we must register it for Docking API lookups.
         val rootPanel = RootDockingPanel(this)
+        if (!Docking.getRootPanels().containsKey(this)) {
+            Docking.registerDockingPanel(rootPanel, this)
+        }
 
         val content = JPanel(BorderLayout())
         content.add(rootPanel, BorderLayout.CENTER)
         content.add(statusBar, BorderLayout.SOUTH)
         return content
     }
+
+    private fun buildSimpleLayout(): java.awt.Container {
+        val content = JPanel(BorderLayout())
+        content.add(statusBar, BorderLayout.SOUTH)
+        return content
+    }
+
+    private fun applyProjectSelection(project: io.github.rygel.needlecast.model.DetectedProject?) {
+        val path = project?.directory?.path
+        val pathChanged = path != lastSelectedPath
+        val commandsKey = project?.let { buildCommandsKey(it) }
+        val commandsChanged = commandsKey != lastSelectedCommandsKey
+
+        if (pathChanged) {
+            gitLogPanel.loadProject(path)
+            logViewerPanel.loadProject(path)
+            renovatePanel.loadProject(path)
+        }
+
+        if (project != null) {
+            if (pathChanged) {
+                explorerPanel.setRootDirectory(File(project.directory.path))
+                terminalPanel.showProject(project.directory.path, project.directory)
+            }
+        } else if (pathChanged) {
+            terminalPanel.deactivate()
+        }
+
+        if (pathChanged || commandsChanged) {
+            commandPanel.loadProject(project)
+        }
+
+        lastSelectedPath = path
+        lastSelectedCommandsKey = commandsKey
+    }
+
+    private fun buildCommandsKey(project: io.github.rygel.needlecast.model.DetectedProject): String =
+        project.commands.joinToString(separator = "|") { cmd ->
+            val argv = cmd.argv.joinToString(separator = "\u0000")
+            "${cmd.label}\u0000$argv\u0000${cmd.workingDirectory}"
+        }
 
     /**
      * Called in windowOpened — restores the saved docking layout from disk, or
@@ -306,6 +386,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.dock(promptInputDockable,  terminalDockable,   DockingRegion.SOUTH,  0.85)
         // 9. Command input tabbed with prompt input
         Docking.dock(commandInputDockable, promptInputDockable, DockingRegion.CENTER)
+
+        SwingUtilities.invokeLater { selectPrimaryTabs() }
     }
 
     /** Undock every panel, delete the saved layout file, re-apply the built-in default. */
@@ -318,6 +400,25 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         setupDefaultDockingLayout()
         AppState.setAutoPersist(true)
         statusBar.setStatus("Layout reset to default")
+    }
+
+    private fun selectPrimaryTabs() {
+        selectDockableTab(projectTreeDockable)
+        selectDockableTab(terminalDockable)
+        selectDockableTab(commandsDockable)
+        selectDockableTab(promptInputDockable)
+    }
+
+    private fun selectDockableTab(dockable: DockablePanel) {
+        val tabbed = SwingUtilities.getAncestorOfClass(javax.swing.JTabbedPane::class.java, dockable) as? javax.swing.JTabbedPane
+            ?: return
+        for (i in 0 until tabbed.tabCount) {
+            val comp = tabbed.getComponentAt(i)
+            if (SwingUtilities.isDescendingFrom(dockable, comp)) {
+                tabbed.selectedIndex = i
+                return
+            }
+        }
     }
 
     // ── View toggles ─────────────────────────────────────────────────────────
@@ -846,15 +947,72 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private val updateLogger = org.slf4j.LoggerFactory.getLogger("needlecast.update")
+    private val uiLogger = org.slf4j.LoggerFactory.getLogger("needlecast.ui")
 
-    private fun buildSparkle4j(intervalHours: Int = 24): io.github.sparkle4j.Sparkle4jInstance? {
+    private fun updateDiagnosticSettings(cfg: io.github.rygel.needlecast.model.AppConfig) {
+        val shouldRun = edtTraceForced || cfg.edtStallTraceEnabled
+        if (shouldRun && !edtMonitorRunning) {
+            startEdtStallMonitor()
+        } else if (!shouldRun && edtMonitorRunning && !edtTraceForced) {
+            stopEdtStallMonitor()
+        }
+    }
+
+    private fun startEdtStallMonitor() {
+        if (edtMonitorRunning) return
+        edtMonitorRunning = true
+        val periodMs = 50L
+        val thresholdMs = 200L
+        val throttleMs = 2_000L
+        edtMonitorThread = Thread({
+            var lastReportAt = 0L
+            while (edtMonitorRunning) {
+                val latch = java.util.concurrent.CountDownLatch(1)
+                val scheduledAt = System.nanoTime()
+                SwingUtilities.invokeLater { latch.countDown() }
+                val ok = try {
+                    latch.await(thresholdMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+                } catch (_: InterruptedException) {
+                    true
+                }
+                if (!ok) {
+                    val nowMs = System.currentTimeMillis()
+                    if (nowMs - lastReportAt >= throttleMs) {
+                        lastReportAt = nowMs
+                        val delayMs = (System.nanoTime() - scheduledAt) / 1_000_000
+                        val edt = Thread.getAllStackTraces().keys.firstOrNull { it.name.startsWith("AWT-EventQueue") }
+                        if (edt != null) {
+                            val stack = Thread.getAllStackTraces()[edt]
+                                ?.joinToString("\n") { "    at ${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})" }
+                                ?: "(stack unavailable)"
+                            uiLogger.warn("EDT stall detected: {} ms\n{}", delayMs, stack)
+                        } else {
+                            uiLogger.warn("EDT stall detected: {} ms (EDT thread not found)", delayMs)
+                        }
+                    }
+                }
+                try { Thread.sleep(periodMs) } catch (_: InterruptedException) {}
+            }
+        }, "edt-stall-monitor").apply {
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun stopEdtStallMonitor() {
+        edtMonitorRunning = false
+        edtMonitorThread?.interrupt()
+        edtMonitorThread = null
+    }
+
+    private fun buildSparkle4j(intervalHours: Int = 24): io.github.rygel.sparkle4j.Sparkle4jInstance? {
         val version = currentVersion() ?: run {
             updateLogger.warn("Cannot determine app version — update check skipped")
             return null
         }
         updateLogger.info("Building sparkle4j instance: version={}, interval={}h", version, intervalHours)
         return try {
-            io.github.sparkle4j.Sparkle4j.builder()
+            io.github.rygel.sparkle4j.Sparkle4j.builder()
                 .appcastUrl("https://github.com/rygel/needlecast/releases/latest/download/appcast.xml")
                 .currentVersion(version)
                 .appName("Needlecast")
@@ -876,7 +1034,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Thread {
             try {
                 updateLogger.info("Periodic update check")
-                val item = buildSparkle4j(0)?.checkNow()
+                val item = buildSparkle4j(0)?.checkNow()?.orElse(null)
                 if (item != null) {
                     updateLogger.info("Update available: {}", item.version())
                     SwingUtilities.invokeLater {
@@ -909,7 +1067,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 return
             }
             updateLogger.info("Manual update check")
-            val item = instance.checkNow()
+            val item = instance.checkNow().orElse(null)
             if (item == null) {
                 updateLogger.info("No update found — already on latest version")
                 JOptionPane.showMessageDialog(this,

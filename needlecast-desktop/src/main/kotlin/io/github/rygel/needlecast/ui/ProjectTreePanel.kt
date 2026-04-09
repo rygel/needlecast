@@ -36,10 +36,10 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
+import javax.swing.SwingWorker
 import javax.swing.JTextField
 import javax.swing.JTree
 import javax.swing.SwingUtilities
-import javax.swing.SwingWorker
 import javax.swing.TransferHandler
 import javax.swing.UIManager
 import javax.swing.event.DocumentEvent
@@ -69,6 +69,8 @@ class ProjectTreePanel(
             if (ui !is FullWidthTreeUI) {
                 setUI(FullWidthTreeUI())
             }
+            // Keep variable-height rows even after LAF changes.
+            rowHeight = 0
         }
     }.apply {
         isRootVisible = false
@@ -81,6 +83,25 @@ class ProjectTreePanel(
     private var activePaths: Set<String> = emptySet()
     private var pendingSelectPath: String? = null
     private val agentStatuses = mutableMapOf<String, AgentStatus>()
+    private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
+    private val scanQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<ProjectDirectory, DetectedProject>>()
+    private val scanApplyTimer = Timer(25) { drainScanQueue() }.apply { isRepeats = false }
+    private val scanApplyPending = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val clickTraceForced = System.getProperty("needlecast.tree.clickTrace")?.equals("true", ignoreCase = true) == true ||
+        (System.getenv("NEEDLECAST_TREE_CLICK_TRACE")?.equals("true", ignoreCase = true) == true) ||
+        (System.getenv("NEEDLECAST_TREE_CLICK_TRACE") == "1")
+    private fun isClickTraceEnabled(): Boolean = clickTraceForced || ctx.config.treeClickTraceEnabled
+    private var clickSeq: Long = 0L
+    private var lastClickTimeNs: Long = 0L
+    private var lastClickKey: String? = null
+    private var lastClickRow: Int = -1
+    private val scanExecutor = java.util.concurrent.Executors.newFixedThreadPool(2).also { exec ->
+        ctx.register(object : io.github.rygel.needlecast.Disposable {
+            override fun dispose() {
+                exec.shutdownNow()
+            }
+        })
+    }
 
     /** Pulses the agent dot while any project is THINKING. */
     private var blinkOn = false
@@ -94,6 +115,7 @@ class ProjectTreePanel(
 
     /** Captured in mousePressed so createTransferable can find the node even before selection updates. */
     private var dragPressedPath: TreePath? = null
+    private var dragPressPoint: java.awt.Point? = null
 
     companion object {
         private val logger = LoggerFactory.getLogger(ProjectTreePanel::class.java)
@@ -185,9 +207,26 @@ class ProjectTreePanel(
 
         tree.addTreeSelectionListener {
             val node = tree.lastSelectedPathComponent as? DefaultMutableTreeNode ?: return@addTreeSelectionListener
-            when (val entry = node.userObject) {
-                is ProjectTreeEntry.Project -> onProjectSelected(scanResults[entry.directory.path])
-                else -> onProjectSelected(null)
+            val project = when (val entry = node.userObject) {
+                is ProjectTreeEntry.Project -> scanResults[entry.directory.path]
+                else -> null
+            }
+            val selectionTimeNs = System.nanoTime()
+            if (isClickTraceEnabled()) {
+                val key = entryKey(node.userObject)
+                val row = tree.leadSelectionRow
+                val dtMs = if (lastClickTimeNs > 0L) (selectionTimeNs - lastClickTimeNs) / 1_000_000 else -1
+                val match = key != null && key == lastClickKey
+                logger.info("tree-select seq={} row={} key={} dtFromClickMs={} match={}", clickSeq, row, key, dtMs, match)
+            }
+            // Defer to allow the selection highlight repaint to fire first,
+            // so the click feels instant even if downstream work (dir listing, etc.) is slow.
+            SwingUtilities.invokeLater {
+                if (isClickTraceEnabled()) {
+                    val delayMs = (System.nanoTime() - selectionTimeNs) / 1_000_000
+                    logger.info("tree-select-callback seq={} delayMs={}", clickSeq, delayMs)
+                }
+                onProjectSelected(project)
             }
         }
 
@@ -198,7 +237,39 @@ class ProjectTreePanel(
                     // use the closest path within the row bounds instead.
                     val closest = tree.getClosestPathForLocation(e.x, e.y)
                     val bounds  = if (closest != null) tree.getPathBounds(closest) else null
-                    dragPressedPath = if (bounds != null && e.y >= bounds.y && e.y < bounds.y + bounds.height) closest else null
+                    val inRow = if (bounds != null && closest != null) {
+                        val row = tree.getRowForPath(closest)
+                        val node = closest.lastPathComponent
+                        val rendererHeight = if (row >= 0) {
+                            val renderer = tree.cellRenderer.getTreeCellRendererComponent(
+                                tree,
+                                node,
+                                tree.isRowSelected(row),
+                                tree.isExpanded(row),
+                                tree.model.isLeaf(node),
+                                row,
+                                tree.leadSelectionRow == row,
+                            )
+                            renderer.preferredSize.height
+                        } else bounds.height
+                        val effectiveHeight = maxOf(bounds.height, rendererHeight)
+                        e.y >= bounds.y && e.y < bounds.y + effectiveHeight
+                    } else false
+                    dragPressedPath = if (inRow) closest else null
+                    dragPressPoint  = if (dragPressedPath != null) java.awt.Point(e.x, e.y) else null
+                    // Ensure a single click anywhere on the row selects immediately
+                    // (including the empty area to the right of the renderer).
+                    if (inRow && closest != null) {
+                        if (isClickTraceEnabled()) {
+                            clickSeq++
+                            lastClickTimeNs = System.nanoTime()
+                            lastClickRow = tree.getRowForPath(closest)
+                            lastClickKey = entryKey((closest.lastPathComponent as? DefaultMutableTreeNode)?.userObject)
+                            logger.info("tree-click seq={} row={} key={}", clickSeq, lastClickRow, lastClickKey)
+                        }
+                        tree.selectionPath = closest
+                        tree.requestFocusInWindow()
+                    }
                 }
                 if (SwingUtilities.isRightMouseButton(e)) {
                     val path = tree.getPathForLocation(e.x, e.y)
@@ -280,49 +351,34 @@ class ProjectTreePanel(
     // ── Scanning ─────────────────────────────────────────────────────────────
 
     private fun scanProject(dir: ProjectDirectory) {
-        object : SwingWorker<DetectedProject, Void>() {
-            override fun doInBackground(): DetectedProject = try {
+        scanExecutor.execute {
+            val result = try {
                 ctx.scanner.scan(dir) ?: DetectedProject(dir, emptySet(), emptyList())
             } catch (e: Exception) {
                 logger.warn("Failed to scan '${dir.label()}'", e)
                 DetectedProject(dir, emptySet(), emptyList(), scanFailed = true)
             }
-
-            override fun done() {
-                val result = try { get() } catch (_: Exception) { return }
-                scanResults[dir.path] = result
-                tree.repaint()
-                if (!result.scanFailed) {
-                    fetchGitStatus(dir.path)
-                    buildFileWatcher.watch(dir.path)
-                }
-                val pending = pendingSelectPath
-                if (pending == dir.path) selectByPath(pending)
-            }
-        }.execute()
+            scanQueue.add(dir to result)
+            scheduleScanApply()
+        }
     }
 
     private fun rescheduleProjectScan(path: String) {
         val dir = findProjectEntry(rootNode, path)?.directory ?: return
-        object : SwingWorker<DetectedProject?, Void>() {
-            override fun doInBackground(): DetectedProject? =
-                try { ctx.scanner.scan(dir) } catch (_: Exception) { null }
-
-            override fun done() {
-                val result = try { get() } catch (_: Exception) { null } ?: return
-                scanResults[path] = result
-                tree.repaint()
-            }
-        }.execute()
+        scanExecutor.execute {
+            val result = try { ctx.scanner.scan(dir) } catch (_: Exception) { null } ?: return@execute
+            scanQueue.add(dir to result)
+            scheduleScanApply()
+        }
     }
 
     private fun fetchGitStatus(path: String) {
-        object : SwingWorker<GitStatus, Void>() {
+        object : javax.swing.SwingWorker<GitStatus, Void>() {
             override fun doInBackground(): GitStatus = ctx.gitService.readStatus(path)
             override fun done() {
                 val status = try { get() } catch (_: Exception) { return }
                 gitStatusCache[path] = status
-                tree.repaint()
+                requestTreeRepaint()
             }
         }.execute()
     }
@@ -357,14 +413,68 @@ class ProjectTreePanel(
 
     fun setActivePaths(paths: Set<String>) {
         activePaths = paths
-        tree.repaint()
+        requestTreeRepaint()
     }
 
     fun updateProjectStatus(path: String, status: AgentStatus) {
         agentStatuses[path] = status
         if (agentStatuses.values.any { it == AgentStatus.THINKING }) blinkTimer.start()
         else blinkTimer.stop()
-        tree.repaint()
+        requestTreeRepaint()
+    }
+
+    private fun requestTreeRepaint() {
+        repaintTimer.restart()
+    }
+
+    private fun drainScanQueue() {
+        val maxPerTick = 10
+        var updated = false
+        var processed = 0
+        while (processed < maxPerTick) {
+            val next = scanQueue.poll() ?: break
+            val (dir, result) = next
+            scanResults[dir.path] = result
+            updated = true
+            if (!result.scanFailed) {
+                fetchGitStatus(dir.path)
+                Thread {
+                    buildFileWatcher.watch(dir.path)
+                }.apply { isDaemon = true; name = "build-file-watch-${dir.label()}" }.start()
+            }
+            val pending = pendingSelectPath
+            if (pending == dir.path) {
+                selectByPath(pending)
+            } else {
+                // If this project is already selected, push the fresh scan result
+                // to listeners (file explorer, commands panel, etc.) without
+                // changing the selection path.
+                val selNode = tree.lastSelectedPathComponent as? DefaultMutableTreeNode
+                val selEntry = selNode?.userObject as? ProjectTreeEntry.Project
+                if (selEntry?.directory?.path == dir.path) {
+                    onProjectSelected(result)
+                }
+            }
+            processed++
+        }
+        if (updated) requestTreeRepaint()
+        if (scanQueue.isNotEmpty()) {
+            scanApplyTimer.restart()
+        } else {
+            scanApplyPending.set(false)
+        }
+    }
+
+    private fun scheduleScanApply() {
+        if (scanApplyPending.compareAndSet(false, true)) {
+            SwingUtilities.invokeLater { scanApplyTimer.restart() }
+        }
+    }
+
+    private fun entryKey(entry: Any?): String? = when (entry) {
+        is ProjectTreeEntry.Folder -> "folder:${entry.name}"
+        is ProjectTreeEntry.Project -> "project:${entry.directory.path}"
+        else -> null
     }
 
     fun selectByPath(path: String) {
@@ -997,6 +1107,18 @@ class ProjectTreePanel(
 
     private inner class FullWidthTreeUI : javax.swing.plaf.basic.BasicTreeUI() {
 
+        override fun createLayoutCache(): javax.swing.tree.AbstractLayoutCache =
+            javax.swing.tree.VariableHeightLayoutCache()
+
+        /** Force variable-height rows so hit-detection matches the two-line cell renderer height.
+         *  FlatLaf sets Tree.rowHeight to a fixed value (e.g. 24 px); our renderer returns ~40 px.
+         *  Without this, clicks on the lower half of each row fall outside BasicTreeUI's hit bounds
+         *  and are silently dropped. rowHeight = 0 tells VariableHeightLayoutCache to ask the
+         *  renderer for the actual height of each row. */
+        override fun installDefaults() {
+            super.installDefaults()
+            tree.rowHeight = 0
+        }
         override fun paintRow(
             g: java.awt.Graphics,
             clipBounds: Rectangle?,

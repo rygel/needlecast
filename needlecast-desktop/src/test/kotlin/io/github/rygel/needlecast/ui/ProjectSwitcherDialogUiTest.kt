@@ -29,6 +29,8 @@ class ProjectSwitcherDialogUiTest {
 
     private lateinit var robot: Robot
     private lateinit var ownerFrame: JFrame
+    private var dialog: JDialog? = null
+    private var fixture: DialogFixture? = null
 
     @TempDir
     lateinit var tempDir: Path
@@ -41,6 +43,10 @@ class ProjectSwitcherDialogUiTest {
 
     @AfterEach
     fun tearDown() {
+        fixture?.cleanUp()
+        fixture = null
+        dialog?.dispose()
+        dialog = null
         robot.cleanUp()
     }
 
@@ -75,73 +81,70 @@ class ProjectSwitcherDialogUiTest {
         var selectedGroupId: String? = null
         var selectedPath: String? = null
 
-        val dialog = GuiActionRunner.execute<JDialog> {
+        dialog = GuiActionRunner.execute<JDialog> {
             ProjectSwitcherDialog(ownerFrame, ctx) { gid, path ->
                 selectedGroupId = gid; selectedPath = path
             }
         }
-        val fixture = DialogFixture(robot, dialog)
-        fixture.show()
-        fixture.requireVisible()
+        fixture = DialogFixture(robot, dialog)
+        fixture!!.show()
+        fixture!!.requireVisible()
         // Search field is empty → all 4 projects visible in the list
-        fixture.list().requireItemCount(4)
-        fixture.cleanUp()
+        fixture!!.list().requireItemCount(4)
     }
 
     @Test
     fun `typing in search field filters the project list`() {
         val ctx = makeCtxWithProjects()
-        val dialog = GuiActionRunner.execute<JDialog> {
+        dialog = GuiActionRunner.execute<JDialog> {
             ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
         }
-        val fixture = DialogFixture(robot, dialog)
-        fixture.show()
+        fixture = DialogFixture(robot, dialog)
+        fixture!!.show()
 
-        fixture.textBox().enterText("front")
-        fixture.list().requireItemCount(1)
-        fixture.cleanUp()
+        fixture!!.textBox().enterText("front")
+        fixture!!.list().requireItemCount(1)
     }
 
     @Test
     fun `search is case-insensitive`() {
         val ctx = makeCtxWithProjects()
-        val dialog = GuiActionRunner.execute<JDialog> {
+        dialog = GuiActionRunner.execute<JDialog> {
             ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
         }
-        val fixture = DialogFixture(robot, dialog)
-        fixture.show()
+        fixture = DialogFixture(robot, dialog)
+        fixture!!.show()
 
-        fixture.textBox().enterText("BACK")
-        fixture.list().requireItemCount(1)
-        fixture.cleanUp()
+        fixture!!.textBox().enterText("BACK")
+        fixture!!.list().requireItemCount(1)
     }
 
     @Test
     fun `search that matches nothing shows empty list`() {
         val ctx = makeCtxWithProjects()
-        val dialog = GuiActionRunner.execute<JDialog> {
+        dialog = GuiActionRunner.execute<JDialog> {
             ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
         }
-        val fixture = DialogFixture(robot, dialog)
-        fixture.show()
+        fixture = DialogFixture(robot, dialog)
+        fixture!!.show()
 
-        fixture.textBox().enterText("xyzzy")
-        fixture.list().requireItemCount(0)
-        fixture.cleanUp()
+        fixture!!.textBox().enterText("xyzzy")
+        fixture!!.list().requireItemCount(0)
     }
 
     @Test
     fun `Escape closes the dialog`() {
         val ctx = makeCtxWithProjects()
-        val dialog = GuiActionRunner.execute<JDialog> {
+        dialog = GuiActionRunner.execute<JDialog> {
             ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
         }
-        val fixture = DialogFixture(robot, dialog)
-        fixture.show()
-        fixture.requireVisible()
+        fixture = DialogFixture(robot, dialog)
+        fixture!!.show()
+        fixture!!.requireVisible()
 
-        fixture.pressAndReleaseKey(keyCode(KeyEvent.VK_ESCAPE))
-        fixture.requireNotVisible()
+        fixture!!.textBox().pressAndReleaseKeys(KeyEvent.VK_ESCAPE)
+        robot.waitForIdle()
+        fixture!!.requireNotVisible()
     }
 
     @Test
@@ -149,16 +152,17 @@ class ProjectSwitcherDialogUiTest {
         val ctx = makeCtxWithProjects()
         var selectedPath: String? = null
 
-        val dialog = GuiActionRunner.execute<JDialog> {
+        dialog = GuiActionRunner.execute<JDialog> {
             ProjectSwitcherDialog(ownerFrame, ctx) { _, path -> selectedPath = path }
         }
-        val fixture = DialogFixture(robot, dialog)
-        fixture.show()
+        fixture = DialogFixture(robot, dialog)
+        fixture!!.show()
 
         // Filter to a single result and confirm with Enter
-        fixture.textBox().enterText("frontend")
-        fixture.list().requireItemCount(1)
-        fixture.pressAndReleaseKey(keyCode(KeyEvent.VK_ENTER))
+        fixture!!.textBox().enterText("frontend")
+        fixture!!.list().requireItemCount(1)
+        fixture!!.textBox().pressAndReleaseKeys(KeyEvent.VK_ENTER)
+        robot.waitForIdle()
 
         assertEquals("/work/frontend", selectedPath)
     }
@@ -166,20 +170,19 @@ class ProjectSwitcherDialogUiTest {
     @Test
     fun `Down arrow moves selection and Up arrow returns to first item`() {
         val ctx = makeCtxWithProjects()
-        val dialog = GuiActionRunner.execute<JDialog> {
+        dialog = GuiActionRunner.execute<JDialog> {
             ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
         }
-        val fixture = DialogFixture(robot, dialog)
-        fixture.show()
+        fixture = DialogFixture(robot, dialog)
+        fixture!!.show()
 
         // Initially first item (index 0) is selected
-        assertEquals(0, fixture.list().target().selectedIndex)
+        assertEquals(0, fixture!!.list().target().selectedIndex)
 
-        fixture.textBox().pressAndReleaseKeys(KeyEvent.VK_DOWN)
-        assertEquals(1, fixture.list().target().selectedIndex)
+        fixture!!.textBox().pressAndReleaseKeys(KeyEvent.VK_DOWN)
+        assertEquals(1, fixture!!.list().target().selectedIndex)
 
-        fixture.textBox().pressAndReleaseKeys(KeyEvent.VK_UP)
-        assertEquals(0, fixture.list().target().selectedIndex)
-        fixture.cleanUp()
+        fixture!!.textBox().pressAndReleaseKeys(KeyEvent.VK_UP)
+        assertEquals(0, fixture!!.list().target().selectedIndex)
     }
 }
