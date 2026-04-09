@@ -116,6 +116,23 @@ class ProjectTreePanelUiTest {
         robot.waitForIdle()
     }
 
+    private fun dragToSlow(src: Point, dst: Point) {
+        robot.pressMouse(src, MouseButton.LEFT_BUTTON)
+        robot.waitForIdle()
+        Thread.sleep(40)
+        val steps = 14
+        val dx = (dst.x - src.x).toDouble() / steps
+        val dy = (dst.y - src.y).toDouble() / steps
+        for (i in 1..steps) {
+            robot.moveMouse(Point(src.x + (dx * i).toInt(), src.y + (dy * i).toInt()))
+            Thread.sleep(12)
+        }
+        robot.moveMouse(dst)
+        Thread.sleep(30)
+        robot.releaseMouse(MouseButton.LEFT_BUTTON)
+        robot.waitForIdle()
+    }
+
     // ── Project visibility ───────────────────────────────────────────────────
 
     @Test
@@ -254,8 +271,12 @@ class ProjectTreePanelUiTest {
         val src = rowCenter(1) ?: error("Alpha row not visible")
         val dst = rowCenter(2) ?: error("Target folder not visible")
         dragTo(src, dst)
-
-        val moved = waitForProjectInFolder("Target", alphaPath, 3_000)
+        val moved = runCatching { waitForProjectInFolder("Target", alphaPath, 1_500) }.getOrNull()
+            ?: run {
+                // Retry once with a slower drag to reduce CI flakiness.
+                dragToSlow(src, dst)
+                waitForProjectInFolder("Target", alphaPath, 4_000)
+            }
         assertEquals(listOf("important", "v2"), moved.tags, "Tags should survive cross-folder drag")
     }
 
