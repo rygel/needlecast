@@ -45,7 +45,7 @@ class JsonConfigStoreTest {
         val store = JsonConfigStore(dir.resolve("nonexistent.json"))
         val config = store.load()
         // Don't compare the full object — default prompt/command libraries use random UUIDs
-        assertEquals("system",  config.theme)
+        assertEquals("dark-purple", config.theme)
         assertEquals(1200,    config.windowWidth)
         assertTrue(config.groups.isEmpty())
         assertTrue(config.promptLibrary.isNotEmpty())

@@ -5,7 +5,7 @@
 #   docker build -f Dockerfile.screenshots -t needlecast-screenshots .
 #   docker run --rm -v "$(pwd)/screenshots:/screenshots" needlecast-screenshots
 
-FROM maven:3.9-eclipse-temurin-21-jammy
+FROM maven:3.9-eclipse-temurin-21-jammy@sha256:7f8422bd81f19b9035007a75e2f82272b09af64db08848d7d4e93302466e8b6f
 
 # X11 / virtual framebuffer + font dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
