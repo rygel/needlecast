@@ -85,8 +85,10 @@ class JsonConfigStore(
         }
     }
 
-    override fun import(path: Path): AppConfig =
-        mapper.readValue(path.toFile(), AppConfig::class.java)
+    override fun import(path: Path): AppConfig {
+        val raw = mapper.readValue(path.toFile(), AppConfig::class.java)
+        return ConfigMigrator.migrate(raw)
+    }
 
     override fun export(config: AppConfig, path: Path) {
         mapper.writeValue(path.toFile(), config)

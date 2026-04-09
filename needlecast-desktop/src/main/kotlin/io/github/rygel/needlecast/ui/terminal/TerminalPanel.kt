@@ -53,11 +53,11 @@ class TerminalPanel(
     private val extraEnv: Map<String, String> = extraEnv
 
     /**
-     * True when this terminal was started with the Claude Code CLI as the startup command.
+     * True when this terminal was started with (or later launched) the Claude Code CLI.
      * When true, PTY-quiescence heuristics are disabled in favour of Claude Code lifecycle hooks.
      */
-    val isClaudeSession: Boolean = startupCommand?.trim()?.let {
-        it == "claude" || it.startsWith("claude ") || it.startsWith("claude\t")
+    @Volatile var isClaudeSession: Boolean = startupCommand?.trim()?.let {
+        it == "claude" || it.startsWith("claude ") || it.startsWith("claude\t") || it == "claude.exe" || it.startsWith("claude.exe ")
     } ?: false
 
     var onStatusChanged: ((AgentStatus) -> Unit)? = null
@@ -71,6 +71,7 @@ class TerminalPanel(
     @Volatile private var lastInputMs: Long = 0L
     /** Last raw output chunk, retained for spinner detection. */
     @Volatile private var lastChunk: String = ""
+    private var styleStateWarned = false
 
     /**
      * 2 s silence → WAITING.
@@ -120,11 +121,16 @@ class TerminalPanel(
             val cmd = if (IS_WINDOWS) "cd /d \"$escaped\"\r\n" else "cd \"$escaped\"\n"
             process.outputStream.write(cmd.toByteArray(Charsets.UTF_8))
             process.outputStream.flush()
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            logger.warn("Failed to change terminal directory to {}", dir, e)
+        }
     }
 
     fun sendInput(text: String) {
         lastInputMs = System.currentTimeMillis()
+        if (!isClaudeSession && containsClaudeCommand(text)) {
+            isClaudeSession = true
+        }
         try {
             ptyProcess?.outputStream?.write(text.toByteArray(Charsets.UTF_8))
             ptyProcess?.outputStream?.flush()
@@ -165,7 +171,12 @@ class TerminalPanel(
             val field = innerPanel.javaClass.getDeclaredField("myStyleState")
             field.isAccessible = true
             (field.get(innerPanel) as? StyleState)?.setDefaultStyle(style)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            if (!styleStateWarned) {
+                styleStateWarned = true
+                logger.warn("Failed to update JediTerm style state via reflection", e)
+            }
+        }
     }
 
     /** Overrides the current status directly — used by [ClaudeHookServer] events. */
@@ -199,16 +210,17 @@ class TerminalPanel(
     private fun handleOutput(chunk: String) {
         if (isClaudeSession && useHooksForStatus) return
 
-        lastChunk = chunk
+        val snapshot = chunk
         val now = System.currentTimeMillis()
 
         SwingUtilities.invokeLater {
+            lastChunk = snapshot
             // Ignore output within 100 ms of user input — likely terminal echo.
             if (now - lastInputMs < 100L) return@invokeLater
 
             // If the last chunk contains spinner chars the agent is still "thinking" — don't
             // start the silence timer yet; wait until it goes quiet without a spinner.
-            val hasSpinner = lastChunk.any { it in SPINNER_CHARS }
+            val hasSpinner = snapshot.any { it in SPINNER_CHARS }
             if (hasSpinner) {
                 if (currentStatus != AgentStatus.THINKING) transitionTo(AgentStatus.THINKING)
                 silenceTimer.stop()
@@ -227,27 +239,44 @@ class TerminalPanel(
                     put("TERM", "xterm-256color")
                     putAll(extraEnv)
                 }
-                ptyProcess = PtyProcessBuilder()
+                val process = PtyProcessBuilder()
                     .setCommand(cmd)
                     .setEnvironment(env)
                     .setDirectory(currentDir)
                     .setInitialColumns(120)
                     .setInitialRows(30)
                     .start()
-                val connector = PtyProcessTtyConnector(ptyProcess!!, Charset.forName("UTF-8"))
+                ptyProcess = process
+                val connector = PtyProcessTtyConnector(process, Charset.forName("UTF-8"))
                 val observed = ObservingTtyConnector(connector) { chunk -> handleOutput(chunk) }
                 val session = termWidget.createTerminalSession(observed)
                 session.start()
                 SwingUtilities.invokeLater { transitionTo(AgentStatus.WAITING) }
                 if (!startupCommand.isNullOrBlank()) {
                     val line = if (IS_WINDOWS) "$startupCommand\r\n" else "$startupCommand\n"
-                    ptyProcess!!.outputStream.write(line.toByteArray(Charsets.UTF_8))
-                    ptyProcess!!.outputStream.flush()
+                    try {
+                        process.outputStream.write(line.toByteArray(Charsets.UTF_8))
+                        process.outputStream.flush()
+                    } catch (e: Exception) {
+                        logger.warn("Failed to send startup command to terminal", e)
+                    }
                 }
             } catch (e: Exception) {
                 logger.error("Failed to start shell process in terminal", e)
             }
         }.also { it.isDaemon = true }.start()
+    }
+
+    private fun containsClaudeCommand(text: String): Boolean {
+        return text.lineSequence().any { line ->
+            val trimmed = line.trimStart()
+            trimmed == "claude" ||
+                trimmed == "claude.exe" ||
+                trimmed.startsWith("claude ") ||
+                trimmed.startsWith("claude\t") ||
+                trimmed.startsWith("claude.exe ") ||
+                trimmed.startsWith("claude.exe\t")
+        }
     }
 
     private fun resolveShellCommand(): Array<String> {

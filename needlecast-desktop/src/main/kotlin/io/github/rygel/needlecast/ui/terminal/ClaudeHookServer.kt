@@ -86,15 +86,15 @@ class ClaudeHookServer(
 
                 val hooksNode = root.withObjectProperty("hooks")
 
-                mergeHookEntry(mapper, hooksNode, "UserPromptSubmit",
+                mergeHookEntry(mapper, hooksNode, port, "UserPromptSubmit",
                     matcher  = "",
                     command  = curlCmd(port, "start"),
                 )
-                mergeHookEntry(mapper, hooksNode, "Stop",
+                mergeHookEntry(mapper, hooksNode, port, "Stop",
                     matcher  = "",
                     command  = curlCmd(port, "stop"),
                 )
-                mergeHookEntry(mapper, hooksNode, "Notification",
+                mergeHookEntry(mapper, hooksNode, port, "Notification",
                     matcher  = "idle_prompt",
                     command  = curlCmd(port, "idle"),
                 )
@@ -115,11 +115,12 @@ class ClaudeHookServer(
         private fun mergeHookEntry(
             mapper: ObjectMapper,
             hooksNode: ObjectNode,
+            port: Int,
             eventName: String,
             matcher: String,
             command: String,
         ) {
-            val serverUrl = "localhost:$PORT"
+            val serverUrl = "localhost:$port"
             val rules = hooksNode.withArrayProperty(eventName)
 
             // Already present?
@@ -146,7 +147,7 @@ class ClaudeHookServer(
          * Called on startup when [claudeHooksEnabled] is false to clean up
          * hooks left behind by a previous run.
          */
-        fun uninstallHooks() {
+        fun uninstallHooks(port: Int = PORT) {
             try {
                 val settingsPath = Path.of(System.getProperty("user.home"), ".claude", "settings.json")
                 if (!Files.exists(settingsPath)) return
@@ -156,7 +157,7 @@ class ClaudeHookServer(
                            catch (_: Exception) { return }
 
                 val hooksNode = root.get("hooks") as? ObjectNode ?: return
-                val serverUrl = "localhost:$PORT"
+                val serverUrl = "localhost:$port"
                 var modified = false
 
                 for (eventName in listOf("UserPromptSubmit", "Stop", "Notification")) {
