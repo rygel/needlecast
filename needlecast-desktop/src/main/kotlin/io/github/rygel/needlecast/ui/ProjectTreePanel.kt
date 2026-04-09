@@ -297,7 +297,18 @@ class ProjectTreePanel(
                     buildFileWatcher.watch(dir.path)
                 }
                 val pending = pendingSelectPath
-                if (pending == dir.path) selectByPath(pending)
+                if (pending == dir.path) {
+                    selectByPath(pending)
+                } else {
+                    // If this project is already selected, push the fresh scan result
+                    // to listeners (file explorer, commands panel, etc.) without
+                    // changing the selection path.
+                    val selNode = tree.lastSelectedPathComponent as? DefaultMutableTreeNode
+                    val selEntry = selNode?.userObject as? ProjectTreeEntry.Project
+                    if (selEntry?.directory?.path == dir.path) {
+                        onProjectSelected(result)
+                    }
+                }
             }
         }.execute()
     }
