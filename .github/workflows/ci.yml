@@ -15,6 +15,7 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       MAVEN_GITHUB_ACTOR: ${{ secrets.SPARKLE4J_ACTOR || github.actor }}
       MAVEN_GITHUB_TOKEN: ${{ secrets.SPARKLE4J_TOKEN || secrets.GITHUB_TOKEN }}
