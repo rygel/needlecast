@@ -47,6 +47,8 @@ class LogViewerPanel : JPanel(BorderLayout()) {
     // Tail state
     private var tailFile: File? = null
     private var tailOffset = 0L
+    private var tailingEnabled = false
+    private val maxTailBytes = 512 * 1024
     private val tailTimer = Timer(500) { pollTail() }.apply { isRepeats = true }
 
     // ── UI components ────────────────────────────────────────────────────────
@@ -218,6 +220,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
     }
 
     fun dispose() {
+        tailingEnabled = false
         tailTimer.stop()
     }
 
@@ -225,6 +228,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
 
     private fun onFileSelected() {
         tailTimer.stop()
+        tailingEnabled = false
         val file = fileCombo.selectedItem as? File ?: return
         tailFile = file
         tailOffset = 0
@@ -242,12 +246,14 @@ class LogViewerPanel : JPanel(BorderLayout()) {
                 entries.addAll(parsed)
                 tailOffset = (tailFile?.length() ?: 0)
                 rebuildDisplay()
+                tailingEnabled = true
                 tailTimer.start()
             }
         }.execute()
     }
 
     private fun pollTail() {
+        if (!tailingEnabled) return
         val file = tailFile ?: return
         if (!file.exists()) return
         val currentSize = file.length()
@@ -262,13 +268,29 @@ class LogViewerPanel : JPanel(BorderLayout()) {
 
         try {
             RandomAccessFile(file, "r").use { raf ->
-                raf.seek(tailOffset)
-                val newBytes = ByteArray((currentSize - tailOffset).toInt())
+                val delta = currentSize - tailOffset
+                var startOffset = tailOffset
+                var skippedBytes = 0L
+                if (delta > maxTailBytes) {
+                    skippedBytes = delta - maxTailBytes
+                    startOffset = currentSize - maxTailBytes
+                }
+                raf.seek(startOffset)
+                val newBytes = ByteArray((currentSize - startOffset).toInt())
                 raf.readFully(newBytes)
                 tailOffset = currentSize
-                val newLines = String(newBytes, Charsets.UTF_8).lines().filter { it.isNotEmpty() }
+                var newLines = String(newBytes, Charsets.UTF_8).lines().filter { it.isNotEmpty() }
+                if (skippedBytes > 0 && newLines.isNotEmpty()) {
+                    // Drop the first line since we likely started mid-line.
+                    newLines = newLines.drop(1)
+                }
                 if (newLines.isNotEmpty()) {
-                    val newEntries = LogParser.parse(newLines)
+                    val newEntries = mutableListOf<LogEntry>()
+                    if (skippedBytes > 0) {
+                        val msg = "[log tail truncated] Skipped $skippedBytes bytes to avoid large read"
+                        newEntries += LogEntry(null, null, LogLevel.UNKNOWN, null, msg, raw = msg)
+                    }
+                    newEntries += LogParser.parse(newLines)
                     SwingUtilities.invokeLater {
                         entries.addAll(newEntries)
                         appendEntries(newEntries)

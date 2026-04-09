@@ -40,6 +40,9 @@ object ProcessExecutor {
 
             if (!proc.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
                 proc.destroyForcibly()
+                try { proc.inputStream.close() } catch (_: Exception) {}
+                reader.interrupt()
+                reader.join(1_000L)
                 return null
             }
             reader.join(1_000L)  // brief wait for the reader to drain any remaining bytes
