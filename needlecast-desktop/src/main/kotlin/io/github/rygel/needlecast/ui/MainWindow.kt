@@ -1034,7 +1034,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Thread {
             try {
                 updateLogger.info("Periodic update check")
-                val item = buildSparkle4j(0)?.checkNow()
+                val item = buildSparkle4j(0)?.checkNow()?.orElse(null)
                 if (item != null) {
                     updateLogger.info("Update available: {}", item.version())
                     SwingUtilities.invokeLater {
@@ -1067,7 +1067,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 return
             }
             updateLogger.info("Manual update check")
-            val item = instance.checkNow()
+            val item = instance.checkNow().orElse(null)
             if (item == null) {
                 updateLogger.info("No update found — already on latest version")
                 JOptionPane.showMessageDialog(this,
