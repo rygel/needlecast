@@ -28,6 +28,7 @@ class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
     private val stopButton = JButton("Stop")
     private val seekSlider = JSlider(0, 1000, 0)
     private val volumeSlider = JSlider(0, 100, 80)
+    private val loopCheck = javax.swing.JCheckBox("Loop")
 
     private var mediaPlayerComponent: EmbeddedMediaPlayerComponent? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -56,6 +57,7 @@ class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
                 val buttons = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
                     add(playButton)
                     add(stopButton)
+                    add(loopCheck)
                 }
                 val right = JPanel(FlowLayout(FlowLayout.RIGHT, 6, 0)).apply {
                     add(JLabel("Volume"))
@@ -110,8 +112,12 @@ class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
 
                 override fun finished(mediaPlayer: MediaPlayer) {
                     SwingUtilities.invokeLater {
-                        updatePlayState(isPlaying = false)
-                        seekSlider.value = seekSlider.maximum
+                        if (loopCheck.isSelected) {
+                            playFile()
+                        } else {
+                            updatePlayState(isPlaying = false)
+                            seekSlider.value = seekSlider.maximum
+                        }
                     }
                 }
 
@@ -123,7 +129,7 @@ class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
             })
 
             updateTimer = Timer(250) { refreshTime() }.apply { isRepeats = true; start() }
-            playFile()
+            statusLabel.text = "Ready"
         }
     }
 
