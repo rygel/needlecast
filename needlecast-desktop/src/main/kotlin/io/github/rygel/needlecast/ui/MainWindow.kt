@@ -19,6 +19,7 @@ import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.Font
+import java.awt.GraphicsEnvironment
 import java.awt.Insets
 import java.awt.Toolkit
 import java.awt.event.AWTEventListener
@@ -40,6 +41,7 @@ import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
 import javax.swing.filechooser.FileNameExtensionFilter
+import javax.swing.plaf.FontUIResource
 
 class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
@@ -126,6 +128,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val dockingLayoutFile: File = Path.of(
         System.getProperty("user.home"), ".needlecast", "docking-layout.xml"
     ).toFile()
+    private val baseUiFont: Font = UIManager.getFont("defaultFont")
+        ?: UIManager.getFont("Label.font")
+        ?: Font(Font.SANS_SERIF, Font.PLAIN, 12)
 
     init {
         terminalPanel.onActivateRequested = { dir ->
@@ -143,6 +148,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val initBg = ctx.config.terminalBackground?.let { runCatching { java.awt.Color.decode(it) }.getOrNull() }
         if (initFg != null || initBg != null) terminalPanel.applyTerminalColors(initFg, initBg)
         terminalPanel.applyFontSize(ctx.config.terminalFontSize)
+        terminalPanel.applyFontFamily(ctx.config.terminalFontFamily)
+        explorerPanel.applyEditorFont(ctx.config.editorFontFamily, ctx.config.editorFontSize)
         terminalPanel.onFontSizeChanged = { size ->
             ctx.updateConfig(ctx.config.copy(terminalFontSize = size))
         }
@@ -201,6 +208,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             contentPane = buildSimpleLayout()
         }
         jMenuBar = buildMenuBar()
+        applyUiFontFromConfig()
 
         registerKeyboardShortcuts()
         centerOnScreen()
@@ -545,6 +553,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     onLayoutChanged = { resetLayout() },
                     onTerminalColorsChanged = { fg, bg -> terminalPanel.applyTerminalColors(fg, bg) },
                     onFontSizeChanged = { size -> terminalPanel.applyFontSize(size) },
+                    onUiFontChanged = { _, _ -> applyUiFontFromConfig() },
+                    onEditorFontChanged = { family, size -> explorerPanel.applyEditorFont(family, size) },
+                    onTerminalFontChanged = { family -> terminalPanel.applyFontFamily(family) },
                     onSyntaxThemeChanged = { explorerPanel.applyTheme(ThemeRegistry.isDark(ctx.config.theme)) },
                 ).isVisible = true
             }
@@ -761,16 +772,27 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private fun applyTheme(dark: Boolean) {
+        applyUiFontFromConfig()
         explorerPanel.applyTheme(dark)
         terminalPanel.applyTheme(dark)
     }
 
     private fun setTheme(themeId: String) {
         val dark = ThemeRegistry.apply(themeId)
-        SwingUtilities.updateComponentTreeUI(this)
         applyTheme(dark)
         ctx.updateConfig(ctx.config.copy(theme = themeId))
         ctx.reloadTheme()
+    }
+
+    private fun applyUiFontFromConfig() {
+        val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
+        val family = ctx.config.uiFontFamily?.takeIf { it.isNotBlank() && it in available }
+            ?: baseUiFont.family
+        val size = ctx.config.uiFontSize?.takeIf { it in 8..72 } ?: baseUiFont.size
+        val font = FontUIResource(Font(family, Font.PLAIN, size))
+        UIManager.put("defaultFont", font)
+        SwingUtilities.updateComponentTreeUI(this)
+        repaint()
     }
 
     private fun buildViewMenu(title: String): JMenu {
