@@ -55,6 +55,7 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private var editorFontSize = 12
     private var loadWorker: javax.swing.SwingWorker<String, Void>? = null
     private var loadSeq: Long = 0L
+    private var pendingCaret: CaretTarget? = null
 
     private val fileLabel = JLabel("No file open")
     private val editor = RSyntaxTextArea(20, 80).apply {
@@ -198,9 +199,10 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         }
     }
 
-    fun openFile(file: File) {
+    fun openFile(file: File, line: Int? = null, column: Int? = null) {
         loadWorker?.cancel(true)
         TextChunker.cancel(editor)
+        pendingCaret = if (line != null) CaretTarget(line, column) else null
         val maxBytes = 2 * 1024 * 1024L
         if (file.length() > maxBytes) {
             isLoadingFile = true
@@ -210,6 +212,7 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             fileLabel.text = file.name
             currentFile = null
             isModified = false
+            pendingCaret = null
             return
         }
         val seq = ++loadSeq
@@ -241,9 +244,15 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                 TextChunker.setTextChunked(editor, content) {
                     editor.caretPosition = 0
                     isLoadingFile = false
+                    applyPendingCaret()
                 }
             }
         }.also { it.execute() }
+    }
+
+    fun focusLocation(line: Int, column: Int? = null) {
+        pendingCaret = CaretTarget(line, column)
+        if (!isLoadingFile) applyPendingCaret()
     }
 
     private fun saveFile() {
@@ -258,6 +267,29 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             JOptionPane.showMessageDialog(
                 this, "Save failed: ${e.message}", "Save Error", JOptionPane.ERROR_MESSAGE,
             )
+        }
+    }
+
+    private fun applyPendingCaret() {
+        val target = pendingCaret ?: return
+        pendingCaret = null
+        moveCaretTo(target.line, target.column)
+    }
+
+    private fun moveCaretTo(line: Int, column: Int?) {
+        val root = editor.document.defaultRootElement
+        val lineIdx = (line - 1).coerceAtLeast(0)
+        if (lineIdx >= root.elementCount) return
+        val elem = root.getElement(lineIdx)
+        var offset = elem.startOffset
+        if (column != null) {
+            offset = (offset + column - 1).coerceAtMost(elem.endOffset - 1)
+        }
+        SwingUtilities.invokeLater {
+            editor.caretPosition = offset
+            editor.requestFocusInWindow()
+            val rect = editor.modelToView2D(offset)
+            if (rect != null) editor.scrollRectToVisible(rect.bounds)
         }
     }
 
@@ -352,4 +384,6 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         }
         return preferred.firstOrNull { it in available } ?: Font.MONOSPACED
     }
+
+    private data class CaretTarget(val line: Int, val column: Int?)
 }
