@@ -65,6 +65,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
     private val gitLogPanel   = GitLogPanel(ctx.gitService)
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
+    private val searchPanel   = SearchPanel { file, line, column -> explorerPanel.openFileAt(file, line, column) }
     private val renovatePanel = RenovatePanel()
 
     private var pendingProjectSelection: io.github.rygel.needlecast.model.DetectedProject? = null
@@ -118,6 +119,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val renovateDockable     = DockablePanel(renovatePanel,                 "renovate",     "Renovate")
     private val consoleDockable      = DockablePanel(consolePanel,                  "console",      "Output")
     private val logViewerDockable    = DockablePanel(logViewerPanel,               "log-viewer",   "Log Viewer")
+    private val searchDockable       = DockablePanel(searchPanel,                   "search",       "Search")
     private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
 
@@ -185,6 +187,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             Docking.registerDockable(commandsDockable)
             Docking.registerDockable(gitLogDockable)
             Docking.registerDockable(logViewerDockable)
+            Docking.registerDockable(searchDockable)
             Docking.registerDockable(explorerDockable)
             Docking.registerDockable(editorDockable)
             Docking.registerDockable(consoleDockable)
@@ -293,6 +296,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         if (pathChanged) {
             gitLogPanel.loadProject(path)
             logViewerPanel.loadProject(path)
+            searchPanel.loadProject(path)
             renovatePanel.loadProject(path)
         }
 
@@ -337,7 +341,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         if (!restored || !allPresent) {
             listOf(projectTreeDockable, terminalDockable, commandsDockable,
-                   gitLogDockable, logViewerDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable)
+                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable)
                 .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
             dockingLayoutFile.delete()
             setupDefaultDockingLayout()
@@ -379,6 +383,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.dock(gitLogDockable,      commandsDockable,    DockingRegion.CENTER)
         // 5b. Log Viewer tabbed alongside Git Log
         Docking.dock(logViewerDockable,   gitLogDockable,      DockingRegion.CENTER)
+        // 5c. Search tabbed alongside Log Viewer
+        Docking.dock(searchDockable,      logViewerDockable,   DockingRegion.CENTER)
         // 6. Editor tabbed with the terminal in the centre column
         Docking.dock(editorDockable,      terminalDockable,    DockingRegion.CENTER)
         // 7. Console below Commands
@@ -397,7 +403,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     fun resetLayout() {
         AppState.setAutoPersist(false)
         listOf(projectTreeDockable, terminalDockable, commandsDockable,
-               gitLogDockable, logViewerDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable)
+               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable)
             .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
         dockingLayoutFile.delete()
         setupDefaultDockingLayout()
@@ -481,6 +487,15 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             else dockTo(gitLogDockable, terminalDockable, DockingRegion.EAST, 0.28)
         } else if (!show && Docking.isDocked(gitLogDockable)) {
             Docking.undock(gitLogDockable)
+        }
+    }
+
+    private fun toggleSearch(show: Boolean) {
+        if (show && !Docking.isDocked(searchDockable)) {
+            if (Docking.isDocked(commandsDockable)) Docking.dock(searchDockable, commandsDockable, DockingRegion.CENTER)
+            else dockTo(searchDockable, terminalDockable, DockingRegion.EAST, 0.28)
+        } else if (!show && Docking.isDocked(searchDockable)) {
+            Docking.undock(searchDockable)
         }
     }
 
@@ -825,6 +840,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val gitLogCb = JCheckBoxMenuItem("Git Log").apply {
             addActionListener { toggleGitLog(isSelected) }
         }
+        val searchCb = JCheckBoxMenuItem("Search").apply {
+            addActionListener { toggleSearch(isSelected) }
+        }
         val explorerCb = JCheckBoxMenuItem("Explorer").apply {
             addActionListener { toggleExplorer(isSelected) }
         }
@@ -847,6 +865,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         fun syncState() {
             commandsCb.isSelected = Docking.isDocked(commandsDockable)
             gitLogCb.isSelected = Docking.isDocked(gitLogDockable)
+            searchCb.isSelected = Docking.isDocked(searchDockable)
             explorerCb.isSelected = Docking.isDocked(explorerDockable)
             editorCb.isSelected = Docking.isDocked(editorDockable)
             consoleCb.isSelected = Docking.isDocked(consoleDockable)
@@ -863,6 +882,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             })
             add(commandsCb)
             add(gitLogCb)
+            add(searchCb)
             add(renovateCb)
             addSeparator()
             add(explorerCb)
@@ -894,6 +914,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         bind("ctrl 2", "focus-explorer")     { explorerPanel.requestFocusOnTree() }
         bind("ctrl 3", "focus-terminal")     { terminalPanel.requestFocusOnActive() }
         bind("ctrl P", "project-switcher")   { showProjectSwitcher() }
+        bind("ctrl shift F", "find-in-files") { showSearchPanel() }
     }
 
     fun reloadShortcuts() = registerKeyboardShortcuts()
@@ -904,6 +925,13 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             projectTreePanel.requestFocusOnTree()
         }
         dialog.isVisible = true
+    }
+
+    private fun showSearchPanel() {
+        if (!dockingEnabled) return
+        if (!Docking.isDocked(searchDockable)) toggleSearch(true)
+        selectDockableTab(searchDockable)
+        searchPanel.requestFocusOnSearch()
     }
 
     private fun action(block: () -> Unit) = object : javax.swing.AbstractAction() {
@@ -919,7 +947,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private val allDockables get() = listOf(
         projectTreeDockable, terminalDockable, commandsDockable, gitLogDockable,
-        logViewerDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
+        logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
         promptInputDockable, commandInputDockable,
     )
     private var highlightedDockable: DockablePanel? = null

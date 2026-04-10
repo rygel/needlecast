@@ -165,6 +165,17 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     fun openFile(file: File) = openFileInTab(file)
 
+    fun openFileAt(file: File, line: Int, column: Int? = null) {
+        val key = try { file.canonicalPath } catch (_: Exception) { file.absolutePath }
+        val existing = openFiles[key]
+        if (existing is EditorPanel) {
+            tabs.selectedComponent = existing
+            existing.focusLocation(line, column)
+            return
+        }
+        openFileInTab(file, line, column)
+    }
+
     private fun navigateTo(dir: File) {
         if (!dir.isDirectory) return
         currentDir = dir
@@ -198,7 +209,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         }
     }
 
-    private fun openFileInTab(file: File) {
+    private fun openFileInTab(file: File, line: Int? = null, column: Int? = null) {
         val key = try { file.canonicalPath } catch (_: Exception) { file.absolutePath }
         val existing = openFiles[key]
         if (existing != null) {
@@ -206,13 +217,14 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             when (existing) {
                 is ImageViewerPanel -> existing.reloadIfChanged()
                 is SvgViewerPanel   -> existing.reloadIfChanged()
+                is EditorPanel      -> if (line != null) existing.focusLocation(line, column)
             }
             return
         }
         val panel: javax.swing.JComponent = when {
             isSvgFile(file)   -> SvgViewerPanel(file)
             isImageFile(file) -> ImageViewerPanel(file)
-            else              -> EditorPanel(ctx).also { it.applyTheme(isDark); it.openFile(file) }
+            else              -> EditorPanel(ctx).also { it.applyTheme(isDark); it.openFile(file, line, column) }
         }
         openFiles[key] = panel
         val idx = tabs.tabCount
