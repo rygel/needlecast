@@ -20,6 +20,8 @@ import javax.swing.JScrollPane
 import javax.swing.JTable
 import javax.swing.SwingConstants
 import javax.swing.SwingWorker
+import javax.swing.JTextArea
+import javax.swing.JCheckBox
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 
@@ -141,6 +143,25 @@ class RenovatePanel : JPanel(BorderLayout()) {
     private val summaryLabel = JLabel(" ").apply {
         border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
     }
+    private val logArea = JTextArea().apply {
+        isEditable = false
+        lineWrap = false
+        wrapStyleWord = false
+        font = Font(monoFont(), Font.PLAIN, 11)
+    }
+    private val logScroll = JScrollPane(logArea).apply {
+        preferredSize = Dimension(0, 140)
+        isVisible = false
+    }
+    private val showLogsCheck = JCheckBox("Show logs").apply {
+        addActionListener {
+            logScroll.isVisible = isSelected
+            revalidate()
+        }
+    }
+    private val verboseLogsCheck = JCheckBox("Verbose").apply {
+        toolTipText = "Include DEBUG output from Renovate"
+    }
 
     init {
         minimumSize = Dimension(0, 0)
@@ -152,6 +173,8 @@ class RenovatePanel : JPanel(BorderLayout()) {
             add(selectAllButton)
             add(selectNoneButton)
             add(selectPatchButton)
+            add(showLogsCheck)
+            add(verboseLogsCheck)
             add(statusLabel)
         }
 
@@ -167,7 +190,10 @@ class RenovatePanel : JPanel(BorderLayout()) {
 
         add(header, BorderLayout.NORTH)
         add(JScrollPane(table), BorderLayout.CENTER)
-        add(summaryLabel, BorderLayout.SOUTH)
+        add(JPanel(BorderLayout()).apply {
+            add(summaryLabel, BorderLayout.NORTH)
+            add(logScroll, BorderLayout.CENTER)
+        }, BorderLayout.SOUTH)
 
         checkRenovateStatus()
     }
@@ -210,21 +236,26 @@ class RenovatePanel : JPanel(BorderLayout()) {
         updates.clear()
         tableModel.fireTableDataChanged()
         summaryLabel.text = "Scanning\u2026"
+        logArea.text = ""
 
         object : SwingWorker<List<DepUpdate>, String>() {
             override fun doInBackground(): List<DepUpdate> {
                 val reportPath = reportFile.absolutePath.replace('\\', '/')
                 val cmd = "renovate --platform=local --report-type=file --report-path=\"$reportPath\""
+                val logLevel = if (verboseLogsCheck.isSelected) "debug" else "info"
+                publish("[cmd] $cmd")
+                publish("[env] LOG_LEVEL=$logLevel")
                 val argv = if (IS_WINDOWS) listOf("cmd", "/c", cmd) else listOf("sh", "-c", cmd)
                 val pb = ProcessBuilder(argv).redirectErrorStream(true)
                 pb.environment()["PATH"] = System.getenv("PATH") ?: ""
-                pb.environment()["LOG_LEVEL"] = "info"
+                pb.environment()["LOG_LEVEL"] = logLevel
                 pb.directory(File(dir))
                 val proc = pb.start()
                 proc.inputStream.bufferedReader().useLines { lines ->
                     for (line in lines) publish(line)
                 }
                 val exitCode = proc.waitFor()
+                publish("[exit] renovate exited with code $exitCode")
                 if (exitCode != 0 || !reportFile.exists()) return emptyList()
                 return parseReport(reportFile)
             }
@@ -232,6 +263,10 @@ class RenovatePanel : JPanel(BorderLayout()) {
             override fun process(chunks: List<String>) {
                 for (line in chunks) {
                     val trimmed = line.trim()
+                    if (trimmed.isNotEmpty()) {
+                        logArea.append(trimmed + "\n")
+                        logArea.caretPosition = logArea.document.length
+                    }
                     if (trimmed.startsWith("INFO:") || trimmed.startsWith("WARN:") || trimmed.startsWith("DEBUG:")) {
                         summaryLabel.text = trimmed.take(120)
                     }
@@ -446,9 +481,11 @@ class RenovatePanel : JPanel(BorderLayout()) {
                 val (found, version) = get()
                 if (found) {
                     statusLabel.text = "\u2713 v$version"
+                    statusLabel.toolTipText = "renovate --version = $version"
                     statusLabel.foreground = Color(0x4CAF50)
                 } else {
                     statusLabel.text = "\u2717 Not installed (install via Settings)"
+                    statusLabel.toolTipText = null
                     statusLabel.foreground = Color(0xF44336)
                     runButton.isEnabled = false
                 }
