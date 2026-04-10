@@ -194,13 +194,15 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             when (existing) {
                 is ImageViewerPanel -> existing.reloadIfChanged()
                 is SvgViewerPanel   -> existing.reloadIfChanged()
+                is MediaPlayerPanel -> {} // no reload; media can be restarted via controls
             }
             return
         }
         val panel: javax.swing.JComponent = when {
-            isSvgFile(file)   -> SvgViewerPanel(file)
-            isImageFile(file) -> ImageViewerPanel(file)
-            else              -> EditorPanel(ctx).also { it.applyTheme(isDark); it.openFile(file) }
+            isSvgFile(file)    -> SvgViewerPanel(file)
+            isImageFile(file)  -> ImageViewerPanel(file)
+            isMediaFile(file)  -> MediaPlayerPanel(file)
+            else               -> EditorPanel(ctx).also { it.applyTheme(isDark); it.openFile(file) }
         }
         openFiles[key] = panel
         val idx = tabs.tabCount
@@ -215,6 +217,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private fun closeTab(key: String) {
         val panel = openFiles[key] ?: return
         if (panel is EditorPanel && !panel.checkUnsaved()) return
+        if (panel is MediaPlayerPanel) panel.dispose()
         val idx = tabs.indexOfComponent(panel)
         if (idx >= 0) tabs.removeTabAt(idx)
         openFiles.remove(key)
@@ -259,6 +262,13 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private fun isSvgFile(file: File)   = file.extension.lowercase() == "svg"
     private fun isImageFile(file: File) = file.extension.lowercase() in
         setOf("jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "ico")
+    private fun isMediaFile(file: File) = file.extension.lowercase() in
+        setOf(
+            // Audio
+            "mp3", "wav", "wave", "aiff", "aif", "flac", "ogg", "oga", "opus", "m4a", "aac", "wma",
+            // Video
+            "mp4", "m4v", "mov", "mkv", "avi", "webm", "mpg", "mpeg", "flv", "3gp", "ogv",
+        )
 
     private fun selectedEntry(): FileEntry? {
         val row = table.selectedRow
