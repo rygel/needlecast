@@ -183,6 +183,10 @@ Log output goes to `~/.needlecast/needlecast.log` (rotates at 10 MB, keeps 5 arc
 
 See [CHANGELOG.md](CHANGELOG.md).
 
+## Documentation
+
+See the docs index at [docs/README.md](docs/README.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
