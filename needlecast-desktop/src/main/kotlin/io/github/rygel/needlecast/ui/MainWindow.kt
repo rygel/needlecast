@@ -104,6 +104,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             terminalPanel.deactivateProject(project.directory.path)
             projectTreePanel.setActivePaths(terminalPanel.activePaths())
         },
+        onExternalFilesDropped = { files ->
+            files.forEach { explorerPanel.openFile(it) }
+        },
     )
 
     // ModernDocking dockable wrappers — one per logical panel

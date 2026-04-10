@@ -8,11 +8,13 @@ import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.Toolkit
+import java.awt.datatransfer.DataFlavor
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
+import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 import javax.swing.BorderFactory
@@ -131,6 +133,12 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         add(JScrollPane(table).apply { minimumSize = java.awt.Dimension(0, 0) }, BorderLayout.CENTER)
         minimumSize = java.awt.Dimension(0, 0)
         navigateTo(currentDir)
+
+        // Drag-and-drop from OS into explorer/editor areas.
+        val dropHandler = ExplorerDropHandler()
+        table.dropMode = DropMode.ON
+        table.transferHandler = dropHandler
+        tabs.transferHandler = dropHandler
     }
 
     /**
@@ -469,6 +477,102 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             }
             return c
         }
+    }
+
+    // ── External drops ─────────────────────────────────────────────────────
+
+    private inner class ExplorerDropHandler : TransferHandler() {
+        private val uriListFlavor: DataFlavor? = try {
+            DataFlavor("text/uri-list;class=java.lang.String")
+        } catch (_: Exception) { null }
+        private val uriListReaderFlavor: DataFlavor? = try {
+            DataFlavor("text/uri-list;class=java.io.Reader")
+        } catch (_: Exception) { null }
+        private val uriListInputFlavor: DataFlavor? = try {
+            DataFlavor("text/uri-list;class=java.io.InputStream")
+        } catch (_: Exception) { null }
+        private val urlFlavor: DataFlavor? = try {
+            DataFlavor("application/x-java-url;class=java.net.URL")
+        } catch (_: Exception) { null }
+
+        override fun canImport(support: TransferSupport): Boolean {
+            if (!support.isDrop) return false
+            return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor) ||
+                (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) ||
+                (uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor)) ||
+                (uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor)) ||
+                (uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor))
+        }
+
+        override fun importData(support: TransferSupport): Boolean {
+            if (!canImport(support)) return false
+            val (dirs, files) = entriesFromExternal(support)
+            if (dirs.isEmpty() && files.isEmpty()) return false
+
+            val isOverTable = SwingUtilities.isDescendingFrom(support.component, table)
+            val isOverTabs = SwingUtilities.isDescendingFrom(support.component, tabs)
+
+            if (files.isNotEmpty()) {
+                files.forEach { openFileInTab(it) }
+                return true
+            }
+            if (dirs.isNotEmpty() && (isOverTable || isOverTabs)) {
+                setRootDirectory(dirs.first())
+                return true
+            }
+            return false
+        }
+
+        private fun entriesFromExternal(support: TransferSupport): Pair<List<File>, List<File>> {
+            if (support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                val items = try {
+                    (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
+                        ?.filterIsInstance<File>()
+                        ?: emptyList()
+                } catch (_: Exception) { emptyList() }
+                return items.filter { it.isDirectory } to items.filter { it.isFile }
+            }
+            if (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) {
+                return try {
+                    val url = support.transferable.getTransferData(urlFlavor) as? java.net.URL
+                    val file = url?.toURI()?.let { File(it) }
+                    val dirs = if (file != null && file.isDirectory) listOf(file) else emptyList()
+                    val files = if (file != null && file.isFile) listOf(file) else emptyList()
+                    dirs to files
+                } catch (_: Exception) { emptyList<File>() to emptyList() }
+            }
+            val text = readUriListText(support) ?: return emptyList<File>() to emptyList()
+            val items = parseUriList(text)
+            return items.filter { it.isDirectory } to items.filter { it.isFile }
+        }
+
+        private fun readUriListText(support: TransferSupport): String? {
+            return try {
+                when {
+                    uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor) ->
+                        support.transferable.getTransferData(uriListFlavor) as? String
+                    uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor) -> {
+                        val reader = support.transferable.getTransferData(uriListReaderFlavor) as? java.io.Reader
+                        reader?.readText()
+                    }
+                    uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor) -> {
+                        val stream = support.transferable.getTransferData(uriListInputFlavor) as? java.io.InputStream
+                        stream?.bufferedReader()?.readText()
+                    }
+                    else -> null
+                }
+            } catch (_: Exception) { null }
+        }
+
+        private fun parseUriList(text: String): List<File> =
+            text.lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .mapNotNull { line ->
+                    if (!line.startsWith("file:/")) return@mapNotNull null
+                    runCatching { File(URI(line)) }.getOrNull()
+                }
+                .toList()
     }
 }
 
