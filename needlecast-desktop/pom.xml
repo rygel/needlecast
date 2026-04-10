@@ -151,6 +151,13 @@
             <groupId>io.github.rygel</groupId>
             <artifactId>sparkle4j</artifactId>
         </dependency>
+
+        <!-- VLCJ — media playback via native VLC -->
+        <dependency>
+            <groupId>uk.co.caprica</groupId>
+            <artifactId>vlcj</artifactId>
+            <version>4.12.1</version>
+        </dependency>
     </dependencies>
 
     <build>
