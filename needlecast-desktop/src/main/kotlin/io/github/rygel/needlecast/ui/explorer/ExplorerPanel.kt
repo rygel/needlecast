@@ -148,6 +148,10 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         openFiles.values.filterIsInstance<EditorPanel>().forEach { it.applyTheme(dark) }
     }
 
+    fun applyEditorFont(family: String?, size: Int) {
+        openFiles.values.filterIsInstance<EditorPanel>().forEach { it.applyFont(family, size) }
+    }
+
     fun requestFocusOnTree() = table.requestFocusInWindow()
 
     /** Check all open editors for unsaved changes before the app closes. */

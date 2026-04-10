@@ -29,11 +29,18 @@ class TerminalPanel(
     initialFg: java.awt.Color? = null,
     initialBg: java.awt.Color? = null,
     initialFontSize: Int = 13,
+    initialFontFamily: String? = null,
 ) : JPanel(BorderLayout()) {
 
     private val logger = LoggerFactory.getLogger(TerminalPanel::class.java)
 
-    private val settingsProvider = QuickLaunchTerminalSettings(dark = dark, initialFg = initialFg, initialBg = initialBg, initialFontSize = initialFontSize).apply {
+    private val settingsProvider = QuickLaunchTerminalSettings(
+        dark = dark,
+        initialFg = initialFg,
+        initialBg = initialBg,
+        initialFontSize = initialFontSize,
+        initialFontFamily = initialFontFamily,
+    ).apply {
         // Read UIManager colours immediately so the initial terminal session
         // matches the active FlatLaf theme.  Without this, the first session
         // uses hardcoded fallback colours until applyTheme() is called later.
@@ -110,6 +117,11 @@ class TerminalPanel(
 
     fun applyFontSize(size: Int) {
         settingsProvider.setFontSize(size)
+        termWidget.repaint()
+    }
+
+    fun applyFontFamily(name: String?) {
+        settingsProvider.setFontFamily(name)
         termWidget.repaint()
     }
 

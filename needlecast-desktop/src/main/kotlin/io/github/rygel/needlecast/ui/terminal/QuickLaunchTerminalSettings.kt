@@ -13,11 +13,13 @@ class QuickLaunchTerminalSettings(
     initialFg: Color? = null,
     initialBg: Color? = null,
     initialFontSize: Int = 13,
+    initialFontFamily: String? = null,
 ) : DefaultSettingsProvider() {
 
     private var isDark: Boolean = dark
     var fontSize: Int = initialFontSize.coerceIn(8, 36)
         private set
+    private var customFontFamily: String? = initialFontFamily?.takeIf { it.isNotBlank() }
 
     /**
      * Platform-best monospace font for terminal rendering.
@@ -37,6 +39,14 @@ class QuickLaunchTerminalSettings(
         }
         val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
         preferred.firstOrNull { it in available } ?: Font.MONOSPACED
+    }
+
+    private val availableFonts: Set<String> by lazy {
+        GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
+    }
+
+    fun setFontFamily(name: String?) {
+        customFontFamily = name?.trim()?.takeIf { it.isNotEmpty() }
     }
 
     fun changeFontSize(delta: Int) {
@@ -98,7 +108,10 @@ class QuickLaunchTerminalSettings(
         themeBackground = bg
     }
 
-    override fun getTerminalFont(): Font = Font(terminalFontName, Font.PLAIN, fontSize)
+    override fun getTerminalFont(): Font {
+        val preferred = customFontFamily?.takeIf { it in availableFonts } ?: terminalFontName
+        return Font(preferred, Font.PLAIN, fontSize)
+    }
 
     override fun getTerminalColorPalette(): ColorPalette = currentPalette
 

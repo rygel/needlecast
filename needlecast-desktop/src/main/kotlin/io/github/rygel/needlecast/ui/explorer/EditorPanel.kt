@@ -52,7 +52,8 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private var currentFile: File? = null
     private var isModified = false
     private var isLoadingFile = false
-    private var editorFontSize = 12
+    private var editorFontSize = ctx.config.editorFontSize.coerceIn(6, 72)
+    private var editorFontFamily = ctx.config.editorFontFamily?.takeIf { it.isNotBlank() } ?: monoFont()
     private var loadWorker: javax.swing.SwingWorker<String, Void>? = null
     private var loadSeq: Long = 0L
     private var pendingCaret: CaretTarget? = null
@@ -60,7 +61,7 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private val fileLabel = JLabel("No file open")
     private val editor = RSyntaxTextArea(20, 80).apply {
         isEditable = true
-        font = Font(monoFont(), Font.PLAIN, editorFontSize)
+        font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
         antiAliasingEnabled = true
         tabSize = 4
         isCodeFoldingEnabled = true
@@ -123,7 +124,8 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         val zoomListener = java.awt.event.MouseWheelListener { e ->
             if (e.isControlDown) {
                 editorFontSize = (editorFontSize - e.wheelRotation.toInt()).coerceIn(6, 72)
-                editor.font = editor.font.deriveFont(editorFontSize.toFloat())
+                editor.font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
+                ctx.updateConfig(ctx.config.copy(editorFontSize = editorFontSize))
                 e.consume()
             }
         }
@@ -154,7 +156,7 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             // Fall back to defaults
         }
         // Preserve current zoom level — RSTA theme XML may override the font
-        editor.font = editor.font.deriveFont(editorFontSize.toFloat())
+        editor.font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
 
         // Derive colors from the active FlatLaf theme so the editor matches the
         // surrounding application.  UIManager colors update when the L&F changes.
@@ -248,6 +250,12 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                 }
             }
         }.also { it.execute() }
+    }
+
+    fun applyFont(family: String?, size: Int) {
+        editorFontFamily = family?.takeIf { it.isNotBlank() } ?: monoFont()
+        editorFontSize = size.coerceIn(6, 72)
+        editor.font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
     }
 
     fun focusLocation(line: Int, column: Int? = null) {

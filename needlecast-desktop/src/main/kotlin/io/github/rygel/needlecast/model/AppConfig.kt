@@ -594,6 +594,16 @@ data class AppConfig(
     val terminalForeground: String? = null,
     /** Terminal font size in points. Range [8, 36]. Default 13. */
     val terminalFontSize: Int = 13,
+    /** Optional UI font family override. Null = theme default. */
+    val uiFontFamily: String? = null,
+    /** Optional UI font size override in points. Null = theme default. */
+    val uiFontSize: Int? = null,
+    /** Optional editor font family override. Null = auto monospace selection. */
+    val editorFontFamily: String? = null,
+    /** Editor font size in points. Range [6, 72]. Default 12. */
+    val editorFontSize: Int = 12,
+    /** Optional terminal font family override. Null = auto monospace selection. */
+    val terminalFontFamily: String? = null,
     /**
      * When true, install hooks into ~/.claude/settings.json for more reliable
      * agent status detection. Causes "Ran N hook" messages in Claude Code UI.
