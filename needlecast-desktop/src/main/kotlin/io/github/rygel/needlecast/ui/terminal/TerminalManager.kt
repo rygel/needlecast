@@ -103,7 +103,17 @@ class TerminalManager : JPanel(CardLayout()) {
         startupCommand: String? = null,
     ) {
         if (!terminals.containsKey(path)) {
-            val pane = ProjectTerminalPane(path, currentDark, extraEnv, shellExecutable, startupCommand, currentFg, currentBg, currentFontSize)
+            val pane = ProjectTerminalPane(
+                path,
+                currentDark,
+                extraEnv,
+                shellExecutable,
+                startupCommand,
+                currentFg,
+                currentBg,
+                currentFontSize,
+                currentFontFamily,
+            )
             pane.onStatusChanged = { status -> onProjectStatusChanged?.invoke(path, status) }
             pane.onFontSizeChanged = { size ->
                 currentFontSize = size
@@ -166,6 +176,7 @@ class TerminalManager : JPanel(CardLayout()) {
     private var currentFg: java.awt.Color? = null
     private var currentBg: java.awt.Color? = null
     private var currentFontSize: Int = 13
+    private var currentFontFamily: String? = null
 
     /** Fired whenever any terminal changes its font size (e.g. Ctrl+scroll). */
     var onFontSizeChanged: ((Int) -> Unit)? = null
@@ -179,6 +190,11 @@ class TerminalManager : JPanel(CardLayout()) {
     fun applyFontSize(size: Int) {
         currentFontSize = size
         terminals.values.forEach { it.applyFontSize(size) }
+    }
+
+    fun applyFontFamily(name: String?) {
+        currentFontFamily = name
+        terminals.values.forEach { it.applyFontFamily(name) }
     }
 
     fun dispose() {
@@ -273,11 +289,13 @@ private class ProjectTerminalPane(
     initialFg: java.awt.Color? = null,
     initialBg: java.awt.Color? = null,
     initialFontSize: Int = 13,
+    initialFontFamily: String? = null,
 ) : JPanel(BorderLayout()) {
 
     private var customFg: java.awt.Color? = initialFg
     private var customBg: java.awt.Color? = initialBg
     private var currentFontSize: Int = initialFontSize
+    private var currentFontFamily: String? = initialFontFamily
 
     var onFontSizeChanged: ((Int) -> Unit)? = null
 
@@ -293,6 +311,13 @@ private class ProjectTerminalPane(
         currentFontSize = size
         for (i in 0 until tabs.tabCount) {
             (tabs.getComponentAt(i) as? TerminalPanel)?.applyFontSize(size)
+        }
+    }
+
+    fun applyFontFamily(name: String?) {
+        currentFontFamily = name
+        for (i in 0 until tabs.tabCount) {
+            (tabs.getComponentAt(i) as? TerminalPanel)?.applyFontFamily(name)
         }
     }
 
@@ -340,6 +365,7 @@ private class ProjectTerminalPane(
             shellExecutable = shellExecutable, startupCommand = startupCommand,
             initialFg = customFg, initialBg = customBg,
             initialFontSize = currentFontSize,
+            initialFontFamily = currentFontFamily,
         )
         terminal.onStatusChanged = { status ->
             tabStatuses[terminal] = status

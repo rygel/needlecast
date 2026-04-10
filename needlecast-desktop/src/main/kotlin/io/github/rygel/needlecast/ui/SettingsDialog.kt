@@ -6,7 +6,6 @@ import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.process.ProcessExecutor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.outerstellar.i18n.Language
-import javax.swing.JComboBox
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.FlowLayout
@@ -16,9 +15,11 @@ import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
 import java.io.File
+import java.awt.image.BufferedImage
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.JButton
+import javax.swing.JComboBox
 import javax.swing.JDialog
 import javax.swing.JFrame
 import javax.swing.JLabel
@@ -33,6 +34,7 @@ import javax.swing.ListSelectionModel
 import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
+import javax.swing.UIManager
 
 class SettingsDialog(
     owner: JFrame,
@@ -42,6 +44,9 @@ class SettingsDialog(
     private val onLayoutChanged: () -> Unit = {},
     private val onTerminalColorsChanged: (fg: java.awt.Color?, bg: java.awt.Color?) -> Unit = { _, _ -> },
     private val onFontSizeChanged: (Int) -> Unit = {},
+    private val onUiFontChanged: (family: String?, size: Int?) -> Unit = { _, _ -> },
+    private val onEditorFontChanged: (family: String?, size: Int) -> Unit = { _, _ -> },
+    private val onTerminalFontChanged: (family: String?) -> Unit = { _ -> },
     private val onSyntaxThemeChanged: () -> Unit = {},
 ) : JDialog(owner, ctx.i18n.translate("settings.title"), true) {
 
@@ -648,11 +653,121 @@ class SettingsDialog(
             gc.gridy = 6; gc.insets = Insets(0, 4, 4, 4)
             add(diagNote, gc)
 
-            // ── Terminal section ──────────────────────────────────────────
+            // ── Fonts section ────────────────────────────────────────────
             gc.gridy = 7; gc.insets = Insets(12, 4, 4, 4)
+            add(JLabel("Fonts").apply { font = font.deriveFont(Font.BOLD) }, gc)
+
+            data class FontChoice(val label: String, val value: String?)
+            fun fontRenderer() = javax.swing.DefaultListCellRenderer().also { renderer ->
+                renderer.foreground = foreground
+            }
+            fun JComboBox<FontChoice>.installRenderer() {
+                setRenderer { list, value, index, isSelected, cellHasFocus ->
+                    val text = value?.label ?: ""
+                    fontRenderer().getListCellRendererComponent(list, text, index, isSelected, cellHasFocus)
+                }
+            }
+
+            val uiBase = uiBaseFont()
+            val allFonts = availableFontFamilies()
+            val monoFonts = availableMonospaceFamilies()
+
+            val uiChoices = (listOf(FontChoice("System default", null)) + allFonts.map { FontChoice(it, it) })
+            val monoChoices = (listOf(FontChoice("Auto (monospace)", null)) + monoFonts.map { FontChoice(it, it) })
+
+            val uiCombo = JComboBox(uiChoices.toTypedArray()).apply {
+                installRenderer()
+                selectedItem = uiChoices.firstOrNull { it.value == ctx.config.uiFontFamily } ?: uiChoices.first()
+                preferredSize = java.awt.Dimension(220, preferredSize.height)
+            }
+            val uiSizeSpinner = javax.swing.JSpinner(
+                javax.swing.SpinnerNumberModel(ctx.config.uiFontSize ?: uiBase.size, 9, 32, 1)
+            ).apply { preferredSize = java.awt.Dimension(70, preferredSize.height) }
+            val uiResetBtn = JButton("Reset").apply {
+                addActionListener {
+                    uiCombo.selectedIndex = 0
+                    uiSizeSpinner.value = uiBase.size
+                    ctx.updateConfig(ctx.config.copy(uiFontFamily = null, uiFontSize = null))
+                    onUiFontChanged(null, null)
+                }
+            }
+            fun saveUiFont() {
+                val choice = uiCombo.selectedItem as? FontChoice
+                val size = uiSizeSpinner.value as Int
+                val sizeValue = if (size == uiBase.size) null else size
+                ctx.updateConfig(ctx.config.copy(uiFontFamily = choice?.value, uiFontSize = sizeValue))
+                onUiFontChanged(choice?.value, sizeValue)
+            }
+            uiCombo.addActionListener { saveUiFont() }
+            uiSizeSpinner.addChangeListener { saveUiFont() }
+
+            val uiRow = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
+                add(JLabel("UI font:"))
+                add(uiCombo)
+                add(JLabel("Size:"))
+                add(uiSizeSpinner)
+                add(uiResetBtn)
+            }
+            gc.gridy = 8; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL
+            add(uiRow, gc)
+
+            val editorCombo = JComboBox(monoChoices.toTypedArray()).apply {
+                installRenderer()
+                selectedItem = monoChoices.firstOrNull { it.value == ctx.config.editorFontFamily } ?: monoChoices.first()
+                preferredSize = java.awt.Dimension(220, preferredSize.height)
+            }
+            val editorSizeSpinner = javax.swing.JSpinner(
+                javax.swing.SpinnerNumberModel(ctx.config.editorFontSize, 6, 72, 1)
+            ).apply { preferredSize = java.awt.Dimension(70, preferredSize.height) }
+            val editorResetBtn = JButton("Reset").apply {
+                addActionListener {
+                    editorCombo.selectedIndex = 0
+                    editorSizeSpinner.value = 12
+                    ctx.updateConfig(ctx.config.copy(editorFontFamily = null, editorFontSize = 12))
+                    onEditorFontChanged(null, 12)
+                }
+            }
+            fun saveEditorFont() {
+                val choice = editorCombo.selectedItem as? FontChoice
+                val size = editorSizeSpinner.value as Int
+                ctx.updateConfig(ctx.config.copy(editorFontFamily = choice?.value, editorFontSize = size))
+                onEditorFontChanged(choice?.value, size)
+            }
+            editorCombo.addActionListener { saveEditorFont() }
+            editorSizeSpinner.addChangeListener { saveEditorFont() }
+
+            val editorRow = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
+                add(JLabel("Editor font:"))
+                add(editorCombo)
+                add(JLabel("Size:"))
+                add(editorSizeSpinner)
+                add(editorResetBtn)
+            }
+            gc.gridy = 9; gc.insets = Insets(4, 4, 4, 4)
+            add(editorRow, gc)
+
+            val terminalCombo = JComboBox(monoChoices.toTypedArray()).apply {
+                installRenderer()
+                selectedItem = monoChoices.firstOrNull { it.value == ctx.config.terminalFontFamily } ?: monoChoices.first()
+                preferredSize = java.awt.Dimension(220, preferredSize.height)
+            }
+            terminalCombo.addActionListener {
+                val choice = terminalCombo.selectedItem as? FontChoice
+                ctx.updateConfig(ctx.config.copy(terminalFontFamily = choice?.value))
+                onTerminalFontChanged(choice?.value)
+            }
+            val terminalRow = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
+                add(JLabel("Terminal font:"))
+                add(terminalCombo)
+            }
+            gc.gridy = 10; gc.insets = Insets(4, 4, 4, 4)
+            add(terminalRow, gc)
+
+            // ── Terminal section ──────────────────────────────────────────
+            gc.gridy = 11; gc.insets = Insets(12, 4, 4, 4)
             add(JLabel("Terminal").apply { font = font.deriveFont(Font.BOLD) }, gc)
 
-            gc.gridy = 8; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.WEST
+            gc.gridy = 12; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.WEST
             val fontSizeSpinner = javax.swing.JSpinner(
                 javax.swing.SpinnerNumberModel(ctx.config.terminalFontSize, 8, 36, 1)
             ).apply { preferredSize = java.awt.Dimension(70, preferredSize.height) }
@@ -666,7 +781,7 @@ class SettingsDialog(
                 onFontSizeChanged(size)
             }
 
-            gc.gridy = 9; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL
+            gc.gridy = 13; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL
             add(JLabel("Default shell (per-project shell overrides this):"), gc)
 
             // Detect installed shells in background, populate combo when ready
@@ -703,9 +818,9 @@ class SettingsDialog(
                 revalidate(); repaint()
             }
 
-            gc.gridy = 10; gc.fill = GridBagConstraints.HORIZONTAL
+            gc.gridy = 14; gc.fill = GridBagConstraints.HORIZONTAL
             add(shellCombo, gc)
-            gc.gridy = 11
+            gc.gridy = 15
             add(shellField, gc)
 
             val applyShellBtn = JButton("Apply").apply {
@@ -720,9 +835,9 @@ class SettingsDialog(
             val shellNote = JLabel("<html><i>Takes effect on next terminal activation.</i></html>").apply {
                 font = font.deriveFont(Font.PLAIN, font.size2D - 1f)
             }
-            gc.gridy = 12; gc.insets = Insets(0, 4, 4, 4)
+            gc.gridy = 16; gc.insets = Insets(0, 4, 4, 4)
             add(shellNote, gc)
-            gc.gridy = 13; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.EAST
+            gc.gridy = 17; gc.insets = Insets(4, 4, 4, 4); gc.fill = GridBagConstraints.NONE; gc.anchor = GridBagConstraints.EAST
             add(applyShellBtn, gc)
 
             // Load shells in background; cancel if the dialog closes before detection finishes
@@ -751,7 +866,7 @@ class SettingsDialog(
             shellWorker.execute()
 
             // ── Terminal colors section ───────────────────────────────────
-            gc.gridy = 14; gc.insets = Insets(16, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL; gc.anchor = GridBagConstraints.WEST
+            gc.gridy = 18; gc.insets = Insets(16, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL; gc.anchor = GridBagConstraints.WEST
             add(JLabel("Terminal Colors").apply { font = font.deriveFont(Font.BOLD) }, gc)
 
             fun colorSwatch(hex: String?): JButton {
@@ -815,17 +930,17 @@ class SettingsDialog(
                 add(bgSwatch)
                 add(resetColorsBtn)
             }
-            gc.gridy = 15; gc.insets = Insets(4, 4, 4, 4)
+            gc.gridy = 19; gc.insets = Insets(4, 4, 4, 4)
             add(colorRow, gc)
 
             val colorNote = JLabel("<html><i>Click a swatch to pick a color. Takes full effect in new terminal tabs.</i></html>").apply {
                 font = font.deriveFont(Font.PLAIN, font.size2D - 1f)
             }
-            gc.gridy = 16; gc.insets = Insets(0, 4, 4, 4)
+            gc.gridy = 20; gc.insets = Insets(0, 4, 4, 4)
             add(colorNote, gc)
 
             // ── Syntax highlight theme section ────────────────────────────
-            gc.gridy = 17; gc.insets = Insets(16, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL; gc.anchor = GridBagConstraints.WEST
+            gc.gridy = 21; gc.insets = Insets(16, 4, 4, 4); gc.fill = GridBagConstraints.HORIZONTAL; gc.anchor = GridBagConstraints.WEST
             add(JLabel("Syntax Theme").apply { font = font.deriveFont(Font.BOLD) }, gc)
 
             val syntaxThemes = linkedMapOf(
@@ -848,11 +963,11 @@ class SettingsDialog(
                 ctx.updateConfig(ctx.config.copy(syntaxTheme = key))
                 onSyntaxThemeChanged()
             }
-            gc.gridy = 18; gc.insets = Insets(4, 4, 4, 4)
+            gc.gridy = 22; gc.insets = Insets(4, 4, 4, 4)
             add(syntaxThemeCombo, gc)
 
             // Spacer
-            gc.gridy = 19; gc.fill = GridBagConstraints.BOTH; gc.weighty = 1.0; gc.anchor = GridBagConstraints.WEST
+            gc.gridy = 23; gc.fill = GridBagConstraints.BOTH; gc.weighty = 1.0; gc.anchor = GridBagConstraints.WEST
             add(JPanel(), gc)
         }
     }
@@ -925,6 +1040,32 @@ class SettingsDialog(
             else -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono")
         }
         return preferred.firstOrNull { it in available } ?: Font.MONOSPACED
+    }
+
+    private fun uiBaseFont(): Font {
+        return UIManager.getFont("defaultFont")
+            ?: UIManager.getFont("Label.font")
+            ?: Font(Font.SANS_SERIF, Font.PLAIN, 12)
+    }
+
+    private fun availableFontFamilies(): List<String> =
+        GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toList().sorted()
+
+    private fun availableMonospaceFamilies(): List<String> {
+        val candidates = availableFontFamilies()
+        return candidates.filter { isMonospaced(it) }
+    }
+
+    private fun isMonospaced(name: String): Boolean {
+        val font = Font(name, Font.PLAIN, 12)
+        val img = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
+        val g = img.createGraphics()
+        val fm = g.getFontMetrics(font)
+        val w1 = fm.charWidth('i')
+        val w2 = fm.charWidth('W')
+        val w3 = fm.charWidth('m')
+        g.dispose()
+        return w1 > 0 && w1 == w2 && w2 == w3
     }
 
     companion object {
