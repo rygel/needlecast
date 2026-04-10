@@ -153,6 +153,7 @@ class ProjectTreePanel(
         tree.ui = FullWidthTreeUI()
         tree.cellRenderer = ProjectTreeCellRenderer()
         tree.dropMode = DropMode.ON_OR_INSERT
+        tree.dragEnabled = true
         tree.transferHandler = TreeTransferHandler()
         tree.addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
             override fun mouseDragged(e: java.awt.event.MouseEvent) {
@@ -1152,6 +1153,15 @@ class ProjectTreePanel(
         private val uriListFlavor: DataFlavor? = try {
             DataFlavor("text/uri-list;class=java.lang.String")
         } catch (_: Exception) { null }
+        private val uriListReaderFlavor: DataFlavor? = try {
+            DataFlavor("text/uri-list;class=java.io.Reader")
+        } catch (_: Exception) { null }
+        private val uriListInputFlavor: DataFlavor? = try {
+            DataFlavor("text/uri-list;class=java.io.InputStream")
+        } catch (_: Exception) { null }
+        private val urlFlavor: DataFlavor? = try {
+            DataFlavor("application/x-java-url;class=java.net.URL")
+        } catch (_: Exception) { null }
 
         override fun getSourceActions(c: JComponent) = MOVE
 
@@ -1171,7 +1181,10 @@ class ProjectTreePanel(
 
         private fun isExternalDrop(support: TransferSupport): Boolean =
             support.isDataFlavorSupported(DataFlavor.javaFileListFlavor) ||
-                    (uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor))
+                    (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) ||
+                    (uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor)) ||
+                    (uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor)) ||
+                    (uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor))
 
         /**
          * JTree sometimes reports an INSERT drop even when the cursor is centered on a folder row.
@@ -1323,16 +1336,45 @@ class ProjectTreePanel(
                         ?: emptyList()
                 } catch (_: Exception) { emptyList() }
             }
-            val uriF = uriListFlavor ?: return emptyList()
-            return try {
-                val text = support.transferable.getTransferData(uriF) as? String ?: return emptyList()
-                text.lines()
-                    .map { it.trim() }
-                    .filter { it.startsWith("file://") && !it.startsWith("#") }
-                    .mapNotNull { runCatching { File(URI(it)) }.getOrNull() }
-                    .filter { it.isDirectory }
-            } catch (_: Exception) { emptyList() }
+            if (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) {
+                return try {
+                    val url = support.transferable.getTransferData(urlFlavor) as? java.net.URL
+                    val file = url?.toURI()?.let { File(it) }
+                    if (file != null && file.isDirectory) listOf(file) else emptyList()
+                } catch (_: Exception) { emptyList() }
+            }
+            val text = readUriListText(support) ?: return emptyList()
+            return parseUriList(text)
         }
+
+        private fun readUriListText(support: TransferSupport): String? {
+            return try {
+                when {
+                    uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor) ->
+                        support.transferable.getTransferData(uriListFlavor) as? String
+                    uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor) -> {
+                        val reader = support.transferable.getTransferData(uriListReaderFlavor) as? java.io.Reader
+                        reader?.readText()
+                    }
+                    uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor) -> {
+                        val stream = support.transferable.getTransferData(uriListInputFlavor) as? java.io.InputStream
+                        stream?.bufferedReader()?.readText()
+                    }
+                    else -> null
+                }
+            } catch (_: Exception) { null }
+        }
+
+        private fun parseUriList(text: String): List<File> =
+            text.lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .mapNotNull { line ->
+                    if (!line.startsWith("file:/")) return@mapNotNull null
+                    runCatching { File(URI(line)) }.getOrNull()
+                }
+                .filter { it.isDirectory }
+                .toList()
 
         /** Walks the tree and returns all project paths currently registered. */
         private fun collectAllPaths(root: DefaultMutableTreeNode): MutableSet<String> {
