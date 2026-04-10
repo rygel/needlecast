@@ -58,6 +58,7 @@ class ProjectTreePanel(
     private val onProjectSelected: (DetectedProject?) -> Unit,
     private val onActivate: (DetectedProject) -> Unit = {},
     private val onDeactivate: (DetectedProject) -> Unit = {},
+    private val onExternalFilesDropped: (List<File>) -> Unit = {},
 ) : JPanel(BorderLayout()) {
 
     private val rootNode = DefaultMutableTreeNode("root")
@@ -1311,8 +1312,8 @@ class ProjectTreePanel(
 
         /** Handles a drop of one or more folders dragged from the OS file manager. */
         private fun importExternal(support: TransferSupport): Boolean {
-            val dirs = dirsFromExternal(support)
-            if (dirs.isEmpty()) return false
+            val (dirs, files) = entriesFromExternal(support)
+            if (dirs.isEmpty() && files.isEmpty()) return false
             val dl = support.dropLocation as? JTree.DropLocation ?: return false
             val (newParent, startIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
 
@@ -1332,13 +1333,18 @@ class ProjectTreePanel(
                 scanProject(directory)
             }
 
-            if (lastNode == null) return false  // all dropped dirs were duplicates
-            if (newParent !== rootNode) tree.expandPath(TreePath(newParent.path))
-            val tp = treePath(lastNode)
-            tree.selectionPath = tp
-            tree.scrollPathToVisible(tp)
-            persist()
-            return true
+            if (files.isNotEmpty()) {
+                onExternalFilesDropped(files)
+            }
+
+            if (lastNode != null) {
+                if (newParent !== rootNode) tree.expandPath(TreePath(newParent.path))
+                val tp = treePath(lastNode)
+                tree.selectionPath = tp
+                tree.scrollPathToVisible(tp)
+                persist()
+            }
+            return lastNode != null || files.isNotEmpty()
         }
 
         /**
@@ -1347,24 +1353,31 @@ class ProjectTreePanel(
          * - Linux (GTK file managers): same flavor via AWT, with [uriListFlavor] as fallback
          */
         @Suppress("UNCHECKED_CAST")
-        private fun dirsFromExternal(support: TransferSupport): List<File> {
+        private fun entriesFromExternal(support: TransferSupport): Pair<List<File>, List<File>> {
             if (support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-                return try {
+                val items = try {
                     (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
                         ?.filterIsInstance<File>()
-                        ?.filter { it.isDirectory }
                         ?: emptyList()
                 } catch (_: Exception) { emptyList() }
+                val dirs = items.filter { it.isDirectory }
+                val files = items.filter { it.isFile }
+                return dirs to files
             }
             if (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) {
                 return try {
                     val url = support.transferable.getTransferData(urlFlavor) as? java.net.URL
                     val file = url?.toURI()?.let { File(it) }
-                    if (file != null && file.isDirectory) listOf(file) else emptyList()
-                } catch (_: Exception) { emptyList() }
+                    val dirs = if (file != null && file.isDirectory) listOf(file) else emptyList()
+                    val files = if (file != null && file.isFile) listOf(file) else emptyList()
+                    dirs to files
+                } catch (_: Exception) { emptyList<File>() to emptyList() }
             }
-            val text = readUriListText(support) ?: return emptyList()
-            return parseUriList(text)
+            val text = readUriListText(support) ?: return emptyList<File>() to emptyList()
+            val items = parseUriList(text)
+            val dirs = items.filter { it.isDirectory }
+            val files = items.filter { it.isFile }
+            return dirs to files
         }
 
         private fun readUriListText(support: TransferSupport): String? {
@@ -1393,7 +1406,6 @@ class ProjectTreePanel(
                     if (!line.startsWith("file:/")) return@mapNotNull null
                     runCatching { File(URI(line)) }.getOrNull()
                 }
-                .filter { it.isDirectory }
                 .toList()
 
         /** Walks the tree and returns all project paths currently registered. */
