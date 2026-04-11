@@ -7,6 +7,7 @@ import io.github.rygel.needlecast.model.GitStatus
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.scanner.BuildFileWatcher
+import io.github.rygel.needlecast.scanner.IS_MAC
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
@@ -764,7 +765,11 @@ class ProjectTreePanel(
         val dir = entry.directory
         val shellField = JTextField(dir.shellExecutable ?: "", 30)
         val startupField = JTextField(dir.startupCommand ?: "", 30)
-        val defaultShell = if (IS_WINDOWS) "cmd.exe" else "/bin/bash"
+        val defaultShell = when {
+            IS_WINDOWS -> "cmd.exe"
+            IS_MAC     -> "/bin/zsh"
+            else       -> "/bin/bash"
+        }
         val form = JPanel(GridBagLayout()).apply {
             border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
             val gc = GridBagConstraints().apply { insets = Insets(4, 4, 4, 4); anchor = GridBagConstraints.WEST }
