@@ -9,6 +9,7 @@ import org.assertj.swing.edt.GuiActionRunner
 import org.assertj.swing.edt.GuiQuery
 import org.assertj.swing.fixture.FrameFixture
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -137,6 +138,51 @@ class GitLogPanelUiTest {
         fixture.button("btn-fetch").requireVisible()
         fixture.button("btn-push").requireVisible()
         fixture.button("btn-pull").requireVisible()
+    }
+
+    @Test
+    fun `commit card shows changed files returned by git service`() {
+        val files = listOf(
+            ChangedFile("src/Main.kt", " M"),
+            ChangedFile("new-file.txt", "??"),
+        )
+        val fake = FakeGitService(changedFilesList = files)
+        panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
+        fixture = showInFrame(panel)
+        GuiActionRunner.execute { panel.loadProject(tempDir.toString()) }
+
+        fixture.toggleButton("toggle-commit").click()
+        robot.waitForIdle()
+        Thread.sleep(200)   // allow refreshChangedFiles SwingWorker to complete
+        robot.waitForIdle()
+
+        val fileList = robot.finder().findByName(panel, "changed-files-list", JList::class.java, true)
+        val count = GuiActionRunner.execute(object : GuiQuery<Int>() {
+            override fun executeInEDT(): Int = fileList.model.size
+        })
+        assertEquals(2, count)
+    }
+
+    @Test
+    fun `commit button stages checked files and commits with the typed message`() {
+        val files = listOf(ChangedFile("src/Main.kt", " M"))
+        val fake = FakeGitService(changedFilesList = files)
+        panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
+        fixture = showInFrame(panel)
+        GuiActionRunner.execute { panel.loadProject(tempDir.toString()) }
+
+        fixture.toggleButton("toggle-commit").click()
+        robot.waitForIdle()
+        Thread.sleep(200)
+        robot.waitForIdle()
+
+        fixture.textBox("commit-message").enterText("my commit message")
+        fixture.button("btn-commit-ok").click()
+        Thread.sleep(200)
+        robot.waitForIdle()
+
+        assertEquals(listOf("src/Main.kt"), fake.stagedFiles)
+        assertEquals("my commit message", fake.committedMessage)
     }
 
     private fun waitForListSize(size: Int, timeoutMs: Long) {

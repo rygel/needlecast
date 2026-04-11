@@ -14,8 +14,10 @@ import javax.swing.BorderFactory
 import javax.swing.ButtonGroup
 import javax.swing.DefaultListModel
 import javax.swing.JButton
+import javax.swing.JCheckBox
 import javax.swing.JLabel
 import javax.swing.JList
+import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JSplitPane
@@ -108,13 +110,13 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
             }
         }
 
-        cardPanel.add(split,    "log")
-        cardPanel.add(JPanel(), "commit")   // placeholder — replaced in Task 4
-        cardPanel.add(JPanel(), "output")   // placeholder — replaced in Task 5
+        cardPanel.add(split,              "log")
+        cardPanel.add(buildCommitCard(), "commit")
+        cardPanel.add(JPanel(),          "output")   // placeholder — replaced in Task 5
 
         ButtonGroup().apply { add(logToggle); add(commitToggle) }
         logToggle.addActionListener    { cardLayout.show(cardPanel, "log") }
-        commitToggle.addActionListener { cardLayout.show(cardPanel, "commit") }
+        commitToggle.addActionListener { refreshChangedFiles(); cardLayout.show(cardPanel, "commit") }
         fetchButton.addActionListener  { }   // wired in Task 5
         pushButton.addActionListener   { }   // wired in Task 5
         pullButton.addActionListener   { }   // wired in Task 5
@@ -162,6 +164,100 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    private fun buildCommitCard(): JPanel {
+        fileList.setCellRenderer(FileCheckboxRenderer())
+        fileList.addMouseListener(object : java.awt.event.MouseAdapter() {
+            override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                val index = fileList.locationToIndex(e.point)
+                if (index < 0 || index >= fileListModel.size) return
+                val file = fileListModel.getElementAt(index)
+                if (file.path in checkedFiles) checkedFiles.remove(file.path)
+                else checkedFiles.add(file.path)
+                fileList.repaint()
+            }
+        })
+
+        commitButton.addActionListener { onCommitClicked() }
+        cancelButton.addActionListener {
+            commitMessageField.text = ""
+            commitMessageField.border = null
+            logToggle.isSelected = true
+            cardLayout.show(cardPanel, "log")
+        }
+
+        val bottomPanel = JPanel(BorderLayout(4, 0)).apply {
+            border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
+            add(commitMessageField, BorderLayout.CENTER)
+            add(JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+                add(commitButton); add(cancelButton)
+            }, BorderLayout.EAST)
+        }
+
+        return JPanel(BorderLayout()).apply {
+            add(JScrollPane(fileList), BorderLayout.CENTER)
+            add(bottomPanel,           BorderLayout.SOUTH)
+        }
+    }
+
+    private fun refreshChangedFiles() {
+        val path = currentPath ?: run { fileListModel.clear(); return }
+        object : SwingWorker<List<ChangedFile>, Void>() {
+            override fun doInBackground(): List<ChangedFile> = gitService.changedFiles(path)
+            override fun done() {
+                val files = try { get() } catch (_: Exception) { return }
+                fileListModel.clear()
+                checkedFiles.clear()
+                files.forEach {
+                    fileListModel.addElement(it)
+                    checkedFiles.add(it.path)   // all checked by default
+                }
+            }
+        }.execute()
+    }
+
+    private fun onCommitClicked() {
+        val message = commitMessageField.text.trim()
+        if (message.isEmpty()) {
+            commitMessageField.border = BorderFactory.createLineBorder(Color.RED)
+            return
+        }
+        commitMessageField.border = null
+        val path = currentPath ?: return
+        val filesToStage = (0 until fileListModel.size)
+            .map { fileListModel.getElementAt(it) }
+            .filter { it.path in checkedFiles }
+            .map { it.path }
+
+        commitButton.isEnabled = false
+        cancelButton.isEnabled = false
+
+        object : SwingWorker<Unit, Void>() {
+            override fun doInBackground() {
+                gitService.stage(path, filesToStage)
+                gitService.commit(path, message)
+            }
+            override fun done() {
+                commitButton.isEnabled = true
+                cancelButton.isEnabled = true
+                try {
+                    get()
+                } catch (e: Exception) {
+                    JOptionPane.showMessageDialog(
+                        this@GitLogPanel,
+                        e.cause?.message ?: e.message,
+                        "Commit failed",
+                        JOptionPane.ERROR_MESSAGE,
+                    )
+                    return
+                }
+                commitMessageField.text = ""
+                logToggle.isSelected = true
+                cardLayout.show(cardPanel, "log")
+                loadProject(currentPath)
+            }
+        }.execute()
+    }
 
     private fun showCommit(hash: String) {
         val path = currentPath ?: return
@@ -211,6 +307,30 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
             panel.isOpaque          = true
             subjectLabel.foreground = if (isSelected) list.selectionForeground else list.foreground
             return panel
+        }
+    }
+
+    private inner class FileCheckboxRenderer : ListCellRenderer<ChangedFile> {
+        private val checkBox = JCheckBox().apply { isOpaque = true }
+
+        override fun getListCellRendererComponent(
+            list: JList<out ChangedFile>, value: ChangedFile?,
+            index: Int, isSelected: Boolean, cellHasFocus: Boolean,
+        ): Component {
+            val file = value ?: return checkBox
+            val badge = file.statusCode.trim().firstOrNull()?.toString() ?: "?"
+            checkBox.text       = "[$badge] ${file.path}"
+            checkBox.isSelected = file.path in checkedFiles
+            checkBox.background = if (isSelected) list.selectionBackground else list.background
+            checkBox.foreground = statusColor(file.statusCode)
+            return checkBox
+        }
+
+        private fun statusColor(statusCode: String): Color = when {
+            statusCode.any { it == 'M' } -> Color(0x4070C0)   // modified — blue
+            statusCode.any { it == 'A' } -> Color(0x40A040)   // added — green
+            statusCode.any { it == 'D' } -> Color(0xC04040)   // deleted — red
+            else                          -> Color(0x888888)   // untracked / other — grey
         }
     }
 }
