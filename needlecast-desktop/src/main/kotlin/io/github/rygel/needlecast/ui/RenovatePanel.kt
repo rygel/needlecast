@@ -143,6 +143,7 @@ class RenovatePanel : JPanel(BorderLayout()) {
     private val summaryLabel = JLabel(" ").apply {
         border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
     }
+    private val defaultSummaryFg: Color = summaryLabel.foreground
     private val logArea = JTextArea().apply {
         isEditable = false
         lineWrap = false
@@ -238,8 +239,10 @@ class RenovatePanel : JPanel(BorderLayout()) {
         summaryLabel.text = "Scanning\u2026"
         logArea.text = ""
 
-        object : SwingWorker<List<DepUpdate>, String>() {
-            override fun doInBackground(): List<DepUpdate> {
+        object : SwingWorker<List<DepUpdate>?, String>() {
+            private var scanError: String? = null
+
+            override fun doInBackground(): List<DepUpdate>? {
                 val reportPath = reportFile.absolutePath.replace('\\', '/')
                 val cmd = "renovate --platform=local --report-type=file --report-path=\"$reportPath\""
                 val logLevel = if (verboseLogsCheck.isSelected) "debug" else "info"
@@ -256,7 +259,10 @@ class RenovatePanel : JPanel(BorderLayout()) {
                 }
                 val exitCode = proc.waitFor()
                 publish("[exit] renovate exited with code $exitCode")
-                if (exitCode != 0 || !reportFile.exists()) return emptyList()
+                if (exitCode != 0 || !reportFile.exists()) {
+                    scanError = "Renovate failed (exit code $exitCode) — enable logs to see details."
+                    return null
+                }
                 return parseReport(reportFile)
             }
 
@@ -275,10 +281,19 @@ class RenovatePanel : JPanel(BorderLayout()) {
 
             override fun done() {
                 val result = try { get() } catch (e: Exception) {
+                    summaryLabel.foreground = Color(0xF44336)
                     summaryLabel.text = "Error: ${e.cause?.message ?: e.message}"
                     setButtonsEnabled(true)
                     return
                 }
+                if (result == null) {
+                    summaryLabel.foreground = Color(0xF44336)
+                    summaryLabel.text = scanError ?: "Renovate scan failed."
+                    setButtonsEnabled(true)
+                    reportFile.delete()
+                    return
+                }
+                summaryLabel.foreground = defaultSummaryFg
                 updates.clear()
                 updates.addAll(result)
                 tableModel.fireTableDataChanged()
@@ -312,14 +327,18 @@ class RenovatePanel : JPanel(BorderLayout()) {
         if (selected.isEmpty()) return
 
         val msg = buildString {
-            append("Apply ${selected.size} update(s)?\n\n")
+            append("<html>Apply ${selected.size} update(s)?<br><br>")
             val majors = selected.filter { it.updateType == "major" }
             if (majors.isNotEmpty()) {
-                append("WARNING: ${majors.size} major update(s) may contain breaking changes:\n")
-                majors.forEach { append("  \u2022 ${it.depName} ${it.currentValue} \u2192 ${it.newValue}\n") }
-                append("\n")
+                append("WARNING: ${majors.size} major update(s) may contain breaking changes:<br>")
+                majors.forEach {
+                    val dep = it.depName.replace("&", "&amp;").replace("<", "&lt;")
+                    append("&nbsp;&nbsp;\u2022 $dep ${it.currentValue} \u2192 ${it.newValue}<br>")
+                }
+                append("<br>")
             }
-            append("Files will be modified in:\n$dir")
+            val escapedDir = dir.replace("&", "&amp;").replace("<", "&lt;")
+            append("Files will be modified in:<br>$escapedDir</html>")
         }
         val confirm = JOptionPane.showConfirmDialog(this, msg, "Apply Updates",
             JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE)
@@ -487,7 +506,6 @@ class RenovatePanel : JPanel(BorderLayout()) {
                     statusLabel.text = "\u2717 Not installed (install via Settings)"
                     statusLabel.toolTipText = null
                     statusLabel.foreground = Color(0xF44336)
-                    runButton.isEnabled = false
                 }
             }
         }.execute()
