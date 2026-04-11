@@ -112,14 +112,14 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
 
         cardPanel.add(split,              "log")
         cardPanel.add(buildCommitCard(), "commit")
-        cardPanel.add(JPanel(),          "output")   // placeholder — replaced in Task 5
+        cardPanel.add(buildOutputCard(), "output")
 
         ButtonGroup().apply { add(logToggle); add(commitToggle) }
         logToggle.addActionListener    { cardLayout.show(cardPanel, "log") }
         commitToggle.addActionListener { refreshChangedFiles(); cardLayout.show(cardPanel, "commit") }
-        fetchButton.addActionListener  { }   // wired in Task 5
-        pushButton.addActionListener   { }   // wired in Task 5
-        pullButton.addActionListener   { }   // wired in Task 5
+        fetchButton.addActionListener { runRemoteOp("Fetch") { dir, cb -> gitService.fetchStreaming(dir, cb) } }
+        pushButton.addActionListener  { runRemoteOp("Push")  { dir, cb -> gitService.pushStreaming(dir, cb)  } }
+        pullButton.addActionListener  { runRemoteOp("Pull")  { dir, cb -> gitService.pullStreaming(dir, cb)  } }
 
         val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
             add(logToggle); add(commitToggle)
@@ -257,6 +257,54 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
                 loadProject(path)
             }
         }.execute()
+    }
+
+    private fun buildOutputCard(): JPanel {
+        closeButton.addActionListener {
+            logToggle.isSelected = true
+            cardLayout.show(cardPanel, "log")
+            loadProject(currentPath)
+        }
+        return JPanel(BorderLayout()).apply {
+            add(outputLabel, BorderLayout.NORTH)
+            add(JScrollPane(outputArea), BorderLayout.CENTER)
+            add(JPanel(FlowLayout(FlowLayout.RIGHT)).apply { add(closeButton) }, BorderLayout.SOUTH)
+        }
+    }
+
+    private fun runRemoteOp(label: String, op: (String, (String) -> Unit) -> Int) {
+        val path = currentPath ?: return
+        outputLabel.text = "$label\u2026"
+        outputArea.text  = ""
+        closeButton.isEnabled = false
+        setRemoteButtonsEnabled(false)
+        cardLayout.show(cardPanel, "output")
+
+        object : SwingWorker<Int, String>() {
+            override fun doInBackground(): Int = op(path) { line -> publish(line) }
+            override fun process(chunks: List<String>) {
+                chunks.forEach { outputArea.append("$it\n") }
+                outputArea.caretPosition = outputArea.document.length
+            }
+            override fun done() {
+                val exitCode = try { get() } catch (_: Exception) { -1 }
+                if (exitCode == 0) {
+                    outputArea.append("\u2713 Done\n")
+                    outputLabel.text = "$label \u2014 Done"
+                } else {
+                    outputArea.append("\u2717 Failed (exit $exitCode)\n")
+                    outputLabel.text = "$label \u2014 Failed"
+                }
+                closeButton.isEnabled = true
+                setRemoteButtonsEnabled(true)
+            }
+        }.execute()
+    }
+
+    private fun setRemoteButtonsEnabled(enabled: Boolean) {
+        fetchButton.isEnabled = enabled
+        pushButton.isEnabled  = enabled
+        pullButton.isEnabled  = enabled
     }
 
     private fun showCommit(hash: String) {

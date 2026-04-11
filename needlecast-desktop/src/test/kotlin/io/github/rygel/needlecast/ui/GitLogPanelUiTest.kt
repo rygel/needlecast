@@ -18,6 +18,8 @@ import java.nio.file.Path
 import javax.swing.JFrame
 import javax.swing.JList
 import javax.swing.JTextArea
+import javax.swing.JToggleButton
+import org.junit.jupiter.api.Assertions.assertTrue
 
 private class FakeGitService(
     val logLines: String? = "",
@@ -182,6 +184,54 @@ class GitLogPanelUiTest {
 
         assertEquals(listOf("src/Main.kt"), fake.stagedFiles)
         assertEquals("my commit message", fake.committedMessage)
+    }
+
+    @Test
+    fun `clicking Fetch switches to output card and streams git output`() {
+        val fake = FakeGitService(streamingLines = listOf("remote: Counting objects: 3", "remote: done."))
+        panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
+        fixture = showInFrame(panel)
+        GuiActionRunner.execute { panel.loadProject(tempDir.toString()) }
+        robot.waitForIdle()
+
+        fixture.button("btn-fetch").click()
+
+        val area = robot.finder().findByName(panel, "output-area", JTextArea::class.java, true)
+        waitUntil(3_000) { area.text.contains("✓ Done") }
+        robot.waitForIdle()
+
+        val text = GuiActionRunner.execute(object : GuiQuery<String>() {
+            override fun executeInEDT(): String = area.text
+        })
+        assertTrue(text.contains("remote: Counting objects: 3"), "Expected first streamed line in output area")
+        assertTrue(text.contains("remote: done."),               "Expected second streamed line in output area")
+        assertTrue(text.contains("✓ Done"),                      "Expected done marker in output area")
+        fixture.button("btn-output-close").requireEnabled()
+    }
+
+    @Test
+    fun `clicking Close on output card returns to log view`() {
+        val fake = FakeGitService(streamingLines = emptyList())
+        panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
+        fixture = showInFrame(panel)
+        GuiActionRunner.execute { panel.loadProject(tempDir.toString()) }
+        robot.waitForIdle()
+
+        fixture.button("btn-fetch").click()
+        waitUntil(3_000) {
+            robot.finder().findByName(panel, "output-area", JTextArea::class.java, true)
+                .text.contains("✓ Done")
+        }
+        robot.waitForIdle()
+
+        fixture.button("btn-output-close").click()
+        robot.waitForIdle()
+
+        val logToggleSelected = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
+            override fun executeInEDT(): Boolean =
+                robot.finder().findByName(panel, "toggle-log", JToggleButton::class.java, true).isSelected
+        })
+        assertTrue(logToggleSelected, "Expected Log toggle to be selected after Close")
     }
 
     private fun waitUntil(timeoutMs: Long, condition: () -> Boolean) {
