@@ -2,6 +2,21 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.18] — 2026-04-11
+
+### Added
+- **Find-in-files search panel** — full-text search across all files in the active project; supports regex, case-sensitive mode, and file glob filtering; results show file path, line number, and matching line content.
+- **OS file-manager drops across the app** — drag folders from macOS Finder or Windows Explorer and drop them anywhere in the Needlecast window to add projects; handles both file and folder drag flavors.
+- **VLC media player in Explorer** — click `.mp3`, `.mp4`, `.avi`, `.mkv`, and other common media files in the Explorer panel to open them in VLC (must be installed separately).
+- **Font settings for UI, editor, and terminal** — configure UI font family and size, and editor/terminal font, independently from Settings.
+- **Renovate scan logs and verbose mode** — the Renovate panel now exposes a collapsible log area showing raw scan output; a new verbose toggle enables detailed dependency scanning.
+- **Missing directory indicator in project tree** — projects whose directory no longer exists on disk are highlighted in red with a ⚠ warning icon and a "Directory not found" tooltip; scanning is skipped for missing paths.
+
+### Fixed
+- **Mac drag-and-drop reliability** — improved handling of macOS-specific drag flavors so project drag-and-drop works consistently on Mac.
+
+---
+
 ## [0.6.17] — 2026-04-09
 
 ### Added
