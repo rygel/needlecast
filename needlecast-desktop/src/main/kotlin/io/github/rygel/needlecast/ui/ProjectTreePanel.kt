@@ -219,9 +219,21 @@ class ProjectTreePanel(
                 is ProjectTreeEntry.Project -> scanResults[entry.directory.path]
                 else -> null
             }
+            val selectionTimeNs = System.nanoTime()
+            if (isClickTraceEnabled()) {
+                val key = entryKey(node.userObject)
+                val row = tree.leadSelectionRow
+                val dtMs = if (lastClickTimeNs > 0L) (selectionTimeNs - lastClickTimeNs) / 1_000_000 else -1
+                val match = key != null && key == lastClickKey
+                logger.info("tree-select seq={} row={} key={} dtFromClickMs={} match={}", clickSeq, row, key, dtMs, match)
+            }
             // Defer to allow the selection highlight repaint to fire first,
             // so the click feels instant even if downstream work (dir listing, etc.) is slow.
             SwingUtilities.invokeLater {
+                if (isClickTraceEnabled()) {
+                    val delayMs = (System.nanoTime() - selectionTimeNs) / 1_000_000
+                    logger.info("tree-select-callback seq={} delayMs={}", clickSeq, delayMs)
+                }
                 onProjectSelected(project)
             }
         }
@@ -233,8 +245,39 @@ class ProjectTreePanel(
                     // use the closest path within the row bounds instead.
                     val closest = tree.getClosestPathForLocation(e.x, e.y)
                     val bounds  = if (closest != null) tree.getPathBounds(closest) else null
-                    dragPressedPath = if (bounds != null && e.y >= bounds.y && e.y < bounds.y + bounds.height) closest else null
+                    val inRow = if (bounds != null && closest != null) {
+                        val row = tree.getRowForPath(closest)
+                        val node = closest.lastPathComponent
+                        val rendererHeight = if (row >= 0) {
+                            val renderer = tree.cellRenderer.getTreeCellRendererComponent(
+                                tree,
+                                node,
+                                tree.isRowSelected(row),
+                                tree.isExpanded(row),
+                                tree.model.isLeaf(node),
+                                row,
+                                tree.leadSelectionRow == row,
+                            )
+                            renderer.preferredSize.height
+                        } else bounds.height
+                        val effectiveHeight = maxOf(bounds.height, rendererHeight)
+                        e.y >= bounds.y && e.y < bounds.y + effectiveHeight
+                    } else false
+                    dragPressedPath = if (inRow) closest else null
                     dragPressPoint  = if (dragPressedPath != null) java.awt.Point(e.x, e.y) else null
+                    // Ensure a single click anywhere on the row selects immediately
+                    // (including the empty area to the right of the renderer).
+                    if (inRow && closest != null) {
+                        if (isClickTraceEnabled()) {
+                            clickSeq++
+                            lastClickTimeNs = System.nanoTime()
+                            lastClickRow = tree.getRowForPath(closest)
+                            lastClickKey = entryKey((closest.lastPathComponent as? DefaultMutableTreeNode)?.userObject)
+                            logger.info("tree-click seq={} row={} key={}", clickSeq, lastClickRow, lastClickKey)
+                        }
+                        tree.selectionPath = closest
+                        tree.requestFocusInWindow()
+                    }
                 }
                 if (SwingUtilities.isRightMouseButton(e)) {
                     val path = tree.getPathForLocation(e.x, e.y)
