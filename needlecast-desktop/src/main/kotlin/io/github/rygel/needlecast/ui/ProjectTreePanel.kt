@@ -1176,6 +1176,96 @@ class ProjectTreePanel(
 
     // ── Drag and drop ────────────────────────────────────────────────────────
 
+    /**
+     * Pure insertion logic for an external (Finder/Explorer/file manager) drop.
+     * Inserts [dirs] as project nodes under [newParent] starting at [startIndex],
+     * skipping paths already present in the tree, and forwards [files] to
+     * [onExternalFilesDropped]. Returns true if anything changed.
+     *
+     * Extracted from the TransferHandler so it can be exercised in unit tests
+     * without synthesising a `TransferSupport` drop event.
+     */
+    private fun doImportExternal(
+        dirs: List<File>,
+        files: List<File>,
+        newParent: DefaultMutableTreeNode,
+        startIndex: Int,
+    ): Boolean {
+        val existingPaths = collectAllPaths(rootNode)
+        var insertIdx = startIndex.coerceAtMost(newParent.childCount)
+        var lastNode: DefaultMutableTreeNode? = null
+
+        for (dir in dirs) {
+            val absPath = dir.absolutePath
+            if (absPath in existingPaths) continue
+            val directory = ProjectDirectory(path = absPath)
+            val node = DefaultMutableTreeNode(ProjectTreeEntry.Project(directory = directory))
+            treeModel.insertNodeInto(node, newParent, insertIdx)
+            existingPaths += absPath
+            insertIdx++
+            lastNode = node
+            val missing = updateMissingPath(directory.path)
+            if (!missing) scanProject(directory)
+        }
+
+        if (files.isNotEmpty()) {
+            onExternalFilesDropped(files)
+        }
+
+        if (lastNode != null) {
+            if (newParent !== rootNode) tree.expandPath(TreePath(newParent.path))
+            val tp = treePath(lastNode)
+            tree.selectionPath = tp
+            tree.scrollPathToVisible(tp)
+            persist()
+        }
+        return lastNode != null || files.isNotEmpty()
+    }
+
+    /** Walks the tree and returns all project paths currently registered. */
+    private fun collectAllPaths(root: DefaultMutableTreeNode): MutableSet<String> {
+        val set = mutableSetOf<String>()
+        fun walk(n: DefaultMutableTreeNode) {
+            val e = n.userObject
+            if (e is ProjectTreeEntry.Project) set += e.directory.path
+            for (i in 0 until n.childCount) walk(n.getChildAt(i) as DefaultMutableTreeNode)
+        }
+        walk(root)
+        return set
+    }
+
+    /**
+     * Test hook — simulates an OS file-manager drop of [items] onto the tree.
+     * When [targetFolder] is null the drop lands at the tree root; otherwise it
+     * lands at the end of the folder with that name (searched depth-first).
+     *
+     * Exists because a real Finder→JVM drag cannot be automated in-process:
+     * Swing's drop `TransferSupport` can only be constructed from a real
+     * `DropTargetDropEvent`. This hook covers everything downstream of flavor
+     * parsing and drop-target resolution.
+     */
+    internal fun simulateExternalDropForTest(items: List<File>, targetFolder: String? = null): Boolean {
+        val dirs = items.filter { it.isDirectory }
+        val files = items.filter { it.isFile }
+        val (parent, idx) = if (targetFolder == null) {
+            rootNode to rootNode.childCount
+        } else {
+            val node = findFolderNodeByName(rootNode, targetFolder)
+                ?: error("Folder '$targetFolder' not found in tree")
+            node to node.childCount
+        }
+        return doImportExternal(dirs, files, parent, idx)
+    }
+
+    private fun findFolderNodeByName(n: DefaultMutableTreeNode, name: String): DefaultMutableTreeNode? {
+        for (i in 0 until n.childCount) {
+            val c = n.getChildAt(i) as DefaultMutableTreeNode
+            if ((c.userObject as? ProjectTreeEntry.Folder)?.name == name) return c
+            findFolderNodeByName(c, name)?.let { return it }
+        }
+        return null
+    }
+
     private inner class TreeTransferHandler : TransferHandler() {
 
         private val flavor: DataFlavor = run {
@@ -1333,36 +1423,7 @@ class ProjectTreePanel(
             if (dirs.isEmpty() && files.isEmpty()) return false
             val dl = support.dropLocation as? JTree.DropLocation ?: return false
             val (newParent, startIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
-
-            val existingPaths = collectAllPaths(rootNode)
-            var insertIdx = startIndex.coerceAtMost(newParent.childCount)
-            var lastNode: DefaultMutableTreeNode? = null
-
-            for (dir in dirs) {
-                val absPath = dir.absolutePath
-                if (absPath in existingPaths) continue
-                val directory = ProjectDirectory(path = absPath)
-                val node = DefaultMutableTreeNode(ProjectTreeEntry.Project(directory = directory))
-                treeModel.insertNodeInto(node, newParent, insertIdx)
-                existingPaths += absPath
-                insertIdx++
-                lastNode = node
-                val missing = updateMissingPath(directory.path)
-                if (!missing) scanProject(directory)
-            }
-
-            if (files.isNotEmpty()) {
-                onExternalFilesDropped(files)
-            }
-
-            if (lastNode != null) {
-                if (newParent !== rootNode) tree.expandPath(TreePath(newParent.path))
-                val tp = treePath(lastNode)
-                tree.selectionPath = tp
-                tree.scrollPathToVisible(tp)
-                persist()
-            }
-            return lastNode != null || files.isNotEmpty()
+            return doImportExternal(dirs, files, newParent, startIndex)
         }
 
         /**
@@ -1426,16 +1487,5 @@ class ProjectTreePanel(
                 }
                 .toList()
 
-        /** Walks the tree and returns all project paths currently registered. */
-        private fun collectAllPaths(root: DefaultMutableTreeNode): MutableSet<String> {
-            val set = mutableSetOf<String>()
-            fun walk(n: DefaultMutableTreeNode) {
-                val e = n.userObject
-                if (e is ProjectTreeEntry.Project) set += e.directory.path
-                for (i in 0 until n.childCount) walk(n.getChildAt(i) as DefaultMutableTreeNode)
-            }
-            walk(root)
-            return set
-        }
     }
 }
