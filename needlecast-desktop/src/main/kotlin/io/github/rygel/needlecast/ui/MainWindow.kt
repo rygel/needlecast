@@ -313,6 +313,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             searchPanel.loadProject(path)
             renovatePanel.loadProject(path)
             docsPanel.loadProject(path)
+            docViewerPanel.loadProject(project)
         }
 
         if (project != null) {
@@ -326,7 +327,6 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         if (pathChanged || commandsChanged) {
             commandPanel.loadProject(project)
-            docViewerPanel.loadProject(project)
         }
 
         lastSelectedPath = path
@@ -357,7 +357,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         if (!restored || !allPresent) {
             listOf(projectTreeDockable, terminalDockable, commandsDockable,
-                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable)
+                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable, docsDockable, docViewerDockable)
                 .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
             dockingLayoutFile.delete()
             setupDefaultDockingLayout()
@@ -421,7 +421,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     fun resetLayout() {
         AppState.setAutoPersist(false)
         listOf(projectTreeDockable, terminalDockable, commandsDockable,
-               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable)
+               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable, docViewerDockable)
             .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
         dockingLayoutFile.delete()
         setupDefaultDockingLayout()
@@ -548,6 +548,15 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             else dockTo(renovateDockable, terminalDockable, DockingRegion.EAST, 0.28)
         } else if (!show && Docking.isDocked(renovateDockable)) {
             Docking.undock(renovateDockable)
+        }
+    }
+
+    private fun toggleDocViewer(show: Boolean) {
+        if (show && !Docking.isDocked(docViewerDockable)) {
+            if (Docking.isDocked(docsDockable)) Docking.dock(docViewerDockable, docsDockable, DockingRegion.CENTER)
+            else dockTo(docViewerDockable, terminalDockable, DockingRegion.EAST, 0.28)
+        } else if (!show && Docking.isDocked(docViewerDockable)) {
+            Docking.undock(docViewerDockable)
         }
     }
 
@@ -893,6 +902,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val renovateCb = JCheckBoxMenuItem("Renovate").apply {
             addActionListener { toggleRenovate(isSelected) }
         }
+        val docViewerCb = JCheckBoxMenuItem("Doc Viewer").apply {
+            addActionListener { toggleDocViewer(isSelected) }
+        }
 
         fun syncState() {
             commandsCb.isSelected = Docking.isDocked(commandsDockable)
@@ -904,6 +916,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             promptInputCb.isSelected = Docking.isDocked(promptInputDockable)
             commandInputCb.isSelected = Docking.isDocked(commandInputDockable)
             renovateCb.isSelected = Docking.isDocked(renovateDockable)
+            docViewerCb.isSelected = Docking.isDocked(docViewerDockable)
         }
 
         return JMenu("Panels").apply {
@@ -916,6 +929,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             add(gitLogCb)
             add(searchCb)
             add(renovateCb)
+            add(docViewerCb)
             addSeparator()
             add(explorerCb)
             add(editorCb)
@@ -980,7 +994,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val allDockables get() = listOf(
         projectTreeDockable, terminalDockable, commandsDockable, gitLogDockable,
         logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
-        promptInputDockable, commandInputDockable,
+        promptInputDockable, commandInputDockable, docsDockable, docViewerDockable,
     )
     private var highlightedDockable: DockablePanel? = null
 

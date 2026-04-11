@@ -75,7 +75,15 @@ class DocRegistryTest {
 
     @Test
     fun `undocumented build tools return empty list`() {
-        for (tool in setOf(BuildTool.GO, BuildTool.INTELLIJ_RUN, BuildTool.APM, BuildTool.ZIG)) {
+        val documentedTools = setOf(
+            BuildTool.MAVEN, BuildTool.GRADLE, BuildTool.NPM, BuildTool.CARGO,
+            BuildTool.UV, BuildTool.POETRY, BuildTool.PIP,
+            BuildTool.MIX, BuildTool.SBT, BuildTool.BUNDLER, BuildTool.COMPOSER,
+            BuildTool.PUB, BuildTool.FLUTTER, BuildTool.SPM,
+            BuildTool.CMAKE, BuildTool.MAKE, BuildTool.DOTNET,
+        )
+        val undocumentedTools = BuildTool.entries.filter { it !in documentedTools }
+        for (tool in undocumentedTools) {
             val result = DocRegistry.targetsFor(setOf(tool))
             assertTrue(result.isEmpty(), "$tool should have no doc targets")
         }
