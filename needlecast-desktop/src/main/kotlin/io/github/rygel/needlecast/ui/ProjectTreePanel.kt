@@ -81,6 +81,7 @@ class ProjectTreePanel(
     private val scanResults   = mutableMapOf<String, DetectedProject>()
     private val gitStatusCache = mutableMapOf<String, GitStatus>()
     private var activePaths: Set<String> = emptySet()
+    private val missingPaths = mutableSetOf<String>()
     private var pendingSelectPath: String? = null
     private val agentStatuses = mutableMapOf<String, AgentStatus>()
     private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
@@ -314,6 +315,7 @@ class ProjectTreePanel(
 
     private fun loadFromConfig() {
         rootNode.removeAllChildren()
+        missingPaths.clear()
         migrateOrLoad().forEach { addEntryNode(rootNode, it) }
         treeModel.reload()
         expandAll()
@@ -340,8 +342,17 @@ class ProjectTreePanel(
         parent.add(node)
         when (entry) {
             is ProjectTreeEntry.Folder  -> entry.children.forEach { addEntryNode(node, it) }
-            is ProjectTreeEntry.Project -> if (scan) scanProject(entry.directory)
+            is ProjectTreeEntry.Project -> {
+                val missing = updateMissingPath(entry.directory.path)
+                if (scan && !missing) scanProject(entry.directory)
+            }
         }
+    }
+
+    private fun updateMissingPath(path: String): Boolean {
+        val missing = !File(path).isDirectory
+        if (missing) missingPaths += path else missingPaths.remove(path)
+        return missing
     }
 
     private fun expandAll() {
@@ -566,7 +577,11 @@ class ProjectTreePanel(
     private fun ensureScans(entries: List<ProjectTreeEntry>) {
         fun walk(entry: ProjectTreeEntry) {
             when (entry) {
-                is ProjectTreeEntry.Project -> if (scanResults[entry.directory.path] == null) scanProject(entry.directory)
+                is ProjectTreeEntry.Project -> {
+                    if (scanResults[entry.directory.path] != null) return
+                    val missing = updateMissingPath(entry.directory.path)
+                    if (!missing) scanProject(entry.directory)
+                }
                 is ProjectTreeEntry.Folder -> entry.children.forEach { walk(it) }
             }
         }
@@ -598,8 +613,12 @@ class ProjectTreePanel(
         scanResults.clear()
         gitStatusCache.clear()
         activePaths = emptySet()
+        missingPaths.clear()
         onProjectSelected(null)
-        forEachProject(rootNode) { scanProject(it) }
+        forEachProject(rootNode) {
+            val missing = updateMissingPath(it.path)
+            if (!missing) scanProject(it)
+        }
         tree.repaint()
     }
 
@@ -641,7 +660,9 @@ class ProjectTreePanel(
         tree.expandPath(treePath(parent))
         tree.selectionPath = treePath(node)
         persist()
-        scanProject(dir)
+        val missing = updateMissingPath(dir.path)
+        if (!missing) scanProject(dir)
+        tree.repaint()
     }
 
     private fun renameFolder(node: DefaultMutableTreeNode, folder: ProjectTreeEntry.Folder) {
@@ -661,6 +682,7 @@ class ProjectTreePanel(
         }
         if (JOptionPane.showConfirmDialog(this, "Remove $label from the project list?\n(The directory on disk is not affected.)",
                 "Remove", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return
+        (node.userObject as? ProjectTreeEntry.Project)?.let { missingPaths.remove(it.directory.path) }
         treeModel.removeNodeFromParent(node)
         onProjectSelected(null)
         persist()
@@ -898,6 +920,13 @@ class ProjectTreePanel(
             // Allow truncation with ellipsis — don't force the parent wider
             minimumSize = Dimension(0, 0)
         }
+        private val missingIcon = JLabel("\u26A0").apply {
+            font = font.deriveFont(Font.BOLD, 12f)
+            foreground = Color(0xE53935)
+            border = BorderFactory.createEmptyBorder(0, 4, 0, 0)
+            toolTipText = "Directory not found"
+            isVisible = false
+        }
         private val activeDot   = JLabel("\u25CF").apply {
             font = font.deriveFont(Font.PLAIN, 10f); foreground = Color(0x4CAF50)
             border = BorderFactory.createEmptyBorder(0, 0, 0, 2)
@@ -955,6 +984,7 @@ class ProjectTreePanel(
             isOpaque = false
             add(dotsPanel,  BorderLayout.WEST)
             add(nameLabel,  BorderLayout.CENTER)
+            add(missingIcon, BorderLayout.EAST)
         }
         private val bottomRow = object : JPanel(BorderLayout(4, 0)) {
             override fun getPreferredSize(): Dimension {
@@ -1028,8 +1058,10 @@ class ProjectTreePanel(
                     agentLed.isVisible = ledStatus != AgentStatus.NONE
                     agentLed.status    = ledStatus
                     agentLed.blinkOn   = blinkOn
+                    val isMissing = entry.directory.path in missingPaths
+                    missingIcon.isVisible = isMissing
                     nameLabel.text = entry.directory.label()
-                    nameLabel.foreground = fg
+                    nameLabel.foreground = if (isMissing && !selected) Color(0xE53935) else fg
 
                     val gs = gitStatusCache[entry.directory.path]
                     if (gs?.branch != null) {
@@ -1329,7 +1361,8 @@ class ProjectTreePanel(
                 existingPaths += absPath
                 insertIdx++
                 lastNode = node
-                scanProject(directory)
+                val missing = updateMissingPath(directory.path)
+                if (!missing) scanProject(directory)
             }
 
             if (lastNode == null) return false  // all dropped dirs were duplicates
