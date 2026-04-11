@@ -23,7 +23,7 @@ object DocRegistry {
         DocTarget("Test Results",   "build/reports/tests/test/index.html",            BuildTool.GRADLE, DocCategory.TEST_REPORTS, "./gradlew test"),
 
         // ── npm / Node ───────────────────────────────────────────────────────
-        DocTarget("TypeDoc",          "docs/index.html",          BuildTool.NPM, DocCategory.API_DOCS, "npx typedoc"),
+        DocTarget("TypeDoc",          "docs/index.html",          BuildTool.NPM, DocCategory.API_DOCS, "npx typedoc"),  // same path as DocC; no collision unless project has both NPM and SPM
         DocTarget("JSDoc",            "out/index.html",           BuildTool.NPM, DocCategory.API_DOCS, "npx jsdoc"),
         DocTarget("JSDoc (alt)",      "jsdoc/index.html",         BuildTool.NPM, DocCategory.API_DOCS, "npx jsdoc"),
         DocTarget("documentation.js", "documentation/index.html", BuildTool.NPM, DocCategory.API_DOCS, "npx documentation build"),
@@ -34,23 +34,23 @@ object DocRegistry {
         // ── Python (UV / Poetry / pip) ───────────────────────────────────────
         DocTarget("Sphinx", "docs/_build/html/index.html", BuildTool.UV,     DocCategory.API_DOCS, "make -C docs html"),
         DocTarget("MkDocs", "site/index.html",             BuildTool.UV,     DocCategory.SITE,     "mkdocs build"),
-        DocTarget("pdoc",   "html/index.html",             BuildTool.UV,     DocCategory.API_DOCS, "pdoc --html ."),
+        DocTarget("pdoc",   "html/index.html",             BuildTool.UV,     DocCategory.API_DOCS, "pdoc --html ."),  // best-effort; actual output is html/<package>/
         DocTarget("Sphinx", "docs/_build/html/index.html", BuildTool.POETRY, DocCategory.API_DOCS, "make -C docs html"),
         DocTarget("MkDocs", "site/index.html",             BuildTool.POETRY, DocCategory.SITE,     "mkdocs build"),
-        DocTarget("pdoc",   "html/index.html",             BuildTool.POETRY, DocCategory.API_DOCS, "pdoc --html ."),
+        DocTarget("pdoc",   "html/index.html",             BuildTool.POETRY, DocCategory.API_DOCS, "pdoc --html ."),  // best-effort; actual output is html/<package>/
         DocTarget("Sphinx", "docs/_build/html/index.html", BuildTool.PIP,    DocCategory.API_DOCS, "make -C docs html"),
         DocTarget("MkDocs", "site/index.html",             BuildTool.PIP,    DocCategory.SITE,     "mkdocs build"),
-        DocTarget("pdoc",   "html/index.html",             BuildTool.PIP,    DocCategory.API_DOCS, "pdoc --html ."),
+        DocTarget("pdoc",   "html/index.html",             BuildTool.PIP,    DocCategory.API_DOCS, "pdoc --html ."),  // best-effort; actual output is html/<package>/
 
         // ── Elixir ───────────────────────────────────────────────────────────
-        DocTarget("ExDoc", "doc/index.html", BuildTool.MIX, DocCategory.API_DOCS, "mix docs"),
+        DocTarget("ExDoc", "doc/index.html", BuildTool.MIX, DocCategory.API_DOCS, "mix docs"),  // same path as YARD; no collision unless project has both Mix and Bundler
 
         // ── Scala ────────────────────────────────────────────────────────────
         DocTarget("Scaladoc (2.x)", "target/scala-2.13/api/index.html", BuildTool.SBT, DocCategory.API_DOCS, "sbt doc"),
         DocTarget("Scaladoc (3.x)", "target/scala-3/api/index.html",    BuildTool.SBT, DocCategory.API_DOCS, "sbt doc"),
 
         // ── Ruby ─────────────────────────────────────────────────────────────
-        DocTarget("YARD", "doc/index.html",   BuildTool.BUNDLER, DocCategory.API_DOCS, "yard doc"),
+        DocTarget("YARD", "doc/index.html",   BuildTool.BUNDLER, DocCategory.API_DOCS, "yard doc"),  // same path as ExDoc; no collision unless project has both Bundler and Mix
         DocTarget("RDoc", "rdoc/index.html",  BuildTool.BUNDLER, DocCategory.API_DOCS, "rdoc"),
 
         // ── PHP ──────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ object DocRegistry {
         DocTarget("dartdoc", "doc/api/index.html", BuildTool.FLUTTER, DocCategory.API_DOCS, "dart doc"),
 
         // ── Swift ────────────────────────────────────────────────────────────
-        DocTarget("DocC", "docs/index.html", BuildTool.SPM, DocCategory.API_DOCS, "swift package generate-documentation"),
+        DocTarget("DocC", "docs/index.html", BuildTool.SPM, DocCategory.API_DOCS, "swift package generate-documentation"),  // same path as TypeDoc; no collision unless project has both SPM and NPM
 
         // ── C / C++ ──────────────────────────────────────────────────────────
         DocTarget("Doxygen",         "docs/html/index.html",       BuildTool.CMAKE, DocCategory.API_DOCS, "doxygen"),
