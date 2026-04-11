@@ -126,8 +126,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val docsDockable         = DockablePanel(docsPanel,                     "docs",         "Docs")
     private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
-    private val docViewerPanel    = DocViewerPanel()
-    private val docViewerDockable = DockablePanel(docViewerPanel, "doc-viewer", "Doc Viewer")
+    private val docViewerPanel           = DocViewerPanel()
+    private val docViewerDockable        = DockablePanel(docViewerPanel, "doc-viewer", "Doc Viewer")
 
     private val dockingLayoutFile: File = Path.of(
         System.getProperty("user.home"), ".needlecast", "docking-layout.xml"
