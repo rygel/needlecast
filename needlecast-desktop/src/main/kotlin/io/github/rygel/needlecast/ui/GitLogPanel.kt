@@ -318,7 +318,7 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
             index: Int, isSelected: Boolean, cellHasFocus: Boolean,
         ): Component {
             val file = value ?: return checkBox
-            val badge = file.statusCode.trim().firstOrNull()?.toString() ?: "?"
+            val badge = file.statusCode.firstOrNull { it != ' ' }?.toString() ?: "?"
             checkBox.text       = "[$badge] ${file.path}"
             checkBox.isSelected = file.path in checkedFiles
             checkBox.background = if (isSelected) list.selectionBackground else list.background
