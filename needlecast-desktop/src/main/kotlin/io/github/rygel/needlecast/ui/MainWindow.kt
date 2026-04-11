@@ -793,6 +793,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private fun applyUiFontFromConfig() {
         val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
         val family = ctx.config.uiFontFamily?.takeIf { it.isNotBlank() && it in available }
+            ?: "Inter".takeIf { "Inter" in available }
             ?: baseUiFont.family
         val size = ctx.config.uiFontSize?.takeIf { it in 8..72 } ?: baseUiFont.size
         val font = FontUIResource(Font(family, Font.PLAIN, size))

@@ -673,7 +673,7 @@ class SettingsDialog(
             val allFonts = availableFontFamilies()
             val monoFonts = availableMonospaceFamilies()
 
-            val uiChoices = (listOf(FontChoice("System default", null)) + allFonts.map { FontChoice(it, it) })
+            val uiChoices = (listOf(FontChoice("Inter (default)", null)) + allFonts.map { FontChoice(it, it) })
             val monoChoices = (listOf(FontChoice("Auto (monospace)", null)) + monoFonts.map { FontChoice(it, it) })
 
             val uiCombo = JComboBox(uiChoices.toTypedArray()).apply {
