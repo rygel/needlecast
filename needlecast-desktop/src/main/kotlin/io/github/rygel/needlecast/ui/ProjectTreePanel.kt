@@ -1328,10 +1328,10 @@ class ProjectTreePanel(
         val updatedDirectory = entry.directory.copy(path = newPath)
         missingNode.userObject = entry.copy(directory = updatedDirectory)
         missingPaths.remove(oldPath)
-        updateMissingPath(newPath)
+        val nowMissing = updateMissingPath(newPath)
         treeModel.nodeChanged(missingNode)
         persist()
-        scanProject(updatedDirectory)
+        if (!nowMissing) scanProject(updatedDirectory)
         return true
     }
 
@@ -1502,17 +1502,18 @@ class ProjectTreePanel(
             val dl = support.dropLocation as? JTree.DropLocation ?: return false
             val (newParent, startIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
 
+            var anyRepaired = false
             val remainingDirs = mutableListOf<File>()
             for (dir in dirs) {
                 val match = findMissingMatch(dir.name)
                 if (match != null) {
                     val consumed = confirmRepairPath(match, dir.absolutePath)
-                    if (!consumed) remainingDirs += dir
+                    if (consumed) anyRepaired = true else remainingDirs += dir
                 } else {
                     remainingDirs += dir
                 }
             }
-            return doImportExternal(remainingDirs, files, newParent, startIndex)
+            return doImportExternal(remainingDirs, files, newParent, startIndex) || anyRepaired
         }
 
         /**
