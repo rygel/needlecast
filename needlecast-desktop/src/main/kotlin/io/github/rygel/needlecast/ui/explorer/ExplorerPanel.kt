@@ -63,7 +63,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             toolTipText = "Go up one level"
             addActionListener { navigateUp() }
         }
-        val refreshButton = JButton("\u27F3").apply {
+        val refreshButton = JButton("\u21BB").apply {
             toolTipText = "Refresh"
             addActionListener { loadDirectory(currentDir) }
         }
