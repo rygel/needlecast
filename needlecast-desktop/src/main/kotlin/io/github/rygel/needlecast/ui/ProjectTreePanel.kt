@@ -1279,6 +1279,28 @@ class ProjectTreePanel(
         return doImportExternal(dirs, files, parent, idx)
     }
 
+    /**
+     * Depth-first walk: returns the first tree node whose project path is in
+     * [missingPaths] and whose final directory segment matches [droppedName].
+     * Returns null if no such node exists.
+     */
+    internal fun findMissingMatch(droppedName: String): DefaultMutableTreeNode? {
+        fun walk(node: DefaultMutableTreeNode): DefaultMutableTreeNode? {
+            val e = node.userObject
+            if (e is ProjectTreeEntry.Project && e.directory.path in missingPaths) {
+                if (namesMatch(File(e.directory.path).name, droppedName)) return node
+            }
+            for (i in 0 until node.childCount) {
+                walk(node.getChildAt(i) as DefaultMutableTreeNode)?.let { return it }
+            }
+            return null
+        }
+        return walk(rootNode)
+    }
+
+    private fun namesMatch(a: String, b: String): Boolean =
+        if (IS_WINDOWS) a.equals(b, ignoreCase = true) else a == b
+
     private fun findFolderNodeByName(n: DefaultMutableTreeNode, name: String): DefaultMutableTreeNode? {
         for (i in 0 until n.childCount) {
             val c = n.getChildAt(i) as DefaultMutableTreeNode
