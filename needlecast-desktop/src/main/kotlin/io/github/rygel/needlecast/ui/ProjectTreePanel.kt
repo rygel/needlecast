@@ -1322,7 +1322,9 @@ class ProjectTreePanel(
         val projectName = File(oldPath).name
         val choice = JOptionPane.showOptionDialog(
             this,
-            "Project:  $projectName\nOld path: $oldPath\nNew path: $newPath",
+            "<html>Project:&nbsp;&nbsp;${projectName.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
+                "Old path: ${oldPath.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
+                "New path: ${newPath.replace("&", "&amp;").replace("<", "&lt;")}</html>",
             "Replace missing project path?",
             JOptionPane.YES_NO_OPTION,
             JOptionPane.QUESTION_MESSAGE,

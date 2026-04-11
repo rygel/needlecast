@@ -327,14 +327,18 @@ class RenovatePanel : JPanel(BorderLayout()) {
         if (selected.isEmpty()) return
 
         val msg = buildString {
-            append("Apply ${selected.size} update(s)?\n\n")
+            append("<html>Apply ${selected.size} update(s)?<br><br>")
             val majors = selected.filter { it.updateType == "major" }
             if (majors.isNotEmpty()) {
-                append("WARNING: ${majors.size} major update(s) may contain breaking changes:\n")
-                majors.forEach { append("  \u2022 ${it.depName} ${it.currentValue} \u2192 ${it.newValue}\n") }
-                append("\n")
+                append("WARNING: ${majors.size} major update(s) may contain breaking changes:<br>")
+                majors.forEach {
+                    val dep = it.depName.replace("&", "&amp;").replace("<", "&lt;")
+                    append("&nbsp;&nbsp;\u2022 $dep ${it.currentValue} \u2192 ${it.newValue}<br>")
+                }
+                append("<br>")
             }
-            append("Files will be modified in:\n$dir")
+            val escapedDir = dir.replace("&", "&amp;").replace("<", "&lt;")
+            append("Files will be modified in:<br>$escapedDir</html>")
         }
         val confirm = JOptionPane.showConfirmDialog(this, msg, "Apply Updates",
             JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE)
