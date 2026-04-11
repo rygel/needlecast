@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui
 
+import io.github.rygel.needlecast.git.ChangedFile
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.model.GitStatus
 import org.assertj.swing.core.BasicRobot
@@ -16,6 +17,35 @@ import java.nio.file.Path
 import javax.swing.JFrame
 import javax.swing.JList
 import javax.swing.JTextArea
+
+private class FakeGitService(
+    val logLines: String = "",
+    val showOutput: String = "",
+    val changedFilesList: List<ChangedFile> = emptyList(),
+    val streamingLines: List<String> = emptyList(),
+) : GitService {
+    var stagedFiles: List<String>? = null
+    var committedMessage: String? = null
+
+    override fun readStatus(dir: String): GitStatus = GitStatus.NotARepo
+    override fun log(dir: String, maxEntries: Int): String = logLines
+    override fun show(dir: String, hash: String): String = showOutput
+    override fun changedFiles(dir: String): List<ChangedFile> = changedFilesList
+    override fun stage(dir: String, files: List<String>) { stagedFiles = files }
+    override fun commit(dir: String, message: String) { committedMessage = message }
+    override fun fetchStreaming(dir: String, onLine: (String) -> Unit): Int {
+        streamingLines.forEach { onLine(it) }
+        return 0
+    }
+    override fun pushStreaming(dir: String, onLine: (String) -> Unit): Int {
+        streamingLines.forEach { onLine(it) }
+        return 0
+    }
+    override fun pullStreaming(dir: String, onLine: (String) -> Unit): Int {
+        streamingLines.forEach { onLine(it) }
+        return 0
+    }
+}
 
 class GitLogPanelUiTest {
 
@@ -61,13 +91,8 @@ class GitLogPanelUiTest {
             repeat(50_000) { append("line ").append(it).append(" lorem ipsum dolor sit amet\n") }
         }
         val maxDiffChars = 400_000
-        val gitService = object : GitService {
-            override fun readStatus(dir: String): GitStatus = GitStatus.NotARepo
-            override fun log(dir: String, maxEntries: Int): String = "abc123 Commit one\n"
-            override fun show(path: String, hash: String): String = huge
-        }
-
-        panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(gitService) }
+        val fake = FakeGitService(logLines = "abc123 Commit one\n", showOutput = huge)
+        panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
         fixture = showInFrame(panel)
 
         GuiActionRunner.execute { panel.loadProject(tempDir.toString()) }
