@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui
 
+import io.github.rygel.needlecast.scanner.IS_MAC
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.process.ProcessExecutor
 import java.io.File
@@ -8,7 +9,11 @@ data class ShellInfo(val displayName: String, val command: String)
 
 object ShellDetector {
 
-    fun detect(): List<ShellInfo> = if (IS_WINDOWS) detectWindows() else detectUnix()
+    fun detect(): List<ShellInfo> = when {
+        IS_WINDOWS -> detectWindows()
+        IS_MAC     -> detectMac()
+        else       -> detectUnix()
+    }
 
     private fun detectWindows(): List<ShellInfo> {
         val found = mutableListOf<ShellInfo>()
@@ -46,6 +51,35 @@ object ShellDetector {
         // cmd.exe — always present as a fallback
         found += ShellInfo("Command Prompt (cmd.exe)", "cmd.exe")
 
+        return found
+    }
+
+    private fun detectMac(): List<ShellInfo> {
+        // macOS-specific paths. zsh is the default since Catalina (10.15);
+        // bash ships as the legacy 3.2 build. Homebrew installs newer versions
+        // under /opt/homebrew/bin (Apple Silicon) or /usr/local/bin (Intel).
+        val knownShells = listOf(
+            "/bin/zsh"               to "Zsh (macOS default)",
+            "/opt/homebrew/bin/zsh"  to "Zsh (Homebrew)",
+            "/usr/local/bin/zsh"     to "Zsh (Homebrew)",
+            "/bin/bash"              to "Bash (macOS legacy 3.2)",
+            "/opt/homebrew/bin/bash" to "Bash (Homebrew)",
+            "/usr/local/bin/bash"    to "Bash (Homebrew)",
+            "/opt/homebrew/bin/fish" to "Fish (Homebrew)",
+            "/usr/local/bin/fish"    to "Fish (Homebrew)",
+            "/bin/ksh"               to "KornShell (ksh)",
+            "/bin/tcsh"              to "tcsh",
+            "/bin/csh"               to "csh",
+            "/bin/dash"              to "dash",
+            "/bin/sh"                to "sh",
+        )
+        val seen = mutableSetOf<String>()
+        val found = mutableListOf<ShellInfo>()
+        for ((path, display) in knownShells) {
+            if (seen.add(path) && File(path).canExecute()) {
+                found += ShellInfo("$display ($path)", path)
+            }
+        }
         return found
     }
 
