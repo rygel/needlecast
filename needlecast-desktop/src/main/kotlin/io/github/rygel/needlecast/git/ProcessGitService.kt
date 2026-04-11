@@ -73,8 +73,15 @@ class ProcessGitService : GitService {
         val pb = ProcessBuilder(listOf("git", "-C", dir) + args).redirectErrorStream(true)
         val proc = try { pb.start() } catch (_: Exception) { return -1 }
         return try {
-            proc.inputStream.bufferedReader().forEachLine { line -> onLine(line) }
-            proc.waitFor(120_000L, TimeUnit.MILLISECONDS)
+            val reader = Thread({
+                proc.inputStream.bufferedReader().forEachLine { onLine(it) }
+            }, "git-streaming-reader").apply { isDaemon = true; start() }
+            if (!proc.waitFor(120_000L, TimeUnit.MILLISECONDS)) {
+                proc.destroyForcibly()
+                reader.join(1_000L)
+                return -1
+            }
+            reader.join(1_000L)
             proc.exitValue()
         } catch (_: Exception) {
             -1
