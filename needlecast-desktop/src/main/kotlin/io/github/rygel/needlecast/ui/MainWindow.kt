@@ -69,6 +69,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
     private val searchPanel   = SearchPanel { file, line, column -> explorerPanel.openFileAt(file, line, column) }
     private val renovatePanel = RenovatePanel()
+    private val docsPanel     = DocsPanel()
 
     private var pendingProjectSelection: io.github.rygel.needlecast.model.DetectedProject? = null
     private val projectSelectionTimer = javax.swing.Timer(75) {
@@ -122,6 +123,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val consoleDockable      = DockablePanel(consolePanel,                  "console",      "Output")
     private val logViewerDockable    = DockablePanel(logViewerPanel,               "log-viewer",   "Log Viewer")
     private val searchDockable       = DockablePanel(searchPanel,                   "search",       "Search")
+    private val docsDockable         = DockablePanel(docsPanel,                     "docs",         "Docs")
     private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
 
@@ -201,6 +203,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             Docking.registerDockable(renovateDockable)
             Docking.registerDockable(promptInputDockable)
             Docking.registerDockable(commandInputDockable)
+            Docking.registerDockable(docsDockable)
             installPanelHoverHighlighter()
 
             contentPane = buildLayout()
@@ -306,6 +309,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             logViewerPanel.loadProject(path)
             searchPanel.loadProject(path)
             renovatePanel.loadProject(path)
+            docsPanel.loadProject(path)
         }
 
         if (project != null) {
@@ -393,6 +397,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.dock(logViewerDockable,   gitLogDockable,      DockingRegion.CENTER)
         // 5c. Search tabbed alongside Log Viewer
         Docking.dock(searchDockable,      logViewerDockable,   DockingRegion.CENTER)
+        // 5d. Docs tabbed alongside Search
+        Docking.dock(docsDockable,        searchDockable,      DockingRegion.CENTER)
         // 6. Editor tabbed with the terminal in the centre column
         Docking.dock(editorDockable,      terminalDockable,    DockingRegion.CENTER)
         // 7. Console below Commands
@@ -411,7 +417,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     fun resetLayout() {
         AppState.setAutoPersist(false)
         listOf(projectTreeDockable, terminalDockable, commandsDockable,
-               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable)
+               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable)
             .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
         dockingLayoutFile.delete()
         setupDefaultDockingLayout()
