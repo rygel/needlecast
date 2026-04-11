@@ -102,12 +102,7 @@ fun main(args: Array<String>) {
 
         // ── 02: Settings — General tab ───────────────────────────────────
         dialogShot(robot, outputDir.resolve("02-settings.png")) {
-            SettingsDialog(w, ctx,
-                sendToTerminal       = {},
-                onShortcutsChanged   = {},
-                onLayoutChanged      = {},
-                onTerminalColorsChanged = { _, _ -> },
-            ).isVisible = true
+            SettingsDialog(w, ctx, sendToTerminal = {}).isVisible = true
         }
 
         // ── 03: Prompt Library ───────────────────────────────────────────

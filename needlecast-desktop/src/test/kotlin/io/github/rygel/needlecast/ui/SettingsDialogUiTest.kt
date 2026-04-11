@@ -3,6 +3,7 @@ package io.github.rygel.needlecast.ui
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.config.JsonConfigStore
 import io.github.rygel.needlecast.model.AppConfig
+import io.github.rygel.needlecast.ui.settings.ShortcutsSettingsPanel
 import org.assertj.swing.core.BasicRobot
 import org.assertj.swing.core.Robot
 import org.assertj.swing.edt.GuiActionRunner
@@ -61,71 +62,41 @@ class SettingsDialogUiTest {
     }
 
     @Test
-    fun `shortcuts tab is reachable and renders without error`() {
+    fun `settings dialog has correct size`() {
         val dialog = GuiActionRunner.execute<JDialog> {
             SettingsDialog(ownerFrame, makeCtx(), {})
         }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
-        fixture.tabbedPane().selectTab("Shortcuts")
-        fixture.tabbedPane().requireVisible()
+        fixture.requireSize(java.awt.Dimension(760, 560))
         fixture.cleanUp()
     }
 
-    // ── Tab navigation ─────────────────────────────────────────────────────
+    // ── Sidebar navigation ─────────────────────────────────────────────────
 
     @Test
-    fun `all four tabs are present`() {
+    fun `sidebar list is present`() {
         val dialog = GuiActionRunner.execute<JDialog> {
             SettingsDialog(ownerFrame, makeCtx(), {})
         }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
-        fixture.tabbedPane().requireTabTitles(
-            "External Editors",
-            "AI Tools",
-            "Renovate",
-            "APM",
-            "Shortcuts",
-            "Language",
-            "Layout & Terminal",
-        )
+        fixture.list().requireVisible()
         fixture.cleanUp()
     }
 
     @Test
-    fun `external editors tab is accessible`() {
+    fun `sidebar contains expected categories`() {
         val dialog = GuiActionRunner.execute<JDialog> {
             SettingsDialog(ownerFrame, makeCtx(), {})
         }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
-        fixture.tabbedPane().selectTab("External Editors")
-        fixture.tabbedPane().requireVisible()
-        fixture.cleanUp()
-    }
-
-    @Test
-    fun `renovate tab is accessible`() {
-        val dialog = GuiActionRunner.execute<JDialog> {
-            SettingsDialog(ownerFrame, makeCtx(), {})
-        }
-        val fixture = DialogFixture(robot, dialog)
-        fixture.show()
-        fixture.tabbedPane().selectTab("Renovate")
-        fixture.tabbedPane().requireVisible()
-        fixture.cleanUp()
-    }
-
-    @Test
-    fun `APM tab is accessible`() {
-        val dialog = GuiActionRunner.execute<JDialog> {
-            SettingsDialog(ownerFrame, makeCtx(), {})
-        }
-        val fixture = DialogFixture(robot, dialog)
-        fixture.show()
-        fixture.tabbedPane().selectTab("APM")
-        fixture.tabbedPane().requireVisible()
+        val contents = fixture.list().contents()
+        val labels = contents.map { it.toString() }
+        assert(labels.any { it.contains("Appearance") }) { "Expected 'Appearance' in sidebar" }
+        assert(labels.any { it.contains("Shortcuts") })  { "Expected 'Shortcuts' in sidebar" }
+        assert(labels.any { it.contains("Language") })   { "Expected 'Language' in sidebar" }
         fixture.cleanUp()
     }
 
@@ -138,9 +109,10 @@ class SettingsDialogUiTest {
         }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
-        fixture.tabbedPane().selectTab("Shortcuts")
+        // Navigate to Shortcuts via sidebar (index 9 in the model)
+        fixture.list().selectItem("Shortcuts")
 
-        SettingsDialog.defaultShortcuts.forEach { (id, default) ->
+        ShortcutsSettingsPanel.defaultShortcuts.forEach { (id, default) ->
             fixture.textBox(id).requireText(default)
         }
         fixture.cleanUp()
@@ -156,7 +128,8 @@ class SettingsDialogUiTest {
         }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
-        fixture.tabbedPane().selectTab("Shortcuts")
+        // Navigate to Shortcuts via sidebar
+        fixture.list().selectItem("Shortcuts")
         fixture.textBox("rescan").requireText("F9")
         fixture.cleanUp()
     }
