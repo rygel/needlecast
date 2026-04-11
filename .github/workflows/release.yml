@@ -1,4 +1,4 @@
-name: Release: Build & Upload
+name: "Release: Build & Upload"
 
 on:
   release:

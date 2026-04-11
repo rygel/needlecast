@@ -55,22 +55,51 @@ if [[ "$JPACKAGE_VERSION" == 0.* ]]; then
     JPACKAGE_VERSION="1${JPACKAGE_VERSION#0}"
 fi
 
-jpackage \
-  --type app-image \
-  --dest "$BUILD_DIR/jpackage" \
-  --input "$(dirname "$JAR_PATH")" \
-  --name "$APP_NAME" \
-  --app-version "$JPACKAGE_VERSION" \
-  --icon "$ICON_PATH" \
-  --main-jar "$(basename "$JAR_PATH")" \
-  --main-class io.github.rygel.needlecast.MainKt \
-  --runtime-image "$RUNTIME_DIR" \
+# ── Platform-specific icon preparation ────────────────────────────────────────
+OS="$(uname -s)"
+
+# macOS wants a real .icns. jpackage's built-in PNG→ICNS conversion often yields
+# an incomplete icon that macOS falls back to the generic Java badge for, so
+# build a proper multi-resolution .iconset with sips + iconutil.
+if [[ "$OS" == "Darwin" ]]; then
+    echo "Generating needlecast.icns from $ICON_PATH..."
+    ICONSET_DIR="$BUILD_DIR/needlecast.iconset"
+    mkdir -p "$ICONSET_DIR"
+    for size in 16 32 128 256 512; do
+        doubled=$((size * 2))
+        sips -z "$size"    "$size"    "$ICON_PATH" --out "$ICONSET_DIR/icon_${size}x${size}.png"     >/dev/null
+        sips -z "$doubled" "$doubled" "$ICON_PATH" --out "$ICONSET_DIR/icon_${size}x${size}@2x.png"  >/dev/null
+    done
+    iconutil -c icns "$ICONSET_DIR" -o "$BUILD_DIR/needlecast.icns"
+    ICON_PATH="$BUILD_DIR/needlecast.icns"
+fi
+
+JPACKAGE_ARGS=(
+  --type app-image
+  --dest "$BUILD_DIR/jpackage"
+  --input "$(dirname "$JAR_PATH")"
+  --name "$APP_NAME"
+  --app-version "$JPACKAGE_VERSION"
+  --icon "$ICON_PATH"
+  --main-jar "$(basename "$JAR_PATH")"
+  --main-class io.github.rygel.needlecast.MainKt
+  --runtime-image "$RUNTIME_DIR"
   --java-options "-XX:SharedArchiveFile=\$APPDIR/runtime/lib/server/appcds.jsa"
+)
+
+# Belt-and-suspenders on macOS: the bundle's CFBundleName already sets the Dock
+# label, but -Xdock:name ensures it is correct in edge cases (e.g. when the JVM
+# is launched before the bundle is fully initialized).
+if [[ "$OS" == "Darwin" ]]; then
+    JPACKAGE_ARGS+=(--java-options "-Xdock:name=$APP_NAME")
+    JPACKAGE_ARGS+=(--java-options "-Dapple.awt.application.name=$APP_NAME")
+fi
+
+jpackage "${JPACKAGE_ARGS[@]}"
 
 echo "App image created under $BUILD_DIR/jpackage"
 
 # ── Platform-specific installer ───────────────────────────────────────────────
-OS="$(uname -s)"
 
 if [[ "$OS" == "Darwin" ]]; then
     echo "Building macOS DMG (version $JPACKAGE_VERSION)..."

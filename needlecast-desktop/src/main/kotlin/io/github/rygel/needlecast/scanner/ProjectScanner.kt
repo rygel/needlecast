@@ -9,3 +9,4 @@ interface ProjectScanner {
 }
 
 val IS_WINDOWS: Boolean = System.getProperty("os.name").lowercase().contains("win")
+val IS_MAC: Boolean = System.getProperty("os.name").lowercase().let { it.contains("mac") || it.contains("darwin") }
