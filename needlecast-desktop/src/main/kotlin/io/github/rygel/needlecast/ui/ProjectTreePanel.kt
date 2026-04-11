@@ -1301,6 +1301,40 @@ class ProjectTreePanel(
     private fun namesMatch(a: String, b: String): Boolean =
         if (IS_WINDOWS) a.equals(b, ignoreCase = true) else a == b
 
+    /**
+     * Called on the EDT. Shows a modal dialog asking the user whether to repair
+     * the missing project path or add the dropped directory as a new entry.
+     *
+     * Returns `true` if the user chose Replace (the dropped dir is consumed and
+     * should NOT be inserted as a new project). Returns `false` if the user
+     * chose "Add as new project" or dismissed the dialog.
+     */
+    private fun confirmRepairPath(missingNode: DefaultMutableTreeNode, newPath: String): Boolean {
+        val entry = missingNode.userObject as ProjectTreeEntry.Project
+        val oldPath = entry.directory.path
+        val projectName = File(oldPath).name
+        val choice = JOptionPane.showOptionDialog(
+            this,
+            "Project:  $projectName\nOld path: $oldPath\nNew path: $newPath",
+            "Replace missing project path?",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE,
+            null,
+            arrayOf("Replace", "Add as new project"),
+            "Replace",
+        )
+        if (choice != 0) return false   // "Add as new project" or dialog closed
+
+        val updatedDirectory = entry.directory.copy(path = newPath)
+        missingNode.userObject = entry.copy(directory = updatedDirectory)
+        missingPaths.remove(oldPath)
+        updateMissingPath(newPath)
+        treeModel.nodeChanged(missingNode)
+        persist()
+        scanProject(updatedDirectory)
+        return true
+    }
+
     private fun findFolderNodeByName(n: DefaultMutableTreeNode, name: String): DefaultMutableTreeNode? {
         for (i in 0 until n.childCount) {
             val c = n.getChildAt(i) as DefaultMutableTreeNode
@@ -1467,7 +1501,18 @@ class ProjectTreePanel(
             if (dirs.isEmpty() && files.isEmpty()) return false
             val dl = support.dropLocation as? JTree.DropLocation ?: return false
             val (newParent, startIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
-            return doImportExternal(dirs, files, newParent, startIndex)
+
+            val remainingDirs = mutableListOf<File>()
+            for (dir in dirs) {
+                val match = findMissingMatch(dir.name)
+                if (match != null) {
+                    val consumed = confirmRepairPath(match, dir.absolutePath)
+                    if (!consumed) remainingDirs += dir
+                } else {
+                    remainingDirs += dir
+                }
+            }
+            return doImportExternal(remainingDirs, files, newParent, startIndex)
         }
 
         /**
