@@ -139,6 +139,7 @@ class SettingsDialogUiTest {
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
         fixture.tabbedPane().selectTab("Shortcuts")
+        robot.waitForIdle()
 
         SettingsDialog.defaultShortcuts.forEach { (id, default) ->
             fixture.textBox(id).requireText(default)
@@ -157,6 +158,7 @@ class SettingsDialogUiTest {
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
         fixture.tabbedPane().selectTab("Shortcuts")
+        robot.waitForIdle()
         fixture.textBox("rescan").requireText("F9")
         fixture.cleanUp()
     }

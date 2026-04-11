@@ -67,6 +67,7 @@ class PromptInputPanel(
     // ── Right-side controls ───────────────────────────────────────────────────
 
     private val textArea = JTextArea().apply {
+        isEditable = false
         lineWrap = true
         wrapStyleWord = true
         font = Font(Font.MONOSPACED, Font.PLAIN, 12)
@@ -77,6 +78,11 @@ class PromptInputPanel(
 
     private val newButton = JButton("+").apply {
         isFocusable = false
+        margin = Insets(1, 5, 1, 5)
+    }
+    private val editButton = JButton("\u270F").apply {   // ✏ (pencil)
+        isFocusable = false
+        isEnabled   = false
         margin = Insets(1, 5, 1, 5)
     }
     private val deleteButton = JButton("\u2212").apply {   // − (minus sign)
@@ -91,6 +97,7 @@ class PromptInputPanel(
         val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
             isOpaque = false
             add(newButton)
+            add(editButton)
             add(deleteButton)
         }
         val leftPanel = JPanel(BorderLayout(0, 2)).apply {
@@ -117,6 +124,7 @@ class PromptInputPanel(
         add(split, BorderLayout.CENTER)
 
         newButton.toolTipText    = "New $itemLabel"
+        editButton.toolTipText   = "Edit selected $itemLabel"
         deleteButton.toolTipText = "Delete selected $itemLabel"
 
         refreshTree(loadLibrary(ctx.config))
@@ -170,11 +178,13 @@ class PromptInputPanel(
     private fun wireListeners() {
         tree.addTreeSelectionListener {
             val prompt = selectedPrompt()
+            editButton.isEnabled   = prompt != null
             deleteButton.isEnabled = prompt != null
             if (prompt != null) textArea.text = prompt.body
         }
 
         newButton.addActionListener    { createNewPrompt() }
+        editButton.addActionListener   { editSelectedPrompt() }
         deleteButton.addActionListener { deleteSelectedPrompt() }
         sendButton.addActionListener   { doSend() }
 
@@ -186,18 +196,28 @@ class PromptInputPanel(
                     showContextMenu(e)
                 }
             }
+            override fun mouseClicked(e: MouseEvent) {
+                if (e.clickCount == 2 && SwingUtilities.isLeftMouseButton(e)) {
+                    if (selectedPrompt() != null) editSelectedPrompt()
+                }
+            }
         })
     }
 
     // ── Actions ───────────────────────────────────────────────────────────────
 
     private fun showContextMenu(e: MouseEvent) {
+        val hasSelection = selectedPrompt() != null
         val menu = JPopupMenu()
         menu.add(JMenuItem("New $itemLabel\u2026").apply {
             addActionListener { createNewPrompt() }
         })
+        menu.add(JMenuItem("Edit\u2026").apply {
+            isEnabled = hasSelection
+            addActionListener { editSelectedPrompt() }
+        })
         menu.add(JMenuItem("Delete").apply {
-            isEnabled = selectedPrompt() != null
+            isEnabled = hasSelection
             addActionListener { deleteSelectedPrompt() }
         })
         menu.show(tree, e.x, e.y)
@@ -209,6 +229,16 @@ class PromptInputPanel(
         dialog.isVisible = true
         val template = dialog.result ?: return
         ctx.updateConfig(updateLibrary(ctx.config, loadLibrary(ctx.config) + template))
+    }
+
+    private fun editSelectedPrompt() {
+        val existing = selectedPrompt() ?: return
+        val owner    = SwingUtilities.getWindowAncestor(this)
+        val dialog   = NewPromptDialog(owner, "Edit $itemLabel", existing)
+        dialog.isVisible = true
+        val updated = dialog.result ?: return
+        val newLib = loadLibrary(ctx.config).map { if (it.id == updated.id) updated else it }
+        ctx.updateConfig(updateLibrary(ctx.config, newLib))
     }
 
     private fun deleteSelectedPrompt() {
@@ -285,7 +315,11 @@ class PromptInputPanel(
  * Lightweight modal dialog for creating a new [PromptTemplate].
  * [result] is non-null only when the user clicks OK with a non-empty name.
  */
-private class NewPromptDialog(owner: Window?, title: String = "New Prompt") : JDialog(owner, title, ModalityType.APPLICATION_MODAL) {
+private class NewPromptDialog(
+    owner: Window?,
+    title: String = "New Prompt",
+    private val existing: PromptTemplate? = null,
+) : JDialog(owner, title, ModalityType.APPLICATION_MODAL) {
 
     var result: PromptTemplate? = null
         private set
@@ -302,6 +336,13 @@ private class NewPromptDialog(owner: Window?, title: String = "New Prompt") : JD
         defaultCloseOperation = DISPOSE_ON_CLOSE
         minimumSize = Dimension(480, 300)
         setLocationRelativeTo(owner)
+
+        // Pre-fill fields when editing an existing prompt
+        if (existing != null) {
+            nameField.text     = existing.name
+            categoryField.text = existing.category
+            bodyArea.text      = existing.body
+        }
 
         val grid = JPanel(GridBagLayout()).apply {
             border = BorderFactory.createEmptyBorder(12, 12, 8, 12)
@@ -343,9 +384,10 @@ private class NewPromptDialog(owner: Window?, title: String = "New Prompt") : JD
             return
         }
         result = PromptTemplate(
-            name        = name,
-            category    = categoryField.text.trim(),
-            body        = bodyArea.text,
+            id       = existing?.id ?: java.util.UUID.randomUUID().toString(),
+            name     = name,
+            category = categoryField.text.trim(),
+            body     = bodyArea.text,
         )
         dispose()
     }
