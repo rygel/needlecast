@@ -42,6 +42,7 @@ class SettingsDialog(
     }
 
     init {
+        preferredSize = Dimension(760, 560)
         size = Dimension(760, 560)
         minimumSize = Dimension(640, 460)
         setLocationRelativeTo(owner)
