@@ -5,7 +5,7 @@
 <h1 align="center">Needlecast</h1>
 
 <p align="center">
-  A Swing-based project launcher for developers. Organize projects into groups, run build commands, open terminals, browse files, and track git status — all from one window.
+  Use any vibe coding CLI and get some tools around it to quickly edit files or see images, videos, listen to audio. When even VS Code is too heavy. Offers a customizable project tree for all 100+ projects you created this week alone XD 
 </p>
 
 <p align="center">
