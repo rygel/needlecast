@@ -7,16 +7,21 @@ import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.scanner.ProjectScanner
+import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import org.assertj.swing.edt.GuiActionRunner
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
+import javax.swing.tree.DefaultMutableTreeNode
 
 /**
  * Tests for the external (Finder / Explorer / file-manager) drop code path
@@ -189,5 +194,100 @@ class ProjectTreePanelExternalDropUiTest {
         assertEquals(listOf(dir.absolutePath), projectPaths(ctx.config.projectTree))
         assertEquals(listOf(file), droppedFiles)
         assertFalse(droppedFiles.isEmpty())
+    }
+
+    // ── findMissingMatch tests ───────────────────────────────────────────────
+
+    @Test
+    fun `findMissingMatch returns node when name matches missing project`() {
+        // Use a path that doesn't exist on disk so it becomes a missing project
+        val missingPath = tempDir.resolve("ghost").resolve("myapp").toString()
+        val config = AppConfig(
+            projectTree = listOf(
+                ProjectTreeEntry.Project(directory = ProjectDirectory(path = missingPath))
+            )
+        )
+        val panel = buildPanel(config)
+
+        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
+            panel.findMissingMatch("myapp")
+        }
+
+        assertNotNull(match, "should find the missing node")
+        val entry = (match!!.userObject as ProjectTreeEntry.Project)
+        assertEquals(missingPath, entry.directory.path)
+    }
+
+    @Test
+    fun `findMissingMatch returns null when name matches a present project`() {
+        val presentDir = newDir("myapp")   // exists on disk
+        val config = AppConfig(
+            projectTree = listOf(
+                ProjectTreeEntry.Project(directory = ProjectDirectory(path = presentDir.absolutePath))
+            )
+        )
+        val panel = buildPanel(config)
+
+        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
+            panel.findMissingMatch("myapp")
+        }
+
+        assertNull(match, "present projects should not be candidates for repair")
+    }
+
+    @Test
+    fun `findMissingMatch returns null when no project name matches`() {
+        val missingPath = tempDir.resolve("ghost").resolve("myapp").toString()
+        val config = AppConfig(
+            projectTree = listOf(
+                ProjectTreeEntry.Project(directory = ProjectDirectory(path = missingPath))
+            )
+        )
+        val panel = buildPanel(config)
+
+        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
+            panel.findMissingMatch("different-name")
+        }
+
+        assertNull(match, "no match expected for unrelated name")
+    }
+
+    @Test
+    fun `findMissingMatch is case-insensitive on Windows`() {
+        assumeTrue(IS_WINDOWS, "Windows-only: case-insensitive name matching")
+        val missingPath = tempDir.resolve("ghost").resolve("MyApp").toString()
+        val config = AppConfig(
+            projectTree = listOf(
+                ProjectTreeEntry.Project(directory = ProjectDirectory(path = missingPath))
+            )
+        )
+        val panel = buildPanel(config)
+
+        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
+            panel.findMissingMatch("myapp")
+        }
+
+        assertNotNull(match, "Windows: 'myapp' should match 'MyApp'")
+    }
+
+    @Test
+    fun `findMissingMatch returns first match in tree order when two missing projects share a name`() {
+        val firstPath  = tempDir.resolve("first").resolve("myapp").toString()
+        val secondPath = tempDir.resolve("second").resolve("myapp").toString()
+        val config = AppConfig(
+            projectTree = listOf(
+                ProjectTreeEntry.Project(directory = ProjectDirectory(path = firstPath)),
+                ProjectTreeEntry.Project(directory = ProjectDirectory(path = secondPath)),
+            )
+        )
+        val panel = buildPanel(config)
+
+        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
+            panel.findMissingMatch("myapp")
+        }
+
+        assertNotNull(match)
+        val entry = (match!!.userObject as ProjectTreeEntry.Project)
+        assertEquals(firstPath, entry.directory.path, "first entry in tree order should win")
     }
 }

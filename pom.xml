@@ -44,10 +44,6 @@
             <id>jetbrains-intellij-dependencies</id>
             <url>https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/</url>
         </repository>
-        <repository>
-            <id>github-rygel</id>
-            <url>https://maven.pkg.github.com/rygel/sparkle4j</url>
-        </repository>
     </repositories>
 
     <dependencyManagement>
