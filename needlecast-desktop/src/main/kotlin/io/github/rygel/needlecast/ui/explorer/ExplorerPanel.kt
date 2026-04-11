@@ -18,6 +18,7 @@ import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 import javax.swing.BorderFactory
+import javax.swing.DropMode
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JMenuItem
@@ -31,8 +32,9 @@ import javax.swing.JTextField
 import javax.swing.ListSelectionModel
 import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
+import javax.swing.SwingWorker
 import javax.swing.TransferHandler
-import javax.swing.DropMode
+import javax.swing.TransferHandler.TransferSupport
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 
@@ -193,16 +195,24 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     }
 
     private fun loadDirectory(dir: File) {
-        val children = (dir.listFiles() ?: emptyArray())
-            .filter { showHidden || !it.isHidden }
-            .sortedWith(compareBy({ it.isFile }, { it.name.lowercase() }))
-
-        val entries = mutableListOf<FileEntry>()
-        if (dir.parentFile != null) entries.add(FileEntry.ParentDir)
-        children.filter { it.isDirectory }.mapTo(entries) { FileEntry.Dir(it) }
-        children.filter { it.isFile }.mapTo(entries) { FileEntry.RegularFile(it) }
-
-        tableModel.setEntries(entries)
+        object : SwingWorker<List<FileEntry>, Void>() {
+            override fun doInBackground(): List<FileEntry> {
+                val children = (dir.listFiles() ?: emptyArray())
+                    .filter { showHidden || !it.isHidden }
+                    .sortedWith(compareBy({ it.isFile }, { it.name.lowercase() }))
+                val entries = mutableListOf<FileEntry>()
+                if (dir.parentFile != null) entries.add(FileEntry.ParentDir)
+                children.filter { it.isDirectory }.mapTo(entries) { FileEntry.Dir(it) }
+                children.filter { it.isFile }.mapTo(entries) { FileEntry.RegularFile(it) }
+                return entries
+            }
+            override fun done() {
+                // Only apply if the user hasn't navigated away while we were loading
+                if (currentDir != dir) return
+                val entries = try { get() } catch (_: Exception) { return }
+                tableModel.setEntries(entries)
+            }
+        }.execute()
     }
 
     private fun handleActivate(entry: FileEntry) {

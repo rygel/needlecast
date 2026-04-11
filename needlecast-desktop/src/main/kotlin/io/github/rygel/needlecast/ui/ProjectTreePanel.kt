@@ -41,6 +41,7 @@ import javax.swing.SwingWorker
 import javax.swing.JTextField
 import javax.swing.JTree
 import javax.swing.SwingUtilities
+import javax.swing.ToolTipManager
 import javax.swing.TransferHandler
 import javax.swing.UIManager
 import javax.swing.event.DocumentEvent
@@ -74,10 +75,16 @@ class ProjectTreePanel(
             // Keep variable-height rows even after LAF changes.
             rowHeight = 0
         }
+        override fun getToolTipText(e: java.awt.event.MouseEvent): String? {
+            val path = getPathForLocation(e.x, e.y) ?: return null
+            val entry = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject
+            return (entry as? ProjectTreeEntry.Project)?.directory?.path
+        }
     }.apply {
         isRootVisible = false
         showsRootHandles = true
         selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
+        ToolTipManager.sharedInstance().registerComponent(this)
     }
 
     private val scanResults   = mutableMapOf<String, DetectedProject>()
@@ -160,7 +167,11 @@ class ProjectTreePanel(
         tree.transferHandler = TreeTransferHandler()
         tree.addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
             override fun mouseDragged(e: java.awt.event.MouseEvent) {
-                if (SwingUtilities.isLeftMouseButton(e)) {
+                if (!SwingUtilities.isLeftMouseButton(e)) return
+                val press = dragPressPoint ?: return
+                val threshold = java.awt.dnd.DragSource.getDragThreshold()
+                if (Math.abs(e.x - press.x) > threshold || Math.abs(e.y - press.y) > threshold) {
+                    dragPressPoint = null  // fire once per press
                     tree.transferHandler?.exportAsDrag(tree, e, TransferHandler.MOVE)
                 }
             }
@@ -1028,6 +1039,9 @@ class ProjectTreePanel(
             border = BorderFactory.createEmptyBorder(3, 6, 3, 6)
         }
 
+        /** Cache key for the last tags/badges rendered — avoids removeAll()+rebuild on every paint. */
+        private var lastTagsCacheKey: String? = null
+
         init {
             innerPanel.add(cellPanel, BorderLayout.CENTER)
             projectPanel.add(colorStripe, BorderLayout.WEST)
@@ -1079,14 +1093,20 @@ class ProjectTreePanel(
                         branchLabel.toolTipText = null
                     }
 
-                    tagsPanel.removeAll()
+                    // Rebuild tags only when scan result / tags actually changed — avoids
+                    // removeAll()+badge allocation on every repaint of every visible row.
                     val scanned = scanResults[entry.directory.path]
-                    when {
-                        scanned == null    -> {}
-                        scanned.scanFailed -> tagsPanel.add(badge("⚠", "#B71C1C"))
-                        else -> {
-                            scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
-                            entry.tags.forEach { tag -> tagsPanel.add(badge(tag, "#546E7A")) }
+                    val tagsKey = "${entry.directory.path}|${scanned?.buildTools?.joinToString { it.tagLabel }}|${entry.tags.joinToString()}"
+                    if (tagsKey != lastTagsCacheKey) {
+                        lastTagsCacheKey = tagsKey
+                        tagsPanel.removeAll()
+                        when {
+                            scanned == null    -> {}
+                            scanned.scanFailed -> tagsPanel.add(badge("⚠", "#B71C1C"))
+                            else -> {
+                                scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
+                                entry.tags.forEach { tag -> tagsPanel.add(badge(tag, "#546E7A")) }
+                            }
                         }
                     }
 
@@ -1097,10 +1117,11 @@ class ProjectTreePanel(
                     projectPanel.background = bg
                     innerPanel.background = bg
 
-                    // Calculate available width for this cell.
+                    // Set forcedWidth so tagsPanel.getPreferredSize() and bottomRow layout correctly.
+                    // CellRendererPane.paintComponent (called with shouldValidate=true) handles
+                    // setBounds + validate — no need to call them here.
                     // IMPORTANT: Do NOT call tree.getPathBounds() here — it re-enters the
                     // layout cache's size calculation and causes a StackOverflowError.
-                    // Instead, compute the indentation offset from node depth + UI indent settings.
                     val vp = tree.parent as? javax.swing.JViewport
                     val vpWidth = vp?.width ?: tree.width
                     if (vpWidth > 0) {
@@ -1115,17 +1136,7 @@ class ProjectTreePanel(
                             depth * (left + right)
                         } ?: 0
                         val startX = leftInset + totalIndent
-                        val cellWidth = (vpWidth - startX - rightInset).coerceAtLeast(50)
-                        projectPanel.forcedWidth = cellWidth
-                        val cellHeight = projectPanel.preferredSize.height
-                        projectPanel.setSize(cellWidth, cellHeight)
-                        projectPanel.invalidate()
-                        projectPanel.validate()
-                        innerPanel.doLayout()
-                        cellPanel.doLayout()
-                        nameRow.doLayout()
-                        bottomRow.doLayout()
-                        tagsPanel.doLayout()
+                        projectPanel.forcedWidth = (vpWidth - startX - rightInset).coerceAtLeast(50)
                     }
 
                     projectPanel
@@ -1146,9 +1157,6 @@ class ProjectTreePanel(
 
     private inner class FullWidthTreeUI : javax.swing.plaf.basic.BasicTreeUI() {
 
-        override fun createLayoutCache(): javax.swing.tree.AbstractLayoutCache =
-            javax.swing.tree.VariableHeightLayoutCache()
-
         /** Force variable-height rows so hit-detection matches the two-line cell renderer height.
          *  FlatLaf sets Tree.rowHeight to a fixed value (e.g. 24 px); our renderer returns ~40 px.
          *  Without this, clicks on the lower half of each row fall outside BasicTreeUI's hit bounds
@@ -1158,6 +1166,7 @@ class ProjectTreePanel(
             super.installDefaults()
             tree.rowHeight = 0
         }
+
         override fun paintRow(
             g: java.awt.Graphics,
             clipBounds: Rectangle?,
