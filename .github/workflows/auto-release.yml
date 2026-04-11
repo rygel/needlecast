@@ -1,4 +1,4 @@
-name: Release: Auto Tag
+name: "Release: Auto Tag"
 
 # When a push to main changes the version in pom.xml, automatically create
 # a GitHub release with the corresponding tag. This triggers release.yml
