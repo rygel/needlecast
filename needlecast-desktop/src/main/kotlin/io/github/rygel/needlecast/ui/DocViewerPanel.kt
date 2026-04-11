@@ -54,6 +54,7 @@ class DocViewerPanel : JPanel(BorderLayout()) {
     private val refreshButton = JButton("\u21BB  Refresh")    // ↻
 
     private var currentProject: DetectedProject? = null
+    private var reloadGeneration = 0
 
     private val executor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
         Thread(r, "doc-viewer-worker").apply { isDaemon = true }
@@ -79,7 +80,7 @@ class DocViewerPanel : JPanel(BorderLayout()) {
             if (!it.valueIsAdjusting) {
                 val row = list.selectedValue
                 if (row is DocRow.Header || row is DocRow.Placeholder) {
-                    list.clearSelection()
+                    SwingUtilities.invokeLater { list.clearSelection() }
                     return@addListSelectionListener
                 }
                 openButton.isEnabled = row is DocRow.Entry && row.available
@@ -107,6 +108,7 @@ class DocViewerPanel : JPanel(BorderLayout()) {
 
     private fun reload() {
         val project = currentProject
+        val generation = ++reloadGeneration
         listModel.clear()
         openButton.isEnabled = false
 
@@ -135,7 +137,7 @@ class DocViewerPanel : JPanel(BorderLayout()) {
                 rows.addAll(entries)
             }
             SwingUtilities.invokeLater {
-                if (currentProject !== project) return@invokeLater  // project changed while loading
+                if (reloadGeneration != generation) return@invokeLater
                 listModel.clear()
                 rows.forEach { listModel.addElement(it) }
             }
