@@ -2,6 +2,15 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.19] — 2026-04-11
+
+### Fixed
+- **macOS app icon** — the Needlecast icon now appears correctly in the Dock, Finder, and app switcher on macOS. Previously, jpackage's built-in PNG conversion produced an incomplete `.icns` that macOS fell back to the generic Java badge for. The installer now generates a proper multi-resolution icon set using `sips` + `iconutil`.
+- **macOS Dock label** — the app name in the Dock and window title bar now consistently reads "Needlecast" on macOS, even in edge cases where the JVM starts before the app bundle is fully initialized.
+- **macOS shell default** — Settings and per-project shell overrides now correctly default to `/bin/zsh` on macOS (the system default since Catalina), rather than the Linux-style `/bin/bash`. The shell detector also searches Homebrew-managed shell paths (`/opt/homebrew/bin`, `/usr/local/bin`).
+
+---
+
 ## [0.6.18] — 2026-04-11
 
 ### Added
