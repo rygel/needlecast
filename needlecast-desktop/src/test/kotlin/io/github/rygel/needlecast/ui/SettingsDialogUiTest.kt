@@ -68,6 +68,7 @@ class SettingsDialogUiTest {
         }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
+        robot.waitForIdle()
         fixture.requireSize(java.awt.Dimension(760, 560))
         fixture.cleanUp()
     }
@@ -111,6 +112,7 @@ class SettingsDialogUiTest {
         fixture.show()
         // Navigate to Shortcuts via sidebar (index 9 in the model)
         fixture.list().selectItem("Shortcuts")
+        robot.waitForIdle()
 
         ShortcutsSettingsPanel.defaultShortcuts.forEach { (id, default) ->
             fixture.textBox(id).requireText(default)
@@ -130,6 +132,7 @@ class SettingsDialogUiTest {
         fixture.show()
         // Navigate to Shortcuts via sidebar
         fixture.list().selectItem("Shortcuts")
+        robot.waitForIdle()
         fixture.textBox("rescan").requireText("F9")
         fixture.cleanUp()
     }
