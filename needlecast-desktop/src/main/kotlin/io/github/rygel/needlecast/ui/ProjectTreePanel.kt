@@ -1085,7 +1085,7 @@ class ProjectTreePanel(
 
                     val gs = gitStatusCache[entry.directory.path]
                     if (gs?.branch != null) {
-                        branchLabel.text = "\uE0A0 ${gs.branch}${if (gs.isDirty) "*" else ""}"
+                        branchLabel.text = "${gs.branch}${if (gs.isDirty) "*" else ""}"
                         branchLabel.toolTipText = gs.branch
                         branchLabel.foreground = if (gs.isDirty) Color(0xE6A817) else Color(0x888888)
                     } else {
@@ -1146,7 +1146,7 @@ class ProjectTreePanel(
         }
 
         private fun badge(text: String, colorHex: String) = JLabel(text).apply {
-            font = Font(Font.SANS_SERIF, Font.BOLD, 9)
+            font = font.deriveFont(Font.BOLD, 9f)
             foreground = Color.WHITE
             background = try { Color.decode(colorHex) } catch (_: Exception) { Color.GRAY }
             isOpaque = true
