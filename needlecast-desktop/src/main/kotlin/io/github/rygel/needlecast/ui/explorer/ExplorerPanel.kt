@@ -18,6 +18,7 @@ import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Date
 import javax.swing.BorderFactory
+import javax.swing.DropMode
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JMenuItem
@@ -32,6 +33,8 @@ import javax.swing.ListSelectionModel
 import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
+import javax.swing.TransferHandler
+import javax.swing.TransferHandler.TransferSupport
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 
