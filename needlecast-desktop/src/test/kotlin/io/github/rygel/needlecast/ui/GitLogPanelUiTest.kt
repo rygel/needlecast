@@ -81,8 +81,8 @@ class GitLogPanelUiTest {
         val fix = FrameFixture(robot, frame)
         fix.show()
         robot.waitForIdle()
-        list = robot.finder().findByType(panel, JList::class.java, true)
-        diffArea = robot.finder().findByType(panel, JTextArea::class.java, true)
+        list = robot.finder().findByName(panel, "log-list", JList::class.java, true)
+        diffArea = robot.finder().findByName(panel, "diff-area", JTextArea::class.java, true)
         return fix
     }
 

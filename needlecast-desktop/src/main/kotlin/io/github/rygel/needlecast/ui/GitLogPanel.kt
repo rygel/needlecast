@@ -14,10 +14,8 @@ import javax.swing.BorderFactory
 import javax.swing.ButtonGroup
 import javax.swing.DefaultListModel
 import javax.swing.JButton
-import javax.swing.JCheckBox
 import javax.swing.JLabel
 import javax.swing.JList
-import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JSplitPane
@@ -41,11 +39,13 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
     // ── Log view ──────────────────────────────────────────────────────────────
     private val logModel = DefaultListModel<GitCommit>()
     private val logList = JList(logModel).apply {
+        name = "log-list"
         selectionMode = ListSelectionModel.SINGLE_SELECTION
         setCellRenderer(CommitCellRenderer())
         fixedCellHeight = 28
     }
     private val diffArea = JTextArea().apply {
+        name = "diff-area"
         isEditable = false
         font = Font(Font.MONOSPACED, Font.PLAIN, 11)
         lineWrap = false
