@@ -19,31 +19,32 @@ import javax.swing.JList
 import javax.swing.JTextArea
 
 private class FakeGitService(
-    val logLines: String = "",
-    val showOutput: String = "",
+    val logLines: String? = "",
+    val showOutput: String? = "",
     val changedFilesList: List<ChangedFile> = emptyList(),
     val streamingLines: List<String> = emptyList(),
+    val streamingExitCode: Int = 0,
 ) : GitService {
     var stagedFiles: List<String>? = null
     var committedMessage: String? = null
 
     override fun readStatus(dir: String): GitStatus = GitStatus.NotARepo
-    override fun log(dir: String, maxEntries: Int): String = logLines
-    override fun show(dir: String, hash: String): String = showOutput
+    override fun log(dir: String, maxEntries: Int): String? = logLines
+    override fun show(dir: String, hash: String): String? = showOutput
     override fun changedFiles(dir: String): List<ChangedFile> = changedFilesList
     override fun stage(dir: String, files: List<String>) { stagedFiles = files }
     override fun commit(dir: String, message: String) { committedMessage = message }
     override fun fetchStreaming(dir: String, onLine: (String) -> Unit): Int {
         streamingLines.forEach { onLine(it) }
-        return 0
+        return streamingExitCode
     }
     override fun pushStreaming(dir: String, onLine: (String) -> Unit): Int {
         streamingLines.forEach { onLine(it) }
-        return 0
+        return streamingExitCode
     }
     override fun pullStreaming(dir: String, onLine: (String) -> Unit): Int {
         streamingLines.forEach { onLine(it) }
-        return 0
+        return streamingExitCode
     }
 }
 
