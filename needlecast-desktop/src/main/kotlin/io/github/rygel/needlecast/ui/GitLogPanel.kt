@@ -254,7 +254,7 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
                 commitMessageField.text = ""
                 logToggle.isSelected = true
                 cardLayout.show(cardPanel, "log")
-                loadProject(currentPath)
+                loadProject(path)
             }
         }.execute()
     }
@@ -317,7 +317,11 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
             list: JList<out ChangedFile>, value: ChangedFile?,
             index: Int, isSelected: Boolean, cellHasFocus: Boolean,
         ): Component {
-            val file = value ?: return checkBox
+            val file = value ?: run {
+                checkBox.text = ""
+                checkBox.isSelected = false
+                return checkBox
+            }
             val badge = file.statusCode.firstOrNull { it != ' ' }?.toString() ?: "?"
             checkBox.text       = "[$badge] ${file.path}"
             checkBox.isSelected = file.path in checkedFiles

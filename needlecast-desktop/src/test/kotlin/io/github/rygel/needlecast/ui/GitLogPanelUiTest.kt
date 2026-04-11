@@ -153,10 +153,9 @@ class GitLogPanelUiTest {
 
         fixture.toggleButton("toggle-commit").click()
         robot.waitForIdle()
-        Thread.sleep(200)   // allow refreshChangedFiles SwingWorker to complete
-        robot.waitForIdle()
-
         val fileList = robot.finder().findByName(panel, "changed-files-list", JList::class.java, true)
+        waitUntil(2_000) { (fileList as JList<*>).model.size == 2 }
+
         val count = GuiActionRunner.execute(object : GuiQuery<Int>() {
             override fun executeInEDT(): Int = fileList.model.size
         })
@@ -173,16 +172,28 @@ class GitLogPanelUiTest {
 
         fixture.toggleButton("toggle-commit").click()
         robot.waitForIdle()
-        Thread.sleep(200)
-        robot.waitForIdle()
+        val fileListInner = robot.finder().findByName(panel, "changed-files-list", JList::class.java, true)
+        waitUntil(2_000) { (fileListInner as JList<*>).model.size == 1 }
 
         fixture.textBox("commit-message").enterText("my commit message")
         fixture.button("btn-commit-ok").click()
-        Thread.sleep(200)
+        waitUntil(2_000) { fake.committedMessage != null }
         robot.waitForIdle()
 
         assertEquals(listOf("src/Main.kt"), fake.stagedFiles)
         assertEquals("my commit message", fake.committedMessage)
+    }
+
+    private fun waitUntil(timeoutMs: Long, condition: () -> Boolean) {
+        val deadline = System.nanoTime() + (timeoutMs * 1_000_000L)
+        while (System.nanoTime() < deadline) {
+            val met = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
+                override fun executeInEDT(): Boolean = condition()
+            }) == true
+            if (met) return
+            Thread.sleep(10)
+        }
+        throw AssertionError("Timed out after ${timeoutMs}ms waiting for condition")
     }
 
     private fun waitForListSize(size: Int, timeoutMs: Long) {
