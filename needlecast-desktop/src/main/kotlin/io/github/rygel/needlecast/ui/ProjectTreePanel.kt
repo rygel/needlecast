@@ -975,22 +975,27 @@ class ProjectTreePanel(
             }
             /** Constrain max size to prevent overflow beyond allocated width. */
             override fun getMaximumSize(): Dimension = Dimension(Short.MAX_VALUE.toInt(), 16)
-            /** Lay out children right-aligned; hide any that don't fit. */
+            /** Lay out children right-aligned; hide user tags that don't fit, but always show build-tool badges. */
             override fun doLayout() {
                 val gap = (layout as FlowLayout).hgap
                 var x = width
+                // Build-tool badges are the LAST buildToolBadgeCount components; user tags are first.
+                val buildToolStart = componentCount - buildToolBadgeCount
                 for (i in componentCount - 1 downTo 0) {
                     val c = components[i]
                     val pref = c.preferredSize
                     val nextX = x - pref.width
-                    if (nextX < 0 && i < componentCount - 1) {
-                        // Hide tags that don't fit on the left
+                    val isBuildTool = i >= buildToolStart
+                    if (nextX < 0 && !isBuildTool) {
+                        // Hide user tags that don't fit
                         c.setBounds(0, 0, 0, 0)
                         c.isVisible = false
                     } else {
                         c.isVisible = true
-                        c.setBounds(nextX, 0, pref.width, height.coerceAtLeast(pref.height))
-                        x = nextX - gap
+                        // Clamp to 0 so build-tool badges never render at negative coordinates
+                        val startX = nextX.coerceAtLeast(0)
+                        c.setBounds(startX, 0, pref.width, height.coerceAtLeast(pref.height))
+                        x = startX - gap
                     }
                 }
             }
@@ -1041,6 +1046,8 @@ class ProjectTreePanel(
 
         /** Cache key for the last tags/badges rendered — avoids removeAll()+rebuild on every paint. */
         private var lastTagsCacheKey: String? = null
+        /** Number of build-tool badge components at the END of tagsPanel's component list. */
+        private var buildToolBadgeCount = 0
 
         init {
             innerPanel.add(cellPanel, BorderLayout.CENTER)
@@ -1100,12 +1107,19 @@ class ProjectTreePanel(
                     if (tagsKey != lastTagsCacheKey) {
                         lastTagsCacheKey = tagsKey
                         tagsPanel.removeAll()
+                        buildToolBadgeCount = 0
                         when {
                             scanned == null    -> {}
-                            scanned.scanFailed -> tagsPanel.add(badge("⚠", "#B71C1C"))
+                            scanned.scanFailed -> {
+                                tagsPanel.add(badge("⚠", "#B71C1C"))
+                                buildToolBadgeCount = 1
+                            }
                             else -> {
-                                scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
+                                // User tags first (lower priority — hidden when space is tight),
+                                // build-tool badges last (always visible).
                                 entry.tags.forEach { tag -> tagsPanel.add(badge(tag, "#546E7A")) }
+                                scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
+                                buildToolBadgeCount = scanned.buildTools.size
                             }
                         }
                     }
