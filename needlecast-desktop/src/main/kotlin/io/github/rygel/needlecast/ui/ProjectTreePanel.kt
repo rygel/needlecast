@@ -333,30 +333,9 @@ class ProjectTreePanel(
                 logger.warn("Failed to scan '${dir.label()}'", e)
                 DetectedProject(dir, emptySet(), emptyList(), scanFailed = true)
             }
-
-            override fun done() {
-                val result = try { get() } catch (_: Exception) { return }
-                scanResults[dir.path] = result
-                tree.repaint()
-                if (!result.scanFailed) {
-                    fetchGitStatus(dir.path)
-                    buildFileWatcher.watch(dir.path)
-                }
-                val pending = pendingSelectPath
-                if (pending == dir.path) {
-                    selectByPath(pending)
-                } else {
-                    // If this project is already selected, push the fresh scan result
-                    // to listeners (file explorer, commands panel, etc.) without
-                    // changing the selection path.
-                    val selNode = tree.lastSelectedPathComponent as? DefaultMutableTreeNode
-                    val selEntry = selNode?.userObject as? ProjectTreeEntry.Project
-                    if (selEntry?.directory?.path == dir.path) {
-                        onProjectSelected(result)
-                    }
-                }
-            }
-        }.execute()
+            scanQueue.add(dir to result)
+            scheduleScanApply()
+        }
     }
 
     private fun rescheduleProjectScan(path: String) {
