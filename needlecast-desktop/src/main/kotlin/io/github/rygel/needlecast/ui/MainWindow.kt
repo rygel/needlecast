@@ -566,16 +566,20 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val i18n = ctx.i18n
         val settingsItem = JMenuItem(i18n.translate("menu.file.settings")).apply {
             addActionListener {
-                SettingsDialog(this@MainWindow, ctx,
+                SettingsDialog(
+                    owner = this@MainWindow,
+                    ctx   = ctx,
                     sendToTerminal = { cmd -> terminalPanel.sendInput(cmd) },
-                    onShortcutsChanged = { reloadShortcuts() },
-                    onLayoutChanged = { resetLayout() },
-                    onTerminalColorsChanged = { fg, bg -> terminalPanel.applyTerminalColors(fg, bg) },
-                    onFontSizeChanged = { size -> terminalPanel.applyFontSize(size) },
-                    onUiFontChanged = { _, _ -> applyUiFontFromConfig() },
-                    onEditorFontChanged = { family, size -> explorerPanel.applyEditorFont(family, size) },
-                    onTerminalFontChanged = { family -> terminalPanel.applyFontFamily(family) },
-                    onSyntaxThemeChanged = { explorerPanel.applyTheme(ThemeRegistry.isDark(ctx.config.theme)) },
+                    callbacks = io.github.rygel.needlecast.ui.settings.SettingsCallbacks(
+                        onShortcutsChanged      = { reloadShortcuts() },
+                        onLayoutChanged         = { resetLayout() },
+                        onTerminalColorsChanged = { fg, bg -> terminalPanel.applyTerminalColors(fg, bg) },
+                        onFontSizeChanged       = { size -> terminalPanel.applyFontSize(size) },
+                        onUiFontChanged         = { _, _ -> applyUiFontFromConfig() },
+                        onEditorFontChanged     = { family, size -> explorerPanel.applyEditorFont(family, size) },
+                        onTerminalFontChanged   = { family -> terminalPanel.applyFontFamily(family) },
+                        onSyntaxThemeChanged    = { explorerPanel.applyTheme(ThemeRegistry.isDark(ctx.config.theme)) },
+                    ),
                 ).isVisible = true
             }
         }
