@@ -1,19 +1,29 @@
 package io.github.rygel.needlecast.ui
 
+import io.github.rygel.needlecast.git.ChangedFile
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
 import java.awt.BorderLayout
+import java.awt.CardLayout
 import java.awt.Color
 import java.awt.Component
+import java.awt.Dimension
+import java.awt.FlowLayout
 import java.awt.Font
 import javax.swing.BorderFactory
+import javax.swing.ButtonGroup
 import javax.swing.DefaultListModel
+import javax.swing.JButton
+import javax.swing.JCheckBox
 import javax.swing.JLabel
 import javax.swing.JList
+import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JSplitPane
 import javax.swing.JTextArea
+import javax.swing.JTextField
+import javax.swing.JToggleButton
 import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
 import javax.swing.SwingWorker
@@ -21,11 +31,14 @@ import javax.swing.SwingWorker
 private data class GitCommit(val hash: String, val subject: String)
 
 /**
- * Read-only git log viewer. Shows the last 40 commits in a list; clicking one
- * displays the full `git show` output in the lower pane.
+ * Git panel with three views switched via a toolbar:
+ * - Log: read-only commit history (existing behaviour)
+ * - Commit: staging checklist + commit message field
+ * - Output: streaming text for fetch/push/pull
  */
 class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JPanel(BorderLayout()) {
 
+    // ── Log view ──────────────────────────────────────────────────────────────
     private val logModel = DefaultListModel<GitCommit>()
     private val logList = JList(logModel).apply {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
@@ -39,19 +52,54 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
         border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
     }
 
+    // ── Commit view (wired in Task 4) ─────────────────────────────────────────
+    private val fileListModel = DefaultListModel<ChangedFile>()
+    private val checkedFiles  = mutableSetOf<String>()
+    private val fileList = JList(fileListModel).apply { name = "changed-files-list" }
+    private val commitMessageField = JTextField().apply {
+        name = "commit-message"
+        putClientProperty("JTextField.placeholderText", "Commit message…")
+    }
+    private val commitButton = JButton("Commit").apply { name = "btn-commit-ok" }
+    private val cancelButton = JButton("Cancel").apply { name = "btn-commit-cancel" }
+
+    // ── Output view (wired in Task 5) ─────────────────────────────────────────
+    private val outputLabel = JLabel("").apply {
+        name = "output-label"
+        border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
+    }
+    private val outputArea = JTextArea().apply {
+        name = "output-area"
+        isEditable = false
+        font = Font(Font.MONOSPACED, Font.PLAIN, 11)
+        border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
+    }
+    private val closeButton = JButton("Close").apply { name = "btn-output-close"; isEnabled = false }
+
+    // ── Toolbar ───────────────────────────────────────────────────────────────
+    private val logToggle    = JToggleButton("Log").apply    { name = "toggle-log";    isSelected = true }
+    private val commitToggle = JToggleButton("Commit").apply { name = "toggle-commit" }
+    private val fetchButton  = JButton("Fetch").apply { name = "btn-fetch" }
+    private val pushButton   = JButton("Push").apply  { name = "btn-push"  }
+    private val pullButton   = JButton("Pull").apply  { name = "btn-pull"  }
+
+    // ── Card layout ───────────────────────────────────────────────────────────
+    private val cardLayout = CardLayout()
+    private val cardPanel  = JPanel(cardLayout)
+
     private var currentPath: String? = null
     private var pendingDiffWorker: SwingWorker<String, Void>? = null
-
     private val maxDiffChars = 400_000
 
     init {
-        minimumSize = java.awt.Dimension(0, 0)
-        val split = JSplitPane(JSplitPane.VERTICAL_SPLIT,
-            JScrollPane(logList).apply { minimumSize = java.awt.Dimension(0, 0) },
-            JScrollPane(diffArea).apply { minimumSize = java.awt.Dimension(0, 0) },
-        ).apply { resizeWeight = 0.4 }
+        minimumSize = Dimension(0, 0)
 
-        add(split, BorderLayout.CENTER)
+        // Log card: existing split pane
+        val split = JSplitPane(
+            JSplitPane.VERTICAL_SPLIT,
+            JScrollPane(logList).apply { minimumSize = Dimension(0, 0) },
+            JScrollPane(diffArea).apply { minimumSize = Dimension(0, 0) },
+        ).apply { resizeWeight = 0.4 }
 
         logList.addListSelectionListener { e ->
             if (!e.valueIsAdjusting) {
@@ -59,7 +107,28 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
                 showCommit(commit.hash)
             }
         }
+
+        cardPanel.add(split,    "log")
+        cardPanel.add(JPanel(), "commit")   // placeholder — replaced in Task 4
+        cardPanel.add(JPanel(), "output")   // placeholder — replaced in Task 5
+
+        ButtonGroup().apply { add(logToggle); add(commitToggle) }
+        logToggle.addActionListener    { cardLayout.show(cardPanel, "log") }
+        commitToggle.addActionListener { cardLayout.show(cardPanel, "commit") }
+        fetchButton.addActionListener  { }   // wired in Task 5
+        pushButton.addActionListener   { }   // wired in Task 5
+        pullButton.addActionListener   { }   // wired in Task 5
+
+        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+            add(logToggle); add(commitToggle)
+            add(fetchButton); add(pushButton); add(pullButton)
+        }
+
+        add(toolbar,   BorderLayout.NORTH)
+        add(cardPanel, BorderLayout.CENTER)
     }
+
+    // ── Public API ────────────────────────────────────────────────────────────
 
     fun loadProject(path: String?) {
         currentPath = path
@@ -92,13 +161,14 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
         }.execute()
     }
 
+    // ── Private helpers ───────────────────────────────────────────────────────
+
     private fun showCommit(hash: String) {
         val path = currentPath ?: return
         pendingDiffWorker?.cancel(true)
         pendingDiffWorker = object : SwingWorker<String, Void>() {
             override fun doInBackground(): String =
                 gitService.show(path, hash) ?: "Could not load commit $hash"
-
             override fun done() {
                 if (isCancelled) return
                 val text = try { get() } catch (_: Exception) { return }
@@ -106,12 +176,12 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
                     val omitted = text.length - maxDiffChars
                     text.take(maxDiffChars) + "\n\n[Diff truncated: omitted ${omitted} characters]"
                 } else text
-                TextChunker.setTextChunked(diffArea, rendered) {
-                    diffArea.caretPosition = 0
-                }
+                TextChunker.setTextChunked(diffArea, rendered) { diffArea.caretPosition = 0 }
             }
         }.also { it.execute() }
     }
+
+    // ── Cell renderer ─────────────────────────────────────────────────────────
 
     private class CommitCellRenderer : ListCellRenderer<GitCommit> {
         private val panel = JPanel(BorderLayout(6, 0)).apply {
@@ -126,7 +196,7 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
         }
 
         init {
-            panel.add(hashLabel, BorderLayout.WEST)
+            panel.add(hashLabel,    BorderLayout.WEST)
             panel.add(subjectLabel, BorderLayout.CENTER)
         }
 
@@ -134,12 +204,12 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
             list: JList<out GitCommit>, value: GitCommit?,
             index: Int, isSelected: Boolean, cellHasFocus: Boolean,
         ): Component {
-            hashLabel.text = value?.hash ?: ""
+            hashLabel.text    = value?.hash    ?: ""
             subjectLabel.text = value?.subject ?: ""
             val bg = if (isSelected) list.selectionBackground else list.background
-            panel.background = bg
+            panel.background        = bg
+            panel.isOpaque          = true
             subjectLabel.foreground = if (isSelected) list.selectionForeground else list.foreground
-            panel.isOpaque = true
             return panel
         }
     }

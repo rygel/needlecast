@@ -126,6 +126,19 @@ class GitLogPanelUiTest {
         }
     }
 
+    @Test
+    fun `toolbar has Log and Commit toggle buttons and Fetch Push Pull action buttons`() {
+        val fake = FakeGitService()
+        panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
+        fixture = showInFrame(panel)
+
+        fixture.toggleButton("toggle-log").requireVisible()
+        fixture.toggleButton("toggle-commit").requireVisible()
+        fixture.button("btn-fetch").requireVisible()
+        fixture.button("btn-push").requireVisible()
+        fixture.button("btn-pull").requireVisible()
+    }
+
     private fun waitForListSize(size: Int, timeoutMs: Long) {
         val deadline = System.nanoTime() + (timeoutMs * 1_000_000)
         while (System.nanoTime() < deadline) {
