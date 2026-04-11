@@ -4,6 +4,7 @@ import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.AiCliDefinition
 import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.process.ProcessExecutor
+import io.github.rygel.needlecast.scanner.IS_MAC
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.outerstellar.i18n.Language
 import java.awt.BorderLayout
@@ -786,7 +787,12 @@ class SettingsDialog(
 
             // Detect installed shells in background, populate combo when ready
             val manualItem = ShellInfo("Manual entry…", "")
-            val osDefault  = ShellInfo("OS default (cmd.exe / bash)", "")
+            val osDefaultLabel = when {
+                IS_WINDOWS -> "OS default (cmd.exe)"
+                IS_MAC     -> "OS default (zsh)"
+                else       -> "OS default (bash)"
+            }
+            val osDefault  = ShellInfo(osDefaultLabel, "")
             val shellCombo = JComboBox(arrayOf<Any>(osDefault, manualItem))
             val shellField = JTextField(ctx.config.defaultShell ?: "", 28).apply {
                 isVisible = ctx.config.defaultShell?.isNotBlank() == true

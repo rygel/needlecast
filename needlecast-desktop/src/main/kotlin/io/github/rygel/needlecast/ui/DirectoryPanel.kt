@@ -407,7 +407,11 @@ class DirectoryPanel(
         val shellField = JTextField(dir.shellExecutable ?: "", 30)
         val startupField = JTextField(dir.startupCommand ?: "", 30)
 
-        val defaultShell = if (io.github.rygel.needlecast.scanner.IS_WINDOWS) "cmd.exe" else "/bin/bash"
+        val defaultShell = when {
+            io.github.rygel.needlecast.scanner.IS_WINDOWS -> "cmd.exe"
+            io.github.rygel.needlecast.scanner.IS_MAC     -> "/bin/zsh"
+            else                                          -> "/bin/bash"
+        }
         val form = JPanel(GridBagLayout()).apply {
             border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
             val gc = GridBagConstraints().apply { insets = Insets(4, 4, 4, 4); anchor = GridBagConstraints.WEST }
