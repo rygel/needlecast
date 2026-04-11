@@ -41,6 +41,7 @@ import javax.swing.SwingWorker
 import javax.swing.JTextField
 import javax.swing.JTree
 import javax.swing.SwingUtilities
+import javax.swing.ToolTipManager
 import javax.swing.TransferHandler
 import javax.swing.UIManager
 import javax.swing.event.DocumentEvent
@@ -74,10 +75,16 @@ class ProjectTreePanel(
             // Keep variable-height rows even after LAF changes.
             rowHeight = 0
         }
+        override fun getToolTipText(e: java.awt.event.MouseEvent): String? {
+            val path = getPathForLocation(e.x, e.y) ?: return null
+            val entry = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject
+            return (entry as? ProjectTreeEntry.Project)?.directory?.path
+        }
     }.apply {
         isRootVisible = false
         showsRootHandles = true
         selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
+        ToolTipManager.sharedInstance().registerComponent(this)
     }
 
     private val scanResults   = mutableMapOf<String, DetectedProject>()
