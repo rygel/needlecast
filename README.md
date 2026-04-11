@@ -26,6 +26,8 @@
 - Environment variables per project, injected into commands and terminals
 - File explorer automatically switches to the active project's directory
 
+![Main Window](docs/screenshots/01-main-window.png)
+
 **Commands**
 - Auto-detects build tools across 14 language ecosystems — no configuration needed:
 
