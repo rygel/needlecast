@@ -2,6 +2,17 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.21] — 2026-04-12
+
+### Added
+- **Explorer "Open in File Manager" button** — address bar toolbar now has a dedicated button to open the current directory in the OS file manager (Finder on macOS, Explorer on Windows, `xdg-open` on Linux).
+- **Persistent command editing** — label and argument edits made via Edit Command dialog are now saved to config and survive rescans and app restarts.
+
+### Fixed
+- **Build-system badges sometimes missing** — individual scanner failures are now isolated so a malformed `package.json` no longer prevents Maven (or any other scanner's) badges from appearing.
+
+---
+
 ## [0.6.20] — 2026-04-12
 
 ### Added
