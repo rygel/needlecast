@@ -25,8 +25,9 @@ class ScriptDirectoryScanner : ProjectScanner {
                 ?.filter { it.isFile }
                 ?.mapNotNull { file ->
                     val interpreter = interpreterFor(file.name) ?: return@mapNotNull null
-                    val label = root.toPath().relativize(file.toPath()).toString()
-                        .replace(File.separatorChar, '/')
+                    val rel = root.toPath().relativize(file.toPath()).toString()
+                    val label = if (rel.startsWith("..")) file.canonicalPath
+                                else rel.replace(File.separatorChar, '/')
                     CommandDescriptor(
                         label            = label,
                         buildTool        = BuildTool.SCRIPT,
