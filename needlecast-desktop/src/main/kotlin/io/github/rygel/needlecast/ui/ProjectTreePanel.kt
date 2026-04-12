@@ -875,15 +875,17 @@ class ProjectTreePanel(
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return
 
         val newDirs = (0 until listModel.size).map { listModel.getElementAt(it) }
-        node.userObject = entry.copy(directory = dir.copy(extraScanDirs = newDirs))
+        val updated = dir.copy(extraScanDirs = newDirs)
+        node.userObject = entry.copy(directory = updated)
         treeModel.nodeChanged(node)
         persist()
-        scanProject(dir.copy(extraScanDirs = newDirs))
+        scanProject(updated)
     }
 
     /** Returns [absolute] as a path relative to [base] when it is a subdirectory, otherwise returns [absolute]. */
     private fun makeRelativeIfPossible(absolute: String, base: String): String {
         val rel = File(base).toPath().relativize(File(absolute).toPath()).toString()
+            .replace(File.separatorChar, '/')
         return if (rel.startsWith("..")) absolute else rel
     }
 
