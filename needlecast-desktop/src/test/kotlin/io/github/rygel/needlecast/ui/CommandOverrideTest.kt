@@ -31,9 +31,9 @@ class CommandOverrideTest {
 
     @Test
     fun `applying override replaces matching descriptor`() {
-        val original = io.github.rygel.needlecast.model.CommandDescriptor(
+        val original = CommandDescriptor(
             label = "clean install",
-            buildTool = io.github.rygel.needlecast.model.BuildTool.MAVEN,
+            buildTool = BuildTool.MAVEN,
             argv = listOf("mvn", "clean", "install"),
             workingDirectory = "/home/user/project",
         )
@@ -50,9 +50,9 @@ class CommandOverrideTest {
 
     @Test
     fun `override with no matching command is silently ignored`() {
-        val original = io.github.rygel.needlecast.model.CommandDescriptor(
+        val original = CommandDescriptor(
             label = "clean install",
-            buildTool = io.github.rygel.needlecast.model.BuildTool.MAVEN,
+            buildTool = BuildTool.MAVEN,
             argv = listOf("mvn", "clean", "install"),
             workingDirectory = "/home/user/project",
         )

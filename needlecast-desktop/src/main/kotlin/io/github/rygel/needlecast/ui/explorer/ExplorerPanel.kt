@@ -80,7 +80,11 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         }
 
         val openFmButton = JButton("\u29C9").apply {
-            toolTipText = if (IS_MAC) "Open in Finder" else "Open in Explorer"
+            toolTipText = when {
+                IS_MAC     -> "Open in Finder"
+                IS_WINDOWS -> "Open in Explorer"
+                else       -> "Open in File Manager"
+            }
             addActionListener { openInFileManager(currentDir) }
         }
 
