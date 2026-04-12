@@ -129,7 +129,8 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                 e.consume()
             }
         }
-        editor.addMouseWheelListener(zoomListener)
+        // Register only on the scroll pane so that non-Ctrl scroll events on the text area
+        // propagate naturally to RTextScrollPane for normal scrolling.
         scrollPane.addMouseWheelListener(zoomListener)
 
         add(toolbar, BorderLayout.NORTH)
