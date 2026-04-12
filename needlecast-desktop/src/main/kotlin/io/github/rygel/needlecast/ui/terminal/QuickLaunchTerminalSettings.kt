@@ -33,7 +33,7 @@ class QuickLaunchTerminalSettings(
     private val terminalFontName: String by lazy {
         val os = System.getProperty("os.name", "").lowercase()
         val preferred = when {
-            os.contains("win") -> listOf("Cascadia Mono", "Cascadia Code", "Consolas", "Lucida Console")
+            os.contains("win") -> listOf("Cascadia Code", "Cascadia Mono", "Consolas", "Lucida Console")
             os.contains("mac") -> listOf("Menlo", "Monaco", "Courier New")
             else               -> listOf("JetBrains Mono", "DejaVu Sans Mono", "Liberation Mono", "Noto Mono")
         }
