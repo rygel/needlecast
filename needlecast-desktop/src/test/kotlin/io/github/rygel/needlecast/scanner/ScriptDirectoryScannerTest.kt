@@ -94,6 +94,7 @@ class ScriptDirectoryScannerTest {
         )!!
 
         assertEquals(1, result.commands.size)
+        assertEquals(script.canonicalPath, result.commands[0].label)
         assertEquals(listOf("ruby", script.canonicalPath), result.commands[0].argv)
     }
 
