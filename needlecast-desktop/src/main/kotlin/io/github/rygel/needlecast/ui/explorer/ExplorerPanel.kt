@@ -631,3 +631,37 @@ sealed class FileEntry {
     data class Dir(val file: File) : FileEntry()
     data class RegularFile(val file: File) : FileEntry()
 }
+
+// ── Explorer sort helpers ─────────────────────────────────────────────────
+
+internal data class ExplorerSortState(val column: Int, val ascending: Boolean)
+
+internal const val COL_NAME     = 0
+internal const val COL_SIZE     = 1
+internal const val COL_MODIFIED = 2
+internal val DEFAULT_EXPLORER_SORT = ExplorerSortState(COL_NAME, true)
+
+/**
+ * Sorts [entries] (a single group — all dirs OR all files, never mixed) by [state].
+ * For the size column applied to directories, falls back to name sort (dirs have no meaningful size).
+ */
+internal fun sortGroup(entries: List<FileEntry>, state: ExplorerSortState): List<FileEntry> {
+    if (entries.isEmpty()) return entries
+    val isDirGroup = entries.first() is FileEntry.Dir
+    val comparator: Comparator<FileEntry> = when {
+        state.column == COL_SIZE && isDirGroup ->
+            compareBy { fileOf(it)?.name?.lowercase() ?: "" }
+        state.column == COL_NAME     -> compareBy { fileOf(it)?.name?.lowercase() ?: "" }
+        state.column == COL_SIZE     -> compareBy { fileOf(it)?.length() ?: 0L }
+        state.column == COL_MODIFIED -> compareBy { fileOf(it)?.lastModified() ?: 0L }
+        else                         -> compareBy { fileOf(it)?.name?.lowercase() ?: "" }
+    }
+    return if (state.ascending) entries.sortedWith(comparator) else entries.sortedWith(comparator.reversed())
+}
+
+/** Returns the underlying [File] for [Dir] and [RegularFile] entries; `null` for [ParentDir]. */
+internal fun fileOf(entry: FileEntry): File? = when (entry) {
+    is FileEntry.Dir         -> entry.file
+    is FileEntry.RegularFile -> entry.file
+    is FileEntry.ParentDir   -> null
+}
