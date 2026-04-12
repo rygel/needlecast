@@ -45,4 +45,12 @@ class AppLogFilesTest {
         val names = result.map { it.name }
         assert(names == listOf("needlecast.log")) { "Should not include .log.6: $names" }
     }
+
+    @Test
+    fun `returns archive when only archive exists without base log`() {
+        dir.resolve("needlecast.log.1").createFile()
+        val result = appLogFiles(dir.toFile())
+        val names = result.map { it.name }
+        assert(names == listOf("needlecast.log.1")) { "Expected archive only but got $names" }
+    }
 }

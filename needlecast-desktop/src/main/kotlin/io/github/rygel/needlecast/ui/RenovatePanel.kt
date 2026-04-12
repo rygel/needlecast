@@ -499,7 +499,11 @@ class RenovatePanel : JPanel(BorderLayout()) {
             }
 
             override fun done() {
-                val (found, version) = get()
+                val (found, version) = try { get() } catch (_: Exception) {
+                    statusLabel.text = "Error checking Renovate"
+                    statusLabel.foreground = Color(0xF44336)
+                    return
+                }
                 renovateFound = found
                 runButton.isEnabled = found
                 if (found) {
