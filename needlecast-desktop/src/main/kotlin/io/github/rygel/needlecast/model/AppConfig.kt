@@ -537,6 +537,13 @@ internal fun defaultCommandLibrary() = listOf(
     ),
 )
 
+/** Persisted edit to a scanner-generated [CommandDescriptor], keyed by the original argv. */
+data class CommandOverride(
+    val originalArgv: List<String>,
+    val label: String,
+    val argv: List<String>,
+)
+
 data class AppConfig(
     /** Incremented when a breaking schema change requires migration. Current: 3. */
     val configVersion: Int = 3,
@@ -610,6 +617,8 @@ data class AppConfig(
      * When false (default), agent status is detected by polling terminal output.
      */
     val claudeHooksEnabled: Boolean = false,
+    /** Per-project command overrides. Outer key = working directory path. */
+    val commandOverrides: Map<String, List<CommandOverride>> = emptyMap(),
 )
 
 data class AiCliDefinition(
