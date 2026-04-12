@@ -23,10 +23,11 @@ class ScriptDirectoryScanner : ProjectScanner {
         val commands = candidates.flatMap { dir ->
             dir.listFiles()
                 ?.filter { it.isFile }
+                ?.sortedBy { it.name }
                 ?.mapNotNull { file ->
                     val interpreter = interpreterFor(file.name) ?: return@mapNotNull null
                     val rel = root.toPath().relativize(file.toPath()).toString()
-                    val label = if (rel.startsWith("..")) file.canonicalPath
+                    val label = if (rel.startsWith("..${File.separator}") || rel == "..") file.canonicalPath
                                 else rel.replace(File.separatorChar, '/')
                     CommandDescriptor(
                         label            = label,
