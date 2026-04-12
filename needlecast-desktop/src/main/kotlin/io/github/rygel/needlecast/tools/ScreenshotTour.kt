@@ -386,7 +386,7 @@ fun main(args: Array<String>) {
         try {
             SwingUtilities.invokeAndWait {
                 try {
-                    // Hide renovate first, then show log viewer
+                    // Defensively hide renovate, then select log viewer tab
                     val toggleRenovate = w.javaClass.getDeclaredMethod("toggleRenovate", Boolean::class.java)
                     toggleRenovate.isAccessible = true
                     toggleRenovate.invoke(w, false)
@@ -682,7 +682,7 @@ fun main(args: Array<String>) {
 
 // ── Settings tab helper ───────────────────────────────────────────────────────
 
-private fun settingsTabShot(robot: Robot, window: JFrame, ctx: AppContext, tabIndex: Int, dest: Path, tabName: String) {
+private fun settingsTabShot(robot: Robot, window: JFrame, ctx: AppContext, tabIndex: Int, dest: Path, @Suppress("UNUSED_PARAMETER") tabName: String) {
     var dlg: JDialog? = null
     SwingUtilities.invokeAndWait {
         val d = SettingsDialog(window, ctx, sendToTerminal = {})
