@@ -363,13 +363,19 @@ class CommandPanel(
 
         // Persist the override so it survives rescans
         val workDir = currentProjectPath ?: return
+        // Resolve the true originalArgv: if this command was already overridden,
+        // find the stored override whose .argv matches the current commandModel argv
+        val trueOriginalArgv = ctx.config.commandOverrides[workDir]
+            ?.firstOrNull { it.argv == original.argv }
+            ?.originalArgv
+            ?: original.argv
         val newOverride = io.github.rygel.needlecast.model.CommandOverride(
-            originalArgv = original.argv,
+            originalArgv = trueOriginalArgv,
             label = updated.label,
             argv = updated.argv,
         )
         val existing = ctx.config.commandOverrides[workDir]
-            ?.filterNot { it.originalArgv == original.argv }
+            ?.filterNot { it.originalArgv == trueOriginalArgv }
             ?: emptyList()
         ctx.updateConfig(
             ctx.config.copy(

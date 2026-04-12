@@ -10,7 +10,7 @@ class CommandOverrideTest {
     @Test
     fun `CommandOverride is present in AppConfig with empty default`() {
         val config = AppConfig()
-        assertTrue(config.commandOverrides.isEmpty())
+        assertTrue(config.commandOverrides.isEmpty(), "commandOverrides should default to an empty map")
     }
 
     @Test
@@ -24,7 +24,7 @@ class CommandOverrideTest {
             commandOverrides = mapOf("/home/user/project" to listOf(override))
         )
         val copied = config.copy()
-        assertEquals(config.commandOverrides, copied.commandOverrides)
+        assertEquals(config.commandOverrides, copied.commandOverrides, "commandOverrides should be identical after copy()")
     }
 
     @Test
@@ -41,9 +41,9 @@ class CommandOverrideTest {
             argv = listOf("mvn", "clean", "install", "-DskipTests"),
         )
         val result = applyCommandOverrides(listOf(original), listOf(override))
-        assertEquals(1, result.size)
-        assertEquals("Build (skip tests)", result[0].label)
-        assertEquals(listOf("mvn", "clean", "install", "-DskipTests"), result[0].argv)
+        assertEquals(1, result.size, "applyCommandOverrides should return the same number of commands")
+        assertEquals("Build (skip tests)", result[0].label, "label should be replaced by the override value")
+        assertEquals(listOf("mvn", "clean", "install", "-DskipTests"), result[0].argv, "argv should be replaced by the override value")
     }
 
     @Test
@@ -60,7 +60,7 @@ class CommandOverrideTest {
             argv = listOf("mvn", "verify"),
         )
         val result = applyCommandOverrides(listOf(original), listOf(override))
-        assertEquals(1, result.size)
-        assertEquals("clean install", result[0].label)
+        assertEquals(1, result.size, "applyCommandOverrides should return the same number of commands when no override matches")
+        assertEquals("clean install", result[0].label, "unmatched override should not modify the original command label")
     }
 }
