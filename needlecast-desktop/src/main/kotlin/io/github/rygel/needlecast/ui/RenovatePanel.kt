@@ -61,6 +61,7 @@ class RenovatePanel : JPanel(BorderLayout()) {
 
     private var currentProjectPath: String? = null
     private var updates = mutableListOf<DepUpdate>()
+    private var renovateFound = false
 
     private val tableModel = object : AbstractTableModel() {
         private val columns = arrayOf("", "Manager", "Dependency", "Current", "Available", "Type")
@@ -105,6 +106,7 @@ class RenovatePanel : JPanel(BorderLayout()) {
     }
 
     private val runButton = JButton("Scan for Updates").apply {
+        isEnabled = false  // enabled only after checkRenovateStatus() confirms installation
         addActionListener { runLocalScan() }
     }
 
@@ -497,7 +499,13 @@ class RenovatePanel : JPanel(BorderLayout()) {
             }
 
             override fun done() {
-                val (found, version) = get()
+                val (found, version) = try { get() } catch (_: Exception) {
+                    statusLabel.text = "Error checking Renovate"
+                    statusLabel.foreground = Color(0xF44336)
+                    return
+                }
+                renovateFound = found
+                runButton.isEnabled = found
                 if (found) {
                     statusLabel.text = "\u2713 v$version"
                     statusLabel.toolTipText = "renovate --version = $version"
@@ -512,7 +520,7 @@ class RenovatePanel : JPanel(BorderLayout()) {
     }
 
     private fun setButtonsEnabled(enabled: Boolean) {
-        runButton.isEnabled = enabled
+        runButton.isEnabled = enabled && renovateFound
         applyButton.isEnabled = enabled && updates.any { it.selected }
         selectAllButton.isEnabled = enabled
         selectNoneButton.isEnabled = enabled

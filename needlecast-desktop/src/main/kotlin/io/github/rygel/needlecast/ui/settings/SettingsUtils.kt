@@ -13,7 +13,7 @@ fun monoFont(): String {
     val available = GraphicsEnvironment.getLocalGraphicsEnvironment()
         .availableFontFamilyNames.toHashSet()
     val preferred = when {
-        IS_WINDOWS -> listOf("Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Consolas")
+        IS_WINDOWS -> listOf("Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Consolas")
         IS_MAC     -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Monaco")
         else       -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono")
     }

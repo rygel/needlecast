@@ -72,10 +72,10 @@ class CommandPanel(
     }
 
     private val runButton    = JButton("\u25B6  Run").apply    { isEnabled = false }
-    private val cancelButton = JButton("\u23F9  Cancel").apply { isEnabled = false }
-    private val queueButton  = JButton("\u23ED  Queue").apply  { isEnabled = false; toolTipText = "Add selected command to queue" }
+    private val cancelButton = JButton("\u25A0  Cancel").apply { isEnabled = false }
+    private val queueButton  = JButton("\u25B6\u25B6  Queue").apply  { isEnabled = false; toolTipText = "Add selected command to queue" }
     private val historyToggle = JToggleButton("\u2713 History").apply { isSelected = false }
-    private val queueToggle   = JToggleButton("\u23ED Queue").apply   { isSelected = false }
+    private val queueToggle   = JToggleButton("\u25B6\u25B6 Queue").apply   { isSelected = false }
 
     private val queueList = JList(queueModel).apply {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
@@ -342,7 +342,7 @@ class CommandPanel(
             isEnabled = supported && notRunning
             addActionListener { runSelected() }
         })
-        menu.add(JMenuItem("\u23ED  Queue").apply {
+        menu.add(JMenuItem("\u25B6\u25B6  Queue").apply {
             isEnabled = supported
             addActionListener { enqueueSelected() }
         })
@@ -499,7 +499,7 @@ private class CommandCellRenderer : ListCellRenderer<CommandDescriptor> {
         list: JList<out CommandDescriptor>, value: CommandDescriptor?,
         index: Int, isSelected: Boolean, cellHasFocus: Boolean,
     ): Component {
-        label.text = value?.label ?: ""
+        label.text = (value?.label ?: "").toHtmlLabel()
         label.toolTipText = if (value?.isSupported == true) value.argv.joinToString(" ")
                             else "This run configuration type is not directly executable"
         label.foreground = when {
@@ -528,7 +528,7 @@ private class HistoryCellRenderer : ListCellRenderer<CommandHistoryEntry> {
         list: JList<out CommandHistoryEntry>, value: CommandHistoryEntry?,
         index: Int, isSelected: Boolean, cellHasFocus: Boolean,
     ): Component {
-        nameLabel.text = value?.label ?: ""
+        nameLabel.text = (value?.label ?: "").toHtmlLabel()
         metaLabel.text = value?.let {
             val time = timeFmt.format(Date(it.ranAt))
             val codeColor = if (it.exitCode == 0) "#4CAF50" else "#F44336"
@@ -541,3 +541,7 @@ private class HistoryCellRenderer : ListCellRenderer<CommandHistoryEntry> {
         return panel
     }
 }
+
+/** Wraps text in HTML so Java's platform font-fallback chain (incl. emoji) is active. */
+private fun String.toHtmlLabel(): String =
+    "<html>${replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}</html>"

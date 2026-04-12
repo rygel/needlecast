@@ -30,6 +30,21 @@ import javax.swing.text.SimpleAttributeSet
 import javax.swing.text.StyleConstants
 
 /**
+ * Returns the Needlecast app log and its rotation archives (`.log.1`–`.log.5`)
+ * from [logDir], in order, filtering to files that actually exist.
+ */
+internal fun appLogFiles(
+    logDir: File = File(System.getProperty("user.home"), ".needlecast"),
+): List<File> = buildList {
+    val base = File(logDir, "needlecast.log")
+    if (base.exists()) add(base)
+    for (i in 1..5) {
+        val rotated = File(logDir, "needlecast.log.$i")
+        if (rotated.exists()) add(rotated)
+    }
+}
+
+/**
  * Dockable panel that discovers and displays log files from the selected project.
  *
  * Features: auto-discovery, live tailing, colour-coded levels, level filtering,
@@ -40,6 +55,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
     // ── State ────────────────────────────────────────────────────────────────
 
     private var currentProjectPath: String? = null
+    private val appLogDir = File(System.getProperty("user.home"), ".needlecast")
     private var entries = mutableListOf<LogEntry>()
     private var visibleLevels = LogLevel.entries.toMutableSet()
     private var following = true
@@ -62,8 +78,9 @@ class LogViewerPanel : JPanel(BorderLayout()) {
             override fun getListCellRendererComponent(
                 list: javax.swing.JList<*>?, value: Any?, index: Int,
                 isSelected: Boolean, cellHasFocus: Boolean,
-            ) = super.getListCellRendererComponent(list, (value as? File)?.let {
-                it.toRelativeString(File(currentProjectPath ?: ""))
+            ) = super.getListCellRendererComponent(list, (value as? File)?.let { f ->
+                if (f.parentFile == appLogDir) "${f.name} (app)"
+                else f.toRelativeString(File(currentProjectPath ?: ""))
             } ?: "", index, isSelected, cellHasFocus)
         }
         addActionListener { onFileSelected() }
@@ -205,17 +222,20 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         currentProjectPath = path
 
         if (path == null) {
-            fileCombo.model = DefaultComboBoxModel()
+            val appLogs = appLogFiles()
+            fileCombo.model = DefaultComboBoxModel(appLogs.toTypedArray())
+            if (appLogs.isNotEmpty()) fileCombo.selectedIndex = 0
             return
         }
 
-        // Discover log files in background
+        // Discover project log files in background
         object : SwingWorker<List<File>, Void>() {
             override fun doInBackground(): List<File> = LogFileScanner.scan(path)
             override fun done() {
-                val files = try { get() } catch (_: Exception) { emptyList() }
-                fileCombo.model = DefaultComboBoxModel(files.toTypedArray())
-                if (files.isNotEmpty()) {
+                val projectFiles = try { get() } catch (_: Exception) { emptyList() }
+                val allFiles = appLogFiles() + projectFiles
+                fileCombo.model = DefaultComboBoxModel(allFiles.toTypedArray())
+                if (allFiles.isNotEmpty()) {
                     fileCombo.selectedIndex = 0
                     // onFileSelected() fires via actionListener
                 }
@@ -421,7 +441,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         val os = System.getProperty("os.name", "").lowercase()
         val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
         val preferred = when {
-            os.contains("win") -> listOf("Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Fira Code", "Consolas")
+            os.contains("win") -> listOf("Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", "Consolas")
             os.contains("mac") -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Fira Code", "Monaco")
             else -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono", "Noto Mono")
         }
