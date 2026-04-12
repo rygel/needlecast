@@ -27,6 +27,7 @@ import java.awt.datatransfer.Transferable
 import java.io.File
 import java.net.URI
 import javax.swing.BorderFactory
+import javax.swing.DefaultListModel
 import javax.swing.DropMode
 import javax.swing.Icon
 import javax.swing.JButton
@@ -35,10 +36,12 @@ import javax.swing.JColorChooser
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JLabel
+import javax.swing.JList
 import javax.swing.JMenu
 import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JPanel
+import javax.swing.ListSelectionModel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.SwingWorker
@@ -833,6 +836,57 @@ class ProjectTreePanel(
         }.isVisible = true
     }
 
+    private fun editScriptDirs(node: DefaultMutableTreeNode, entry: ProjectTreeEntry.Project) {
+        val owner = SwingUtilities.getWindowAncestor(this) ?: return
+        val dir   = entry.directory
+        val listModel = DefaultListModel<String>().apply { dir.extraScanDirs.forEach { addElement(it) } }
+        val list      = JList(listModel).apply {
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+            visibleRowCount = 6
+        }
+        val addBtn    = JButton("Add\u2026")
+        val removeBtn = JButton("Remove").apply { isEnabled = false }
+
+        list.addListSelectionListener { removeBtn.isEnabled = list.selectedIndex >= 0 }
+
+        addBtn.addActionListener {
+            val chooser = JFileChooser(dir.path).apply { fileSelectionMode = JFileChooser.DIRECTORIES_ONLY }
+            if (chooser.showOpenDialog(owner) != JFileChooser.APPROVE_OPTION) return@addActionListener
+            val stored = makeRelativeIfPossible(chooser.selectedFile.canonicalPath, dir.path)
+            if ((0 until listModel.size).none { listModel.getElementAt(it) == stored }) listModel.addElement(stored)
+        }
+
+        removeBtn.addActionListener {
+            val i = list.selectedIndex
+            if (i >= 0) listModel.remove(i)
+        }
+
+        val form = JPanel(BorderLayout(4, 4)).apply {
+            border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
+            add(JLabel("<html><small>\"scripts/\" and \"bin/\" in the project root are always scanned automatically.</small></html>"),
+                BorderLayout.NORTH)
+            add(JScrollPane(list), BorderLayout.CENTER)
+            add(JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+                add(addBtn); add(removeBtn)
+            }, BorderLayout.SOUTH)
+        }
+
+        if (JOptionPane.showConfirmDialog(owner, form, "Script Directories \u2014 ${dir.label()}",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return
+
+        val newDirs = (0 until listModel.size).map { listModel.getElementAt(it) }
+        node.userObject = entry.copy(directory = dir.copy(extraScanDirs = newDirs))
+        treeModel.nodeChanged(node)
+        persist()
+        scanProject(dir.copy(extraScanDirs = newDirs))
+    }
+
+    /** Returns [absolute] as a path relative to [base] when it is a subdirectory, otherwise returns [absolute]. */
+    private fun makeRelativeIfPossible(absolute: String, base: String): String {
+        val rel = File(base).toPath().relativize(File(absolute).toPath()).toString()
+        return if (rel.startsWith("..")) absolute else rel
+    }
+
     private fun setProjectColor(node: DefaultMutableTreeNode, entry: ProjectTreeEntry.Project, hex: String?) {
         node.userObject = entry.copy(directory = entry.directory.copy(color = hex))
         treeModel.nodeChanged(node); persist(); tree.repaint()
@@ -991,6 +1045,7 @@ class ProjectTreePanel(
                 })
                 menu.add(JMenuItem("Shell Settings\u2026").apply { addActionListener { editShellSettings(node, entry) } })
                 menu.add(JMenuItem("Environment\u2026").apply { addActionListener { editEnv(node, entry) } })
+                menu.add(JMenuItem("Script Directories\u2026").apply { addActionListener { editScriptDirs(node, entry) } })
                 menu.addSeparator()
                 // Color submenu — 6 presets + Custom picker + Clear
                 val colorPresets = listOf(
