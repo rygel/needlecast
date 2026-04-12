@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui.explorer
 
+import io.github.rygel.needlecast.AppContext
 import org.slf4j.LoggerFactory
 import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
@@ -11,6 +12,8 @@ import java.awt.FlowLayout
 import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.JButton
+import javax.swing.JCheckBox
+import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -20,7 +23,7 @@ import javax.swing.Timer
 
 class MediaPlayerPanel(
     private val file: File,
-    private val ctx: io.github.rygel.needlecast.AppContext,
+    private val ctx: AppContext,
 ) : JPanel(BorderLayout()) {
 
     private val logger = LoggerFactory.getLogger(MediaPlayerPanel::class.java)
@@ -31,11 +34,11 @@ class MediaPlayerPanel(
     private val stopButton = JButton("Stop")
     private val seekSlider = JSlider(0, 1000, 0)
     private val volumeSlider = JSlider(0, 100, 80)
-    private val loopCheck = javax.swing.JCheckBox("Loop")
-    private val autoplayCheck = javax.swing.JCheckBox("Autoplay")
-    private val speedCombo = javax.swing.JComboBox(arrayOf("0.5×", "0.75×", "1×", "1.25×", "1.5×", "1.75×", "2×")).apply {
+    private val loopCheck = JCheckBox("Loop")
+    private val autoplayCheck = JCheckBox("Autoplay")
+    // Per-session only: speed resets to 1× on each new file open (not persisted to AppConfig by design)
+    private val speedCombo = JComboBox(arrayOf("0.5×", "0.75×", "1×", "1.25×", "1.5×", "1.75×", "2×")).apply {
         selectedItem = "1×"
-        maximumSize = java.awt.Dimension(70, preferredSize.height)
     }
 
     private var mediaPlayerComponent: EmbeddedMediaPlayerComponent? = null
@@ -150,7 +153,7 @@ class MediaPlayerPanel(
             updateTimer = Timer(250) { refreshTime() }.apply { isRepeats = true; start() }
             statusLabel.text = "Ready"
             if (ctx.config.mediaAutoplay) {
-                javax.swing.SwingUtilities.invokeLater { playFile() }
+                SwingUtilities.invokeLater { playFile() }
             }
         }
     }
