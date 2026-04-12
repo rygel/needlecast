@@ -1,8 +1,10 @@
 package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.AppContext
+import io.github.rygel.needlecast.model.BuildTool
 import io.github.rygel.needlecast.model.CommandDescriptor
 import io.github.rygel.needlecast.model.CommandHistoryEntry
+import io.github.rygel.needlecast.model.CommandOverride
 import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProcessResult
 import io.github.rygel.needlecast.process.ProcessOutputListener
@@ -285,7 +287,7 @@ class CommandPanel(
             }
         }
 
-        val descriptor = CommandDescriptor(label, io.github.rygel.needlecast.model.BuildTool.MAVEN, argv, workingDir, currentProjectEnv)
+        val descriptor = CommandDescriptor(label, BuildTool.MAVEN, argv, workingDir, currentProjectEnv)
         val running = ctx.commandRunner.run(descriptor, listener)
         processResult = ProcessResult.Running(running)
     }
@@ -369,7 +371,7 @@ class CommandPanel(
             ?.firstOrNull { it.argv == original.argv }
             ?.originalArgv
             ?: original.argv
-        val newOverride = io.github.rygel.needlecast.model.CommandOverride(
+        val newOverride = CommandOverride(
             originalArgv = trueOriginalArgv,
             label = updated.label,
             argv = updated.argv,
@@ -379,7 +381,7 @@ class CommandPanel(
             ?: emptyList()
         ctx.updateConfig(
             ctx.config.copy(
-                commandOverrides = ctx.config.commandOverrides + (workDir to existing + newOverride)
+                commandOverrides = ctx.config.commandOverrides + (workDir to (existing + newOverride))
             )
         )
     }
@@ -455,11 +457,11 @@ private class EditCommandDialog(owner: Window?, private val cmd: CommandDescript
  * Each override is matched by [CommandOverride.originalArgv]; unmatched overrides are ignored.
  */
 internal fun applyCommandOverrides(
-    commands: List<io.github.rygel.needlecast.model.CommandDescriptor>,
-    overrides: List<io.github.rygel.needlecast.model.CommandOverride>,
-): List<io.github.rygel.needlecast.model.CommandDescriptor> {
+    commands: List<CommandDescriptor>,
+    overrides: List<CommandOverride>,
+): List<CommandDescriptor> {
     if (overrides.isEmpty()) return commands
-    val overrideMap = overrides.associateBy { it.originalArgv }
+    val overrideMap = overrides.associateBy { it.originalArgv } // last-write-wins if duplicates exist (shouldn't happen in normal use)
     return commands.map { cmd ->
         val ov = overrideMap[cmd.argv] ?: return@map cmd
         cmd.copy(label = ov.label, argv = ov.argv)
