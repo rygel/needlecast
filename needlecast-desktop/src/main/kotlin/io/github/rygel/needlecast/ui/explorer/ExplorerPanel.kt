@@ -313,7 +313,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         val panel: javax.swing.JComponent = when {
             isSvgFile(file)    -> SvgViewerPanel(file)
             isImageFile(file)  -> ImageViewerPanel(file)
-            isMediaFile(file)  -> MediaPlayerPanel(file)
+            isMediaFile(file)  -> MediaPlayerPanel(file, ctx)
             else               -> EditorPanel(ctx).also { it.applyTheme(isDark); it.openFile(file, line, column) }
         }
         openFiles[key] = panel

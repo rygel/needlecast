@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui.explorer
 
+import io.github.rygel.needlecast.AppContext
 import org.slf4j.LoggerFactory
 import uk.co.caprica.vlcj.factory.discovery.NativeDiscovery
 import uk.co.caprica.vlcj.player.base.MediaPlayer
@@ -11,6 +12,8 @@ import java.awt.FlowLayout
 import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.JButton
+import javax.swing.JCheckBox
+import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -18,7 +21,10 @@ import javax.swing.JSlider
 import javax.swing.SwingUtilities
 import javax.swing.Timer
 
-class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
+class MediaPlayerPanel(
+    private val file: File,
+    private val ctx: AppContext,
+) : JPanel(BorderLayout()) {
 
     private val logger = LoggerFactory.getLogger(MediaPlayerPanel::class.java)
 
@@ -28,7 +34,12 @@ class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
     private val stopButton = JButton("Stop")
     private val seekSlider = JSlider(0, 1000, 0)
     private val volumeSlider = JSlider(0, 100, 80)
-    private val loopCheck = javax.swing.JCheckBox("Loop")
+    private val loopCheck = JCheckBox("Loop")
+    private val autoplayCheck = JCheckBox("Autoplay")
+    // Per-session only: speed resets to 1× on each new file open (not persisted to AppConfig by design)
+    private val speedCombo = JComboBox(arrayOf("0.5×", "0.75×", "1×", "1.25×", "1.5×", "1.75×", "2×")).apply {
+        selectedItem = "1×"
+    }
 
     private var mediaPlayerComponent: EmbeddedMediaPlayerComponent? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -58,10 +69,12 @@ class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
                     add(playButton)
                     add(stopButton)
                     add(loopCheck)
+                    add(autoplayCheck)
                 }
                 val right = JPanel(FlowLayout(FlowLayout.RIGHT, 6, 0)).apply {
                     add(JLabel("Volume"))
                     add(volumeSlider)
+                    add(speedCombo)
                 }
                 add(buttons, BorderLayout.WEST)
                 add(seekSlider, BorderLayout.CENTER)
@@ -73,6 +86,7 @@ class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
             }
             add(south, BorderLayout.SOUTH)
 
+            autoplayCheck.isSelected = ctx.config.mediaAutoplay
             player.audio().setVolume(volumeSlider.value)
             playButton.addActionListener { togglePlayPause() }
             stopButton.addActionListener { player.controls().stop() }
@@ -80,6 +94,14 @@ class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
                 if (!volumeSlider.valueIsAdjusting) {
                     player.audio().setVolume(volumeSlider.value)
                 }
+            }
+            autoplayCheck.addActionListener {
+                ctx.updateConfig(ctx.config.copy(mediaAutoplay = autoplayCheck.isSelected))
+            }
+            speedCombo.addActionListener {
+                val item = (speedCombo.selectedItem as? String) ?: "1×"
+                val rate = item.removeSuffix("×").trim().toFloatOrNull() ?: 1.0f
+                player.controls().setRate(rate)
             }
             seekSlider.addChangeListener {
                 if (seekSlider.valueIsAdjusting) {
@@ -130,6 +152,9 @@ class MediaPlayerPanel(private val file: File) : JPanel(BorderLayout()) {
 
             updateTimer = Timer(250) { refreshTime() }.apply { isRepeats = true; start() }
             statusLabel.text = "Ready"
+            if (ctx.config.mediaAutoplay) {
+                SwingUtilities.invokeLater { playFile() }
+            }
         }
     }
 

@@ -619,6 +619,8 @@ data class AppConfig(
     val claudeHooksEnabled: Boolean = false,
     /** Per-project command overrides. Outer key = working directory path. */
     val commandOverrides: Map<String, List<CommandOverride>> = emptyMap(),
+    /** Whether media files start playing automatically when opened in the Explorer. Default true. */
+    val mediaAutoplay: Boolean = true,
 )
 
 data class AiCliDefinition(

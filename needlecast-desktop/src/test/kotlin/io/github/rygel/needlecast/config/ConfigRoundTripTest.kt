@@ -153,4 +153,20 @@ class ConfigRoundTripTest {
         assertEquals("Review",       loaded.promptLibrary[0].category)
         assertTrue(loaded.promptLibrary[0].body.contains("{fileName}"))
     }
+
+    @Test
+    fun `mediaAutoplay persists across save and load`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        store.save(AppConfig(mediaAutoplay = true))
+        assertTrue(store.load().mediaAutoplay, "mediaAutoplay=true should survive a round-trip")
+        store.save(AppConfig(mediaAutoplay = false))
+        assertFalse(store.load().mediaAutoplay, "mediaAutoplay=false should survive a round-trip")
+    }
+
+    @Test
+    fun `mediaAutoplay defaults to true`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        store.save(AppConfig())
+        assertTrue(store.load().mediaAutoplay, "mediaAutoplay should default to true")
+    }
 }
