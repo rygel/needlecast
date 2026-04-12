@@ -421,7 +421,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         val os = System.getProperty("os.name", "").lowercase()
         val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
         val preferred = when {
-            os.contains("win") -> listOf("Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Fira Code", "Consolas")
+            os.contains("win") -> listOf("Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", "Consolas")
             os.contains("mac") -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Fira Code", "Monaco")
             else -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono", "Noto Mono")
         }
