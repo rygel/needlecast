@@ -196,8 +196,11 @@ class GitLogPanelUiTest {
 
         fixture.button("btn-fetch").click()
 
-        val area = robot.finder().findByName(panel, "output-area", JTextArea::class.java, true)
-        waitUntil(3_000) { area.text.contains("✓ Done") }
+        // Use requireShowing=false: the card switch happens on the EDT but may not be
+        // visible to the component hierarchy until the next repaint cycle. We poll for
+        // both visibility and expected content together.
+        val area = robot.finder().findByName(panel, "output-area", JTextArea::class.java, false)
+        waitUntil(3_000) { area.isShowing && area.text.contains("✓ Done") }
         robot.waitForIdle()
 
         val text = GuiActionRunner.execute(object : GuiQuery<String>() {
