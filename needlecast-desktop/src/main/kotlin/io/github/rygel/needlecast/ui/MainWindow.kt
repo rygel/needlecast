@@ -69,6 +69,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
     private val searchPanel   = SearchPanel { file, line, column -> explorerPanel.openFileAt(file, line, column) }
     private val renovatePanel = RenovatePanel()
+    private val docsPanel     = DocsPanel()
 
     private var pendingProjectSelection: io.github.rygel.needlecast.model.DetectedProject? = null
     private val projectSelectionTimer = javax.swing.Timer(75) {
@@ -122,8 +123,11 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val consoleDockable      = DockablePanel(consolePanel,                  "console",      "Output")
     private val logViewerDockable    = DockablePanel(logViewerPanel,               "log-viewer",   "Log Viewer")
     private val searchDockable       = DockablePanel(searchPanel,                   "search",       "Search")
+    private val docsDockable         = DockablePanel(docsPanel,                     "docs",         "Docs")
     private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
+    private val docViewerPanel           = DocViewerPanel()
+    private val docViewerDockable        = DockablePanel(docViewerPanel, "doc-viewer", "Doc Viewer")
 
     private val dockingLayoutFile: File = Path.of(
         System.getProperty("user.home"), ".needlecast", "docking-layout.xml"
@@ -201,6 +205,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             Docking.registerDockable(renovateDockable)
             Docking.registerDockable(promptInputDockable)
             Docking.registerDockable(commandInputDockable)
+            Docking.registerDockable(docsDockable)
+            Docking.registerDockable(docViewerDockable)
             installPanelHoverHighlighter()
 
             contentPane = buildLayout()
@@ -306,6 +312,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             logViewerPanel.loadProject(path)
             searchPanel.loadProject(path)
             renovatePanel.loadProject(path)
+            docsPanel.loadProject(path)
+            docViewerPanel.loadProject(project)
         }
 
         if (project != null) {
@@ -349,7 +357,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         if (!restored || !allPresent) {
             listOf(projectTreeDockable, terminalDockable, commandsDockable,
-                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable)
+                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable, docsDockable, docViewerDockable)
                 .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
             dockingLayoutFile.delete()
             setupDefaultDockingLayout()
@@ -393,6 +401,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.dock(logViewerDockable,   gitLogDockable,      DockingRegion.CENTER)
         // 5c. Search tabbed alongside Log Viewer
         Docking.dock(searchDockable,      logViewerDockable,   DockingRegion.CENTER)
+        // 5d. Docs tabbed alongside Search
+        Docking.dock(docsDockable,        searchDockable,      DockingRegion.CENTER)
         // 6. Editor tabbed with the terminal in the centre column
         Docking.dock(editorDockable,      terminalDockable,    DockingRegion.CENTER)
         // 7. Console below Commands
@@ -411,7 +421,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     fun resetLayout() {
         AppState.setAutoPersist(false)
         listOf(projectTreeDockable, terminalDockable, commandsDockable,
-               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable)
+               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable, docViewerDockable)
             .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
         dockingLayoutFile.delete()
         setupDefaultDockingLayout()
@@ -541,22 +551,35 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         }
     }
 
+    private fun toggleDocViewer(show: Boolean) {
+        if (show && !Docking.isDocked(docViewerDockable)) {
+            if (Docking.isDocked(docsDockable)) Docking.dock(docViewerDockable, docsDockable, DockingRegion.CENTER)
+            else dockTo(docViewerDockable, terminalDockable, DockingRegion.EAST, 0.28)
+        } else if (!show && Docking.isDocked(docViewerDockable)) {
+            Docking.undock(docViewerDockable)
+        }
+    }
+
     // ── Menu bar ──────────────────────────────────────────────────────────────
 
     private fun buildMenuBar(): JMenuBar {
         val i18n = ctx.i18n
         val settingsItem = JMenuItem(i18n.translate("menu.file.settings")).apply {
             addActionListener {
-                SettingsDialog(this@MainWindow, ctx,
+                SettingsDialog(
+                    owner = this@MainWindow,
+                    ctx   = ctx,
                     sendToTerminal = { cmd -> terminalPanel.sendInput(cmd) },
-                    onShortcutsChanged = { reloadShortcuts() },
-                    onLayoutChanged = { resetLayout() },
-                    onTerminalColorsChanged = { fg, bg -> terminalPanel.applyTerminalColors(fg, bg) },
-                    onFontSizeChanged = { size -> terminalPanel.applyFontSize(size) },
-                    onUiFontChanged = { _, _ -> applyUiFontFromConfig() },
-                    onEditorFontChanged = { family, size -> explorerPanel.applyEditorFont(family, size) },
-                    onTerminalFontChanged = { family -> terminalPanel.applyFontFamily(family) },
-                    onSyntaxThemeChanged = { explorerPanel.applyTheme(ThemeRegistry.isDark(ctx.config.theme)) },
+                    callbacks = io.github.rygel.needlecast.ui.settings.SettingsCallbacks(
+                        onShortcutsChanged      = { reloadShortcuts() },
+                        onLayoutChanged         = { resetLayout() },
+                        onTerminalColorsChanged = { fg, bg -> terminalPanel.applyTerminalColors(fg, bg) },
+                        onFontSizeChanged       = { size -> terminalPanel.applyFontSize(size) },
+                        onUiFontChanged         = { _, _ -> applyUiFontFromConfig() },
+                        onEditorFontChanged     = { family, size -> explorerPanel.applyEditorFont(family, size) },
+                        onTerminalFontChanged   = { family -> terminalPanel.applyFontFamily(family) },
+                        onSyntaxThemeChanged    = { explorerPanel.applyTheme(ThemeRegistry.isDark(ctx.config.theme)) },
+                    ),
                 ).isVisible = true
             }
         }
@@ -883,6 +906,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val renovateCb = JCheckBoxMenuItem("Renovate").apply {
             addActionListener { toggleRenovate(isSelected) }
         }
+        val docViewerCb = JCheckBoxMenuItem("Doc Viewer").apply {
+            addActionListener { toggleDocViewer(isSelected) }
+        }
 
         fun syncState() {
             commandsCb.isSelected = Docking.isDocked(commandsDockable)
@@ -894,6 +920,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             promptInputCb.isSelected = Docking.isDocked(promptInputDockable)
             commandInputCb.isSelected = Docking.isDocked(commandInputDockable)
             renovateCb.isSelected = Docking.isDocked(renovateDockable)
+            docViewerCb.isSelected = Docking.isDocked(docViewerDockable)
         }
 
         return JMenu("Panels").apply {
@@ -906,6 +933,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             add(gitLogCb)
             add(searchCb)
             add(renovateCb)
+            add(docViewerCb)
             addSeparator()
             add(explorerCb)
             add(editorCb)
@@ -970,7 +998,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val allDockables get() = listOf(
         projectTreeDockable, terminalDockable, commandsDockable, gitLogDockable,
         logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
-        promptInputDockable, commandInputDockable,
+        promptInputDockable, commandInputDockable, docsDockable, docViewerDockable,
     )
     private var highlightedDockable: DockablePanel? = null
 

@@ -13,7 +13,9 @@ import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
+import java.awt.Desktop
 import java.awt.Dimension
+import java.awt.Graphics
 import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.GridBagConstraints
@@ -26,7 +28,9 @@ import java.io.File
 import java.net.URI
 import javax.swing.BorderFactory
 import javax.swing.DropMode
+import javax.swing.Icon
 import javax.swing.JButton
+import javax.swing.JCheckBoxMenuItem
 import javax.swing.JColorChooser
 import javax.swing.JComponent
 import javax.swing.JFileChooser
@@ -841,6 +845,78 @@ class ProjectTreePanel(
 
     // ── Context menus ────────────────────────────────────────────────────────
 
+    /** Returns the top [count] tags by usage frequency across all projects in the tree. */
+    private fun collectTopTags(count: Int): List<String> {
+        val freq = mutableMapOf<String, Int>()
+        fun walk(node: DefaultMutableTreeNode) {
+            val entry = node.userObject
+            if (entry is ProjectTreeEntry.Project) {
+                entry.tags.forEach { tag -> freq[tag] = (freq[tag] ?: 0) + 1 }
+            }
+            for (i in 0 until node.childCount) walk(node.getChildAt(i) as DefaultMutableTreeNode)
+        }
+        walk(rootNode)
+        return freq.entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .take(count).map { it.key }
+    }
+
+    /** Opens [path] in the system file manager (Explorer / Finder / xdg-open). */
+    private fun openInFileManager(path: String) {
+        val file = File(path)
+        try {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                Desktop.getDesktop().open(file)
+            } else if (IS_WINDOWS) {
+                ProcessBuilder("explorer.exe", path).start()
+            } else if (IS_MAC) {
+                ProcessBuilder("open", path).start()
+            } else {
+                ProcessBuilder("xdg-open", path).start()
+            }
+        } catch (e: Exception) {
+            logger.warn("Failed to open file manager for '$path'", e)
+        }
+    }
+
+    /** Builds a color submenu with [presets] swatches, a "Custom…" picker, and optional "Clear". */
+    private fun buildColorMenu(
+        title: String,
+        currentHex: String?,
+        presets: List<Pair<String, String>>,   // label → #RRGGBB
+        onSet: (String?) -> Unit,
+    ): JMenu = JMenu(title).apply {
+        presets.forEach { (label, hex) ->
+            add(JMenuItem(label, colorSwatchIcon(hex)).apply {
+                addActionListener { onSet(hex) }
+            })
+        }
+        addSeparator()
+        add(JMenuItem("Custom\u2026").apply {
+            addActionListener {
+                val init = currentHex?.let { try { Color.decode(it) } catch (_: Exception) { null } }
+                val c = JColorChooser.showDialog(this@ProjectTreePanel, title, init) ?: return@addActionListener
+                onSet("#%02X%02X%02X".format(c.red, c.green, c.blue))
+            }
+        })
+        if (currentHex != null) {
+            add(JMenuItem("Clear").apply { addActionListener { onSet(null) } })
+        }
+    }
+
+    /** A 14×14 filled rounded-square icon in the given hex color. */
+    private fun colorSwatchIcon(hex: String): Icon {
+        val fill = try { Color.decode(hex) } catch (_: Exception) { Color.GRAY }
+        val border = fill.darker()
+        return object : Icon {
+            override fun getIconWidth() = 14
+            override fun getIconHeight() = 14
+            override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int) {
+                g.color = fill;  g.fillRoundRect(x, y, 14, 14, 4, 4)
+                g.color = border; g.drawRoundRect(x, y, 13, 13, 4, 4)
+            }
+        }
+    }
+
     private fun showContextMenu(node: DefaultMutableTreeNode, x: Int, y: Int) {
         val menu = JPopupMenu()
         when (val entry = node.userObject) {
@@ -849,16 +925,14 @@ class ProjectTreePanel(
                 menu.add(JMenuItem("Add Project\u2026").apply { addActionListener { addProject(node) } })
                 menu.addSeparator()
                 menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameFolder(node, entry) } })
-                menu.add(JMenuItem("Set Color\u2026").apply {
-                    addActionListener {
-                        val init = entry.color?.let { try { Color.decode(it) } catch (_: Exception) { null } }
-                        val c = JColorChooser.showDialog(this@ProjectTreePanel, "Folder Color", init) ?: return@addActionListener
-                        setFolderColor(node, entry, "#%02X%02X%02X".format(c.red, c.green, c.blue))
-                    }
+                val folderColorPresets = listOf(
+                    "Red"    to "#E53935", "Orange" to "#F57C00",
+                    "Blue"   to "#1565C0", "Green"  to "#2E7D32",
+                    "Purple" to "#6A1B9A", "Teal"   to "#00695C",
+                )
+                menu.add(buildColorMenu("Color", entry.color, folderColorPresets) { hex ->
+                    setFolderColor(node, node.userObject as ProjectTreeEntry.Folder, hex)
                 })
-                if (entry.color != null) {
-                    menu.add(JMenuItem("Clear Color").apply { addActionListener { setFolderColor(node, entry, null) } })
-                }
                 menu.addSeparator()
                 menu.add(JMenuItem("Remove").apply { addActionListener { removeNode(node) } })
                 menu.add(JMenu("Advanced").apply {
@@ -890,23 +964,45 @@ class ProjectTreePanel(
                     })
                 }
                 if (menu.componentCount > 0) menu.addSeparator()
-                menu.add(JMenuItem("Tags\u2026").apply { addActionListener { editTags(node, entry) } })
+                // Open in file manager
+                val dir = File(entry.directory.path)
+                if (dir.exists()) {
+                    val label = if (IS_MAC) "Open in Finder" else "Open in Explorer"
+                    menu.add(JMenuItem(label).apply {
+                        addActionListener { openInFileManager(entry.directory.path) }
+                    })
+                    menu.addSeparator()
+                }
+                // Tags submenu — top 10 most-used tags as toggles + Edit option
+                val topTags = collectTopTags(10)
+                menu.add(JMenu("Tags").apply {
+                    topTags.forEach { tag ->
+                        add(JCheckBoxMenuItem(tag, tag in entry.tags).apply {
+                            addActionListener {
+                                val cur = node.userObject as? ProjectTreeEntry.Project ?: return@addActionListener
+                                val newTags = if (isSelected) cur.tags + tag else cur.tags.filter { it != tag }
+                                node.userObject = cur.copy(tags = newTags)
+                                treeModel.nodeChanged(node); persist(); tree.repaint()
+                            }
+                        })
+                    }
+                    if (topTags.isNotEmpty()) addSeparator()
+                    add(JMenuItem("Edit\u2026").apply { addActionListener { editTags(node, entry) } })
+                })
                 menu.add(JMenuItem("Shell Settings\u2026").apply { addActionListener { editShellSettings(node, entry) } })
                 menu.add(JMenuItem("Environment\u2026").apply { addActionListener { editEnv(node, entry) } })
                 menu.addSeparator()
-                menu.add(JMenuItem("Set Color\u2026").apply {
-                    addActionListener {
-                        val init = entry.directory.color?.let { try { Color.decode(it) } catch (_: Exception) { null } }
-                        val c = JColorChooser.showDialog(this@ProjectTreePanel, "Project Color", init) ?: return@addActionListener
-                        setProjectColor(node, entry, "#%02X%02X%02X".format(c.red, c.green, c.blue))
-                    }
+                // Color submenu — 6 presets + Custom picker + Clear
+                val colorPresets = listOf(
+                    "Red"    to "#E53935", "Orange" to "#F57C00",
+                    "Blue"   to "#1565C0", "Green"  to "#2E7D32",
+                    "Purple" to "#6A1B9A", "Teal"   to "#00695C",
+                )
+                menu.add(buildColorMenu("Color", entry.directory.color, colorPresets) { hex ->
+                    setProjectColor(node, node.userObject as ProjectTreeEntry.Project, hex)
                 })
-                if (entry.directory.color != null) {
-                    menu.add(JMenuItem("Clear Color").apply { addActionListener { setProjectColor(node, entry, null) } })
-                }
                 menu.addSeparator()
                 menu.add(JMenuItem("Remove").apply { addActionListener { removeNode(node) } })
-                val dir = File(entry.directory.path)
                 if (dir.exists()) {
                     menu.add(JMenu("Advanced").apply {
                         add(JMenuItem("Delete from disk\u2026").apply {
@@ -975,22 +1071,27 @@ class ProjectTreePanel(
             }
             /** Constrain max size to prevent overflow beyond allocated width. */
             override fun getMaximumSize(): Dimension = Dimension(Short.MAX_VALUE.toInt(), 16)
-            /** Lay out children right-aligned; hide any that don't fit. */
+            /** Lay out children right-aligned; hide user tags that don't fit, but always show build-tool badges. */
             override fun doLayout() {
                 val gap = (layout as FlowLayout).hgap
                 var x = width
+                // Build-tool badges are the LAST buildToolBadgeCount components; user tags are first.
+                val buildToolStart = componentCount - buildToolBadgeCount
                 for (i in componentCount - 1 downTo 0) {
                     val c = components[i]
                     val pref = c.preferredSize
                     val nextX = x - pref.width
-                    if (nextX < 0 && i < componentCount - 1) {
-                        // Hide tags that don't fit on the left
+                    val isBuildTool = i >= buildToolStart
+                    if (nextX < 0 && !isBuildTool) {
+                        // Hide user tags that don't fit
                         c.setBounds(0, 0, 0, 0)
                         c.isVisible = false
                     } else {
                         c.isVisible = true
-                        c.setBounds(nextX, 0, pref.width, height.coerceAtLeast(pref.height))
-                        x = nextX - gap
+                        // Clamp to 0 so build-tool badges never render at negative coordinates
+                        val startX = nextX.coerceAtLeast(0)
+                        c.setBounds(startX, 0, pref.width, height.coerceAtLeast(pref.height))
+                        x = startX - gap
                     }
                 }
             }
@@ -1041,6 +1142,8 @@ class ProjectTreePanel(
 
         /** Cache key for the last tags/badges rendered — avoids removeAll()+rebuild on every paint. */
         private var lastTagsCacheKey: String? = null
+        /** Number of build-tool badge components at the END of tagsPanel's component list. */
+        private var buildToolBadgeCount = 0
 
         init {
             innerPanel.add(cellPanel, BorderLayout.CENTER)
@@ -1085,7 +1188,7 @@ class ProjectTreePanel(
 
                     val gs = gitStatusCache[entry.directory.path]
                     if (gs?.branch != null) {
-                        branchLabel.text = "\uE0A0 ${gs.branch}${if (gs.isDirty) "*" else ""}"
+                        branchLabel.text = "${gs.branch}${if (gs.isDirty) "*" else ""}"
                         branchLabel.toolTipText = gs.branch
                         branchLabel.foreground = if (gs.isDirty) Color(0xE6A817) else Color(0x888888)
                     } else {
@@ -1100,12 +1203,19 @@ class ProjectTreePanel(
                     if (tagsKey != lastTagsCacheKey) {
                         lastTagsCacheKey = tagsKey
                         tagsPanel.removeAll()
+                        buildToolBadgeCount = 0
                         when {
                             scanned == null    -> {}
-                            scanned.scanFailed -> tagsPanel.add(badge("⚠", "#B71C1C"))
+                            scanned.scanFailed -> {
+                                tagsPanel.add(badge("⚠", "#B71C1C"))
+                                buildToolBadgeCount = 1
+                            }
                             else -> {
-                                scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
+                                // User tags first (lower priority — hidden when space is tight),
+                                // build-tool badges last (always visible).
                                 entry.tags.forEach { tag -> tagsPanel.add(badge(tag, "#546E7A")) }
+                                scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
+                                buildToolBadgeCount = scanned.buildTools.size
                             }
                         }
                     }
@@ -1146,7 +1256,7 @@ class ProjectTreePanel(
         }
 
         private fun badge(text: String, colorHex: String) = JLabel(text).apply {
-            font = Font(Font.SANS_SERIF, Font.BOLD, 9)
+            font = font.deriveFont(Font.BOLD, 9f)
             foreground = Color.WHITE
             background = try { Color.decode(colorHex) } catch (_: Exception) { Color.GRAY }
             isOpaque = true
@@ -1284,6 +1394,64 @@ class ProjectTreePanel(
             node to node.childCount
         }
         return doImportExternal(dirs, files, parent, idx)
+    }
+
+    /**
+     * Depth-first walk: returns the first tree node whose project path is in
+     * [missingPaths] and whose final directory segment matches [droppedName].
+     * Returns null if no such node exists.
+     */
+    internal fun findMissingMatch(droppedName: String): DefaultMutableTreeNode? {
+        fun walk(node: DefaultMutableTreeNode): DefaultMutableTreeNode? {
+            val e = node.userObject
+            if (e is ProjectTreeEntry.Project && e.directory.path in missingPaths) {
+                if (namesMatch(File(e.directory.path).name, droppedName)) return node
+            }
+            for (i in 0 until node.childCount) {
+                walk(node.getChildAt(i) as DefaultMutableTreeNode)?.let { return it }
+            }
+            return null
+        }
+        return walk(rootNode)
+    }
+
+    private fun namesMatch(a: String, b: String): Boolean =
+        if (IS_WINDOWS) a.equals(b, ignoreCase = true) else a == b
+
+    /**
+     * Called on the EDT. Shows a modal dialog asking the user whether to repair
+     * the missing project path or add the dropped directory as a new entry.
+     *
+     * Returns `true` if the user chose Replace (the dropped dir is consumed and
+     * should NOT be inserted as a new project). Returns `false` if the user
+     * chose "Add as new project" or dismissed the dialog.
+     */
+    private fun confirmRepairPath(missingNode: DefaultMutableTreeNode, newPath: String): Boolean {
+        val entry = missingNode.userObject as ProjectTreeEntry.Project
+        val oldPath = entry.directory.path
+        val projectName = File(oldPath).name
+        val choice = JOptionPane.showOptionDialog(
+            this,
+            "<html>Project:&nbsp;&nbsp;${projectName.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
+                "Old path: ${oldPath.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
+                "New path: ${newPath.replace("&", "&amp;").replace("<", "&lt;")}</html>",
+            "Replace missing project path?",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE,
+            null,
+            arrayOf("Replace", "Add as new project"),
+            "Replace",
+        )
+        if (choice != 0) return false   // "Add as new project" or dialog closed
+
+        val updatedDirectory = entry.directory.copy(path = newPath)
+        missingNode.userObject = entry.copy(directory = updatedDirectory)
+        missingPaths.remove(oldPath)
+        val nowMissing = updateMissingPath(newPath)
+        treeModel.nodeChanged(missingNode)
+        persist()
+        if (!nowMissing) scanProject(updatedDirectory)
+        return true
     }
 
     private fun findFolderNodeByName(n: DefaultMutableTreeNode, name: String): DefaultMutableTreeNode? {
@@ -1452,7 +1620,19 @@ class ProjectTreePanel(
             if (dirs.isEmpty() && files.isEmpty()) return false
             val dl = support.dropLocation as? JTree.DropLocation ?: return false
             val (newParent, startIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
-            return doImportExternal(dirs, files, newParent, startIndex)
+
+            var anyRepaired = false
+            val remainingDirs = mutableListOf<File>()
+            for (dir in dirs) {
+                val match = findMissingMatch(dir.name)
+                if (match != null) {
+                    val consumed = confirmRepairPath(match, dir.absolutePath)
+                    if (consumed) anyRepaired = true else remainingDirs += dir
+                } else {
+                    remainingDirs += dir
+                }
+            }
+            return doImportExternal(remainingDirs, files, newParent, startIndex) || anyRepaired
         }
 
         /**

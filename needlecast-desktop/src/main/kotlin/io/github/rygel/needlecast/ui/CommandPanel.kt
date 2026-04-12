@@ -13,9 +13,14 @@ import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
 import java.awt.Dimension
+import java.awt.FlowLayout
 import java.awt.Font
+import java.awt.GridBagConstraints
+import java.awt.GridBagLayout
+import java.awt.Insets
 import java.awt.SystemTray
 import java.awt.TrayIcon
+import java.awt.Window
 import java.awt.image.BufferedImage
 import java.io.File
 import java.text.SimpleDateFormat
@@ -23,11 +28,16 @@ import java.util.Date
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.JButton
+import javax.swing.JDialog
 import javax.swing.JLabel
 import javax.swing.JList
+import javax.swing.JMenuItem
+import javax.swing.JOptionPane
 import javax.swing.JPanel
+import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
+import javax.swing.JTextField
 import javax.swing.JToggleButton
 import javax.swing.JToolBar
 import javax.swing.ListCellRenderer
@@ -60,10 +70,10 @@ class CommandPanel(
     }
 
     private val runButton    = JButton("\u25B6  Run").apply    { isEnabled = false }
-    private val cancelButton = JButton("\u23F9  Cancel").apply { isEnabled = false }
-    private val queueButton  = JButton("\u23ED  Queue").apply  { isEnabled = false; toolTipText = "Add selected command to queue" }
+    private val cancelButton = JButton("\u25A0  Cancel").apply { isEnabled = false }
+    private val queueButton  = JButton("\u25B6\u25B6  Queue").apply  { isEnabled = false; toolTipText = "Add selected command to queue" }
     private val historyToggle = JToggleButton("\u2713 History").apply { isSelected = false }
-    private val queueToggle   = JToggleButton("\u23ED Queue").apply   { isSelected = false }
+    private val queueToggle   = JToggleButton("\u25B6\u25B6 Queue").apply   { isSelected = false }
 
     private val queueList = JList(queueModel).apply {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
@@ -118,10 +128,17 @@ class CommandPanel(
             }
         }
 
-        // Double-click command to run it
+        // Double-click command to run it; right-click shows context menu
         commandList.addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mouseClicked(e: java.awt.event.MouseEvent) {
-                if (e.clickCount == 2) runSelected()
+                if (e.clickCount == 2 && SwingUtilities.isLeftMouseButton(e)) runSelected()
+            }
+            override fun mousePressed(e: java.awt.event.MouseEvent) {
+                if (SwingUtilities.isRightMouseButton(e)) {
+                    val idx = commandList.locationToIndex(e.point)
+                    if (idx >= 0) commandList.selectedIndex = idx
+                    showCommandContextMenu(e)
+                }
             }
         })
 
@@ -311,6 +328,102 @@ class CommandPanel(
         queueModel.removeElementAt(0)
         executeCommand(next.label, next.argv, next.workingDir)
     }
+
+    private fun showCommandContextMenu(e: java.awt.event.MouseEvent) {
+        val cmd = commandList.selectedValue
+        val supported = cmd?.isSupported == true
+        val notRunning = processResult !is ProcessResult.Running
+        val menu = JPopupMenu()
+        menu.add(JMenuItem("\u25B6  Run").apply {
+            isEnabled = supported && notRunning
+            addActionListener { runSelected() }
+        })
+        menu.add(JMenuItem("\u25B6\u25B6  Queue").apply {
+            isEnabled = supported
+            addActionListener { enqueueSelected() }
+        })
+        menu.addSeparator()
+        menu.add(JMenuItem("Edit\u2026").apply {
+            isEnabled = cmd != null
+            addActionListener { editSelectedCommand() }
+        })
+        menu.show(commandList, e.x, e.y)
+    }
+
+    private fun editSelectedCommand() {
+        val idx = commandList.selectedIndex.takeIf { it >= 0 } ?: return
+        val cmd = commandModel.getElementAt(idx)
+        val owner = SwingUtilities.getWindowAncestor(this)
+        val dialog = EditCommandDialog(owner, cmd)
+        dialog.isVisible = true
+        val updated = dialog.result ?: return
+        commandModel.set(idx, updated)
+    }
+}
+
+/**
+ * Modal dialog for editing the label and command line of a [CommandDescriptor].
+ * The edited command is session-only — scanners will regenerate the original on next project load.
+ * [result] is non-null only when the user clicks OK with a non-empty label.
+ */
+private class EditCommandDialog(owner: Window?, private val cmd: CommandDescriptor) :
+    JDialog(owner, "Edit Command", ModalityType.APPLICATION_MODAL) {
+
+    var result: CommandDescriptor? = null
+        private set
+
+    private val labelField   = JTextField(cmd.label, 30)
+    private val commandField = JTextField(cmd.argv.joinToString(" "), 40)
+
+    init {
+        defaultCloseOperation = DISPOSE_ON_CLOSE
+        minimumSize = Dimension(480, 160)
+        setLocationRelativeTo(owner)
+
+        val grid = JPanel(GridBagLayout()).apply {
+            border = BorderFactory.createEmptyBorder(12, 12, 8, 12)
+        }
+        val gc = GridBagConstraints().apply { insets = Insets(4, 4, 4, 4) }
+
+        fun row(r: Int, labelText: String, field: Component) {
+            gc.gridy = r; gc.gridx = 0; gc.weightx = 0.0
+            gc.anchor = GridBagConstraints.WEST; gc.fill = GridBagConstraints.NONE
+            grid.add(JLabel(labelText), gc)
+            gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL
+            grid.add(field, gc)
+        }
+
+        row(0, "Label:",   labelField)
+        row(1, "Command:", commandField)
+
+        val ok     = JButton("OK").apply     { addActionListener { onOk() } }
+        val cancel = JButton("Cancel").apply { addActionListener { dispose() } }
+        val buttons = JPanel(FlowLayout(FlowLayout.RIGHT, 6, 4)).apply {
+            add(ok); add(cancel)
+        }
+
+        contentPane = JPanel(BorderLayout()).apply {
+            add(grid,    BorderLayout.CENTER)
+            add(buttons, BorderLayout.SOUTH)
+        }
+        pack()
+        rootPane.defaultButton = ok
+    }
+
+    private fun onOk() {
+        val label = labelField.text.trim()
+        if (label.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Label must not be empty.", "Validation", JOptionPane.WARNING_MESSAGE)
+            return
+        }
+        val argv = commandField.text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (argv.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Command must not be empty.", "Validation", JOptionPane.WARNING_MESSAGE)
+            return
+        }
+        result = cmd.copy(label = label, argv = argv)
+        dispose()
+    }
 }
 
 /**
@@ -344,7 +457,7 @@ private class CommandCellRenderer : ListCellRenderer<CommandDescriptor> {
         list: JList<out CommandDescriptor>, value: CommandDescriptor?,
         index: Int, isSelected: Boolean, cellHasFocus: Boolean,
     ): Component {
-        label.text = value?.label ?: ""
+        label.text = (value?.label ?: "").toHtmlLabel()
         label.toolTipText = if (value?.isSupported == true) value.argv.joinToString(" ")
                             else "This run configuration type is not directly executable"
         label.foreground = when {
@@ -373,7 +486,7 @@ private class HistoryCellRenderer : ListCellRenderer<CommandHistoryEntry> {
         list: JList<out CommandHistoryEntry>, value: CommandHistoryEntry?,
         index: Int, isSelected: Boolean, cellHasFocus: Boolean,
     ): Component {
-        nameLabel.text = value?.label ?: ""
+        nameLabel.text = (value?.label ?: "").toHtmlLabel()
         metaLabel.text = value?.let {
             val time = timeFmt.format(Date(it.ranAt))
             val codeColor = if (it.exitCode == 0) "#4CAF50" else "#F44336"
@@ -386,3 +499,7 @@ private class HistoryCellRenderer : ListCellRenderer<CommandHistoryEntry> {
         return panel
     }
 }
+
+/** Wraps text in HTML so Java's platform font-fallback chain (incl. emoji) is active. */
+private fun String.toHtmlLabel(): String =
+    "<html>${replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}</html>"

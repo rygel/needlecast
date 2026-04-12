@@ -550,7 +550,7 @@ private class CompactProjectDirectoryRenderer(
         val gs = value?.let { gitStatus(it.directory.path) }
         if (gs != null && gs.branch != null) {
             val dirtyMark = if (gs.isDirty) "*" else ""
-            branchLabel.text = "\uE0A0 ${gs.branch}$dirtyMark"
+            branchLabel.text = "${gs.branch}$dirtyMark"
             branchLabel.toolTipText = gs.branch
             branchLabel.foreground = if (gs.isDirty) Color(0xE6A817) else Color(0x888888)
         } else {

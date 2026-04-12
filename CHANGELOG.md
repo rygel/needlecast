@@ -2,6 +2,27 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.6.20] — 2026-04-12
+
+### Added
+- **Git write operations** — stage files, write commit messages, and run fetch/pull/push directly from the Git Log panel without leaving the app.
+- **Doc Viewer panel** — browse generated API documentation (Javadoc, KDoc, JSDoc, etc.) for the active project from a dedicated dockable panel.
+- **Edit existing prompts and commands** — prompts and command templates can now be edited in place after they have been added to the library.
+- **Enhanced project tree context menu** — right-click any project to assign color labels, manage tags, and open the directory in the OS file manager.
+- **Docs panel** — browse all Markdown files in the active project from a dedicated panel with inline rendering.
+- **Repair missing project path** — drag a folder from the OS file manager onto a project entry with a missing directory to update its path in one step.
+
+### Changed
+- **Settings dialog layout** — redesigned with a vertical sidebar for cleaner navigation between settings sections; all previous settings are in the same locations, just easier to reach.
+
+### Fixed
+- **Build-system badges sometimes missing** — scanner failures are now isolated so a malformed `package.json` no longer suppresses Maven badges (or any other scanner's results) from the same project.
+- **Renovate error handling** — the Renovate panel now shows a clear error message when Renovate is not installed or when a scan fails, rather than silently showing an empty result.
+- **All build-tool badges shown** — projects with multiple build systems (e.g. Maven + npm) now always display all badges, even when one scanner finishes faster than another.
+- **Unicode glyph rendering** — replaced several glyphs that displayed as squares on Windows and some Linux font configurations.
+
+---
+
 ## [0.6.19] — 2026-04-11
 
 ### Fixed
