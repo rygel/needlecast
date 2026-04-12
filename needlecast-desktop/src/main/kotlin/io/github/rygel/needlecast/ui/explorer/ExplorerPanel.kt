@@ -60,6 +60,14 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private var isDark: Boolean = ctx.config.theme == "dark"
     private val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm")
+
+    /** Sort state for each project root — keyed by absolute path. Session-only. */
+    private val sortStateByPath = mutableMapOf<String, ExplorerSortState>()
+    /** Absolute path of the project root currently shown (set by setRootDirectory). */
+    private var projectRootPath: String? = null
+    /** Sort state currently in effect. */
+    private var currentSortState: ExplorerSortState = DEFAULT_EXPLORER_SORT
+
     init {
         val upButton = JButton("\u2191").apply {
             toolTipText = "Go up one level"
@@ -154,6 +162,40 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         table.dropMode = DropMode.ON
         table.transferHandler = dropHandler
         tabs.transferHandler = dropHandler
+
+        // Column header click — toggle sort direction or switch column
+        table.tableHeader.addMouseListener(object : MouseAdapter() {
+            override fun mouseClicked(e: MouseEvent) {
+                val col = table.columnAtPoint(e.point)
+                if (col < 0) return
+                currentSortState = if (currentSortState.column == col) {
+                    currentSortState.copy(ascending = !currentSortState.ascending)
+                } else {
+                    ExplorerSortState(col, true)
+                }
+                projectRootPath?.let { sortStateByPath[it] = currentSortState }
+                loadDirectory(currentDir)
+            }
+        })
+
+        // Header renderer — show ▲ / ▼ on the active sort column
+        table.tableHeader.defaultRenderer = object : DefaultTableCellRenderer() {
+            init { horizontalAlignment = SwingConstants.LEFT }
+            override fun getTableCellRendererComponent(
+                table: JTable, value: Any?, isSelected: Boolean,
+                hasFocus: Boolean, row: Int, column: Int,
+            ): Component {
+                val label = super.getTableCellRendererComponent(
+                    table, value, isSelected, hasFocus, row, column) as JLabel
+                val colName = tableModel.getColumnName(column)
+                label.text = if (currentSortState.column == column) {
+                    "$colName ${if (currentSortState.ascending) "▲" else "▼"}"
+                } else {
+                    colName
+                }
+                return label
+            }
+        }
     }
 
     /**
@@ -164,7 +206,10 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     val editorComponent: JTabbedPane get() = tabs
 
     fun setRootDirectory(dir: File) {
-        if (dir.isDirectory) navigateTo(dir)
+        if (!dir.isDirectory) return
+        projectRootPath = dir.absolutePath
+        currentSortState = sortStateByPath[dir.absolutePath] ?: DEFAULT_EXPLORER_SORT
+        navigateTo(dir)
     }
 
     fun applyTheme(dark: Boolean) {
@@ -223,13 +268,13 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private fun loadDirectory(dir: File) {
         object : SwingWorker<List<FileEntry>, Void>() {
             override fun doInBackground(): List<FileEntry> {
+                val sortState = currentSortState   // capture for background thread
                 val children = (dir.listFiles() ?: emptyArray())
                     .filter { showHidden || !it.isHidden }
-                    .sortedWith(compareBy({ it.isFile }, { it.name.lowercase() }))
                 val entries = mutableListOf<FileEntry>()
                 if (dir.parentFile != null) entries.add(FileEntry.ParentDir)
-                children.filter { it.isDirectory }.mapTo(entries) { FileEntry.Dir(it) }
-                children.filter { it.isFile }.mapTo(entries) { FileEntry.RegularFile(it) }
+                entries.addAll(sortGroup(children.filter { it.isDirectory }.map { FileEntry.Dir(it) }, sortState))
+                entries.addAll(sortGroup(children.filter { it.isFile }.map { FileEntry.RegularFile(it) }, sortState))
                 return entries
             }
             override fun done() {
