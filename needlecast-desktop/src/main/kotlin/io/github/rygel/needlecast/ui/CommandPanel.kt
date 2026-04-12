@@ -205,7 +205,9 @@ class CommandPanel(
 
         if (project == null) return
 
-        project.commands.forEach { commandModel.addElement(it) }
+        val overrides = ctx.config.commandOverrides[project.directory.path] ?: emptyList()
+        val commands = applyCommandOverrides(project.commands, overrides)
+        commands.forEach { commandModel.addElement(it) }
         if (commandModel.size > 0) commandList.selectedIndex = 0
 
         // Load saved history for this project
@@ -352,12 +354,28 @@ class CommandPanel(
 
     private fun editSelectedCommand() {
         val idx = commandList.selectedIndex.takeIf { it >= 0 } ?: return
-        val cmd = commandModel.getElementAt(idx)
+        val original = commandModel.getElementAt(idx)
         val owner = SwingUtilities.getWindowAncestor(this)
-        val dialog = EditCommandDialog(owner, cmd)
+        val dialog = EditCommandDialog(owner, original)
         dialog.isVisible = true
         val updated = dialog.result ?: return
         commandModel.set(idx, updated)
+
+        // Persist the override so it survives rescans
+        val workDir = currentProjectPath ?: return
+        val newOverride = io.github.rygel.needlecast.model.CommandOverride(
+            originalArgv = original.argv,
+            label = updated.label,
+            argv = updated.argv,
+        )
+        val existing = ctx.config.commandOverrides[workDir]
+            ?.filterNot { it.originalArgv == original.argv }
+            ?: emptyList()
+        ctx.updateConfig(
+            ctx.config.copy(
+                commandOverrides = ctx.config.commandOverrides + (workDir to existing + newOverride)
+            )
+        )
     }
 }
 
@@ -423,6 +441,22 @@ private class EditCommandDialog(owner: Window?, private val cmd: CommandDescript
         }
         result = cmd.copy(label = label, argv = argv)
         dispose()
+    }
+}
+
+/**
+ * Applies stored [overrides] on top of scanner-generated [commands].
+ * Each override is matched by [CommandOverride.originalArgv]; unmatched overrides are ignored.
+ */
+internal fun applyCommandOverrides(
+    commands: List<io.github.rygel.needlecast.model.CommandDescriptor>,
+    overrides: List<io.github.rygel.needlecast.model.CommandOverride>,
+): List<io.github.rygel.needlecast.model.CommandDescriptor> {
+    if (overrides.isEmpty()) return commands
+    val overrideMap = overrides.associateBy { it.originalArgv }
+    return commands.map { cmd ->
+        val ov = overrideMap[cmd.argv] ?: return@map cmd
+        cmd.copy(label = ov.label, argv = ov.argv)
     }
 }
 
