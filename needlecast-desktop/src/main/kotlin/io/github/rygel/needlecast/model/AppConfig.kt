@@ -652,6 +652,11 @@ data class ProjectDirectory(
      * Null means no startup command.
      */
     val startupCommand: String? = null,
+    /**
+     * Additional directories to scan for shell and language scripts,
+     * stored relative to [path] when possible.
+     */
+    val extraScanDirs: List<String> = emptyList(),
 ) {
     fun label(): String = displayName ?: path.substringAfterLast('/').substringAfterLast('\\').ifBlank { path }
 }

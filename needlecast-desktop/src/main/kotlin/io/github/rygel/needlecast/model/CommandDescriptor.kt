@@ -22,6 +22,7 @@ enum class BuildTool(val displayName: String, val tagLabel: String, val tagColor
     SBT("sbt",          "sbt",      "#DC322F"),
     MIX("Mix",          "mix",      "#6E4A7E"),
     ZIG("Zig",          "zig",      "#F7A41D"),
+    SCRIPT("Script",    "script",   "#5D7B6F"),
 }
 
 data class CommandDescriptor(
