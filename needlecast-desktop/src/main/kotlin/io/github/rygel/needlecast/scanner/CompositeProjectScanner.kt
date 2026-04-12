@@ -23,6 +23,7 @@ class CompositeProjectScanner(
         SbtProjectScanner(),
         ElixirProjectScanner(),
         ZigProjectScanner(),
+        ScriptDirectoryScanner(),
     ),
 ) : ProjectScanner {
 
