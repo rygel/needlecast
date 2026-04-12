@@ -90,7 +90,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             }
         }
 
-        val openFmButton = JButton("\u29C9").apply {
+        val openFmButton = JButton("\u2197").apply {
             toolTipText = when {
                 IS_MAC     -> "Open in Finder"
                 IS_WINDOWS -> "Open in Explorer"
@@ -663,7 +663,7 @@ private class TabHeader(title: String, onClose: () -> Unit) : JPanel(FlowLayout(
         isOpaque = false
         border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         add(JLabel(title))
-        add(JButton("\u2715").apply {
+        add(JButton("\u00D7").apply {
             toolTipText = "Close tab"
             isFocusable = false
             isBorderPainted = false
