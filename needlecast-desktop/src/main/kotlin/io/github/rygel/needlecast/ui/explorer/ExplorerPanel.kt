@@ -65,7 +65,9 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private val sortStateByPath = mutableMapOf<String, ExplorerSortState>()
     /** Absolute path of the project root currently shown (set by setRootDirectory). */
     private var projectRootPath: String? = null
-    /** Sort state currently in effect. */
+    /** Sort state currently in effect.
+     *  Written only on the EDT; @Volatile ensures the SwingWorker capture in doInBackground
+     *  sees the latest value without a data race. */
     @Volatile
     private var currentSortState: ExplorerSortState = DEFAULT_EXPLORER_SORT
 
