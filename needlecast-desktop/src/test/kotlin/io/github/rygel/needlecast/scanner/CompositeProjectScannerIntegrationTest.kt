@@ -69,4 +69,20 @@ class CompositeProjectScannerIntegrationTest {
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         result.commands.forEach { assertEquals(dir.toString(), it.workingDirectory) }
     }
+
+    @Test
+    fun `one scanner throwing does not suppress other scanners results`(@TempDir dir: Path) {
+        val bombScanner = object : ProjectScanner {
+            override fun scan(directory: ProjectDirectory): io.github.rygel.needlecast.model.DetectedProject? =
+                throw RuntimeException("Simulated scanner failure")
+        }
+        val mavenOnly = CompositeProjectScanner(
+            scanners = listOf(bombScanner, MavenProjectScanner()),
+        )
+        File(dir.toFile(), "pom.xml").writeText("<project/>")
+
+        val result = mavenOnly.scan(ProjectDirectory(dir.toString()))
+        assertTrue(BuildTool.MAVEN in result.buildTools) { "Maven tools should survive bomb scanner: ${result.buildTools}" }
+        assertFalse(result.scanFailed)
+    }
 }
