@@ -22,4 +22,40 @@ interface GitService {
      * or null if the hash cannot be resolved.
      */
     fun show(dir: String, hash: String): String?
+
+    /**
+     * Returns files with uncommitted changes, or an empty list if not a repo.
+     * Parses `git status --porcelain` output.
+     */
+    fun changedFiles(dir: String): List<ChangedFile>
+
+    /**
+     * Stages [files] for the next commit (`git add -- <files>`).
+     * @throws RuntimeException if git exits with a non-zero code.
+     */
+    fun stage(dir: String, files: List<String>)
+
+    /**
+     * Creates a commit with [message] (`git commit -m <message>`).
+     * @throws RuntimeException if git exits with a non-zero code.
+     */
+    fun commit(dir: String, message: String)
+
+    /**
+     * Runs `git fetch`, calling [onLine] per output line from the worker thread.
+     * @return the git process exit code (0 = success).
+     */
+    fun fetchStreaming(dir: String, onLine: (String) -> Unit): Int
+
+    /**
+     * Runs `git push`, calling [onLine] per output line from the worker thread.
+     * @return the git process exit code (0 = success).
+     */
+    fun pushStreaming(dir: String, onLine: (String) -> Unit): Int
+
+    /**
+     * Runs `git pull`, calling [onLine] per output line from the worker thread.
+     * @return the git process exit code (0 = success).
+     */
+    fun pullStreaming(dir: String, onLine: (String) -> Unit): Int
 }
