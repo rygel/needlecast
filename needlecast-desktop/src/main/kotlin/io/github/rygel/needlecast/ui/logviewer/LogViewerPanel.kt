@@ -55,6 +55,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
     // ── State ────────────────────────────────────────────────────────────────
 
     private var currentProjectPath: String? = null
+    private val appLogDir = File(System.getProperty("user.home"), ".needlecast")
     private var entries = mutableListOf<LogEntry>()
     private var visibleLevels = LogLevel.entries.toMutableSet()
     private var following = true
@@ -78,7 +79,6 @@ class LogViewerPanel : JPanel(BorderLayout()) {
                 list: javax.swing.JList<*>?, value: Any?, index: Int,
                 isSelected: Boolean, cellHasFocus: Boolean,
             ) = super.getListCellRendererComponent(list, (value as? File)?.let { f ->
-                val appLogDir = File(System.getProperty("user.home"), ".needlecast")
                 if (f.parentFile == appLogDir) "${f.name} (app)"
                 else f.toRelativeString(File(currentProjectPath ?: ""))
             } ?: "", index, isSelected, cellHasFocus)
