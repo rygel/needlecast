@@ -858,7 +858,10 @@ class ProjectTreePanel(
 
         removeBtn.addActionListener {
             val i = list.selectedIndex
-            if (i >= 0) listModel.remove(i)
+            if (i >= 0) {
+                listModel.remove(i)
+                list.clearSelection()
+            }
         }
 
         val form = JPanel(BorderLayout(4, 4)).apply {
