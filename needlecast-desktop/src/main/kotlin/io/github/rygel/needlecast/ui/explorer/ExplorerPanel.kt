@@ -66,6 +66,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     /** Absolute path of the project root currently shown (set by setRootDirectory). */
     private var projectRootPath: String? = null
     /** Sort state currently in effect. */
+    @Volatile
     private var currentSortState: ExplorerSortState = DEFAULT_EXPLORER_SORT
 
     init {
