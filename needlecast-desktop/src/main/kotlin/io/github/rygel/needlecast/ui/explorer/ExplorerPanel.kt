@@ -3,7 +3,9 @@ package io.github.rygel.needlecast.ui.explorer
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
+import io.github.rygel.needlecast.scanner.IS_MAC
 import java.awt.BorderLayout
+import java.awt.Desktop
 import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.Font
@@ -77,7 +79,13 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             }
         }
 
+        val openFmButton = JButton("\u29C9").apply {
+            toolTipText = if (IS_MAC) "Open in Finder" else "Open in Explorer"
+            addActionListener { openInFileManager(currentDir) }
+        }
+
         val rightButtons = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
+            add(openFmButton)
             add(hiddenButton)
             add(refreshButton)
         }
@@ -192,6 +200,20 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private fun navigateUp() {
         val parent = currentDir.parentFile ?: return
         navigateTo(parent)
+    }
+
+    private fun openInFileManager(dir: File) {
+        try {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                Desktop.getDesktop().open(dir)
+            } else if (IS_WINDOWS) {
+                ProcessBuilder("explorer.exe", dir.absolutePath).start()
+            } else if (IS_MAC) {
+                ProcessBuilder("open", dir.absolutePath).start()
+            } else {
+                ProcessBuilder("xdg-open", dir.absolutePath).start()
+            }
+        } catch (_: Exception) {}
     }
 
     private fun loadDirectory(dir: File) {
