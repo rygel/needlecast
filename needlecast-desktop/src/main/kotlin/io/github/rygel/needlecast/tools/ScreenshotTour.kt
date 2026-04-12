@@ -72,8 +72,8 @@ fun main(args: Array<String>) {
 
     // Hard timeout
     Thread {
-        Thread.sleep(120_000)
-        System.err.println("Screenshot tour timed out after 2 minutes")
+        Thread.sleep(300_000)
+        System.err.println("Screenshot tour timed out after 5 minutes")
         Runtime.getRuntime().halt(1)
     }.apply { isDaemon = true; start() }
 
@@ -683,24 +683,29 @@ fun main(args: Array<String>) {
 // ── Settings tab helper ───────────────────────────────────────────────────────
 
 private fun settingsTabShot(robot: Robot, window: JFrame, ctx: AppContext, tabIndex: Int, dest: Path, @Suppress("UNUSED_PARAMETER") tabName: String) {
-    var dlg: JDialog? = null
-    SwingUtilities.invokeAndWait {
+    // Use invokeLater (not invokeAndWait) — SettingsDialog is modal, so isVisible=true blocks
+    // the EDT. invokeAndWait would deadlock waiting for the EDT to return.
+    SwingUtilities.invokeLater {
         val d = SettingsDialog(window, ctx, sendToTerminal = {})
         try {
-            // The sidebarList is a local var inside init, but the JList is part of the JScrollPane
-            // added to the dialog's content pane. We locate it by traversing the component tree.
             val sidebarList = findJListIn(d)
             if (sidebarList != null) {
                 sidebarList.selectedIndex = tabIndex
             }
         } catch (e: Exception) { e.printStackTrace() }
         d.isVisible = true
-        dlg = d
+    }
+    // Poll for the dialog to appear (max 5 s), then screenshot and close
+    val deadline = System.currentTimeMillis() + 5000
+    while (System.currentTimeMillis() < deadline) {
+        val visible = Window.getWindows().filterIsInstance<JDialog>().any { it.isVisible }
+        if (visible) break
+        Thread.sleep(100)
     }
     Thread.sleep(600)
     screenshotTopDialog(robot, dest)
     println("  > ${dest.fileName}")
-    SwingUtilities.invokeAndWait { dlg?.dispose() }
+    closeTopDialog()
     Thread.sleep(300)
 }
 
