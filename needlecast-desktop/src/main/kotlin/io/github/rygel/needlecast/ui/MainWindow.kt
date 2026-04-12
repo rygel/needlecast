@@ -390,11 +390,11 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         // 1. Terminal docked to window root — the central, dominant panel
         Docking.dock(terminalDockable,    this,                DockingRegion.CENTER)
         // 2. Project tree to the top-left (always visible)
-        Docking.dock(projectTreeDockable, terminalDockable,    DockingRegion.WEST,   0.20)
+        Docking.dock(projectTreeDockable, terminalDockable,    DockingRegion.WEST,   0.15)
         // 3. File explorer below the project tree in the left column
         Docking.dock(explorerDockable,    projectTreeDockable, DockingRegion.SOUTH,  0.50)
         // 4. Commands panel to the right of the terminal
-        Docking.dock(commandsDockable,    terminalDockable,    DockingRegion.EAST,   0.24)
+        Docking.dock(commandsDockable,    terminalDockable,    DockingRegion.EAST,   0.20)
         // 5. Git Log tabbed alongside Commands
         Docking.dock(gitLogDockable,      commandsDockable,    DockingRegion.CENTER)
         // 5b. Log Viewer tabbed alongside Git Log
@@ -410,7 +410,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             Docking.dock(consoleDockable, commandsDockable,    DockingRegion.SOUTH,  0.65)
         }
         // 8. Prompt input below the terminal/editor column
-        Docking.dock(promptInputDockable,  terminalDockable,   DockingRegion.SOUTH,  0.85)
+        Docking.dock(promptInputDockable,  terminalDockable,   DockingRegion.SOUTH,  0.90)
         // 9. Command input tabbed with prompt input
         Docking.dock(commandInputDockable, promptInputDockable, DockingRegion.CENTER)
 
