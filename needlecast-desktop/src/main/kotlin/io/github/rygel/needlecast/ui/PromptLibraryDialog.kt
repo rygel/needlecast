@@ -32,10 +32,7 @@ import javax.swing.event.DocumentListener
  * Manages a template library (prompts or CLI commands). Opens as a modeless dialog so the user
  * can keep it open while working in the terminal.
  *
- * @param title           Dialog window title.
  * @param sendButtonLabel Label of the "send to terminal" action button.
- * @param loadLibrary     Returns the current list from config.
- * @param saveLibrary     Persists an updated list to config.
  * @param sendToTerminal  Lambda that writes text to the currently-active terminal.
  */
 class PromptLibraryDialog(
@@ -44,8 +41,7 @@ class PromptLibraryDialog(
     private val sendToTerminal: (String) -> Unit,
     title: String = "Prompt Library",
     private val sendButtonLabel: String = "Paste to Terminal",
-    private val loadLibrary: () -> List<PromptTemplate> = { ctx.config.promptLibrary },
-    private val saveLibrary: (List<PromptTemplate>) -> Unit = { ctx.updateConfig(ctx.config.copy(promptLibrary = it)) },
+    private val isCommand: Boolean = false,
 ) : JDialog(owner, title, ModalityType.MODELESS) {
 
     // ── List-side state ───────────────────────────────────────────────────
@@ -83,7 +79,7 @@ class PromptLibraryDialog(
         setLocationRelativeTo(owner)
 
         contentPane = buildLayout()
-        populateList(loadLibrary())
+        populateList(currentLibrary())
         wireListeners()
     }
 
@@ -229,14 +225,9 @@ class PromptLibraryDialog(
             description = descField.text.trim(),
             body        = bodyArea.text,
         )
-        val newList = if (editing == null) {
-            loadLibrary() + updated
-        } else {
-            loadLibrary().map { if (it.id == updated.id) updated else it }
-        }
-        saveLibrary(newList)
+        ctx.promptLibraryStore.save(updated, isCommand)
         editing = updated
-        populateList(newList)
+        populateList(currentLibrary())
         for (i in 0 until listModel.size) {
             if (listModel.getElementAt(i).id == updated.id) { promptList.selectedIndex = i; break }
         }
@@ -249,11 +240,9 @@ class PromptLibraryDialog(
             JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
         )
         if (confirm != JOptionPane.YES_OPTION) return
-
-        val newList = loadLibrary().filter { it.id != sel.id }
-        saveLibrary(newList)
+        ctx.promptLibraryStore.delete(sel, isCommand)
         editing = null
-        populateList(newList)
+        populateList(currentLibrary())
         clearForm()
         deleteButton.isEnabled = false
     }
@@ -300,9 +289,12 @@ class PromptLibraryDialog(
     // List helpers
     // ─────────────────────────────────────────────────────────────────────
 
+    private fun currentLibrary(): List<PromptTemplate> =
+        if (isCommand) ctx.promptLibraryStore.loadCommands() else ctx.promptLibraryStore.loadPrompts()
+
     private fun applyFilter() {
         val query = searchField.text.trim().lowercase()
-        val all = loadLibrary()
+        val all = currentLibrary()
         val filtered = if (query.isEmpty()) all
                        else all.filter {
                            it.name.lowercase().contains(query) ||

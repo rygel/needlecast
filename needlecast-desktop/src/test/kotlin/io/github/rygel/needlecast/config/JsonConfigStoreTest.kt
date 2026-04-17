@@ -48,8 +48,7 @@ class JsonConfigStoreTest {
         assertEquals("dark-purple", config.theme)
         assertEquals(1200,    config.windowWidth)
         assertTrue(config.groups.isEmpty())
-        assertTrue(config.promptLibrary.isNotEmpty())
-        assertTrue(config.commandLibrary.isNotEmpty())
+
     }
 
     @Test

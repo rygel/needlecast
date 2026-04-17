@@ -545,8 +545,8 @@ data class CommandOverride(
 )
 
 data class AppConfig(
-    /** Incremented when a breaking schema change requires migration. Current: 3. */
-    val configVersion: Int = 3,
+    /** Incremented when a breaking schema change requires migration. Current: 5. */
+    val configVersion: Int = 5,
     val groups: List<ProjectGroup> = emptyList(),
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,
@@ -559,8 +559,6 @@ data class AppConfig(
     val commandHistory: Map<String, List<CommandHistoryEntry>> = emptyMap(),
     /** Overridden keyboard shortcuts keyed by action name. Empty = use built-in defaults. */
     val shortcuts: Map<String, String> = emptyMap(),
-    val promptLibrary: List<PromptTemplate> = defaultPromptLibrary(),
-    val commandLibrary: List<PromptTemplate> = defaultCommandLibrary(),
     val projectTree: List<ProjectTreeEntry> = emptyList(),
     /** Whether the console output pane is visible. */
     val showConsole: Boolean = true,
@@ -619,6 +617,8 @@ data class AppConfig(
     val claudeHooksEnabled: Boolean = false,
     /** Per-project command overrides. Outer key = working directory path. */
     val commandOverrides: Map<String, List<CommandOverride>> = emptyMap(),
+    /** Whether media files start playing automatically when opened in the Explorer. Default true. */
+    val mediaAutoplay: Boolean = true,
 )
 
 data class AiCliDefinition(
@@ -652,6 +652,12 @@ data class ProjectDirectory(
      * Null means no startup command.
      */
     val startupCommand: String? = null,
+    /**
+     * Additional directories to scan for shell and language scripts,
+     * stored relative to [path] when possible.
+     */
+    val extraScanDirs: List<String> = emptyList(),
+    val skillTargetDir: String? = null,
 ) {
     fun label(): String = displayName ?: path.substringAfterLast('/').substringAfterLast('\\').ifBlank { path }
 }

@@ -3,7 +3,6 @@ package io.github.rygel.needlecast.config
 import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectGroup
-import io.github.rygel.needlecast.model.PromptTemplate
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -134,23 +133,18 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `promptLibrary round-trips correctly`(@TempDir dir: Path) {
+    fun `mediaAutoplay persists across save and load`(@TempDir dir: Path) {
         val store = JsonConfigStore(dir.resolve("config.json"))
-        val template = PromptTemplate(
-            id          = "test-id-1",
-            name        = "Code Review",
-            category    = "Review",
-            description = "Ask the AI to review code",
-            body        = "Please review {fileName} for {concern}.",
-        )
-        val config = AppConfig(promptLibrary = listOf(template))
-        store.save(config)
+        store.save(AppConfig(mediaAutoplay = true))
+        assertTrue(store.load().mediaAutoplay, "mediaAutoplay=true should survive a round-trip")
+        store.save(AppConfig(mediaAutoplay = false))
+        assertFalse(store.load().mediaAutoplay, "mediaAutoplay=false should survive a round-trip")
+    }
 
-        val loaded = store.load()
-        assertEquals(1, loaded.promptLibrary.size)
-        assertEquals("Code Review",  loaded.promptLibrary[0].name)
-        assertEquals("test-id-1",    loaded.promptLibrary[0].id)
-        assertEquals("Review",       loaded.promptLibrary[0].category)
-        assertTrue(loaded.promptLibrary[0].body.contains("{fileName}"))
+    @Test
+    fun `mediaAutoplay defaults to true`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        store.save(AppConfig())
+        assertTrue(store.load().mediaAutoplay, "mediaAutoplay should default to true")
     }
 }

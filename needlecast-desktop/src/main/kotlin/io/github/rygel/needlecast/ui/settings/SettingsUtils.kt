@@ -68,7 +68,7 @@ fun runCommandStreaming(
 
     object : SwingWorker<Int, String>() {
         override fun doInBackground(): Int {
-            val argv = if (IS_WINDOWS) listOf("cmd", "/c", command) else listOf("sh", "-c", command)
+            val argv = if (IS_WINDOWS) listOf("powershell", "-NoProfile", "-Command", command) else listOf("sh", "-c", command)
             val pb = ProcessBuilder(argv).redirectErrorStream(true)
             pb.environment()["PATH"] = System.getenv("PATH") ?: ""
             env.forEach { (k, v) -> pb.environment()[k] = v }

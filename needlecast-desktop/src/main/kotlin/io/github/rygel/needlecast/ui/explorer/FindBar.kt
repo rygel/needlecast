@@ -43,7 +43,7 @@ class FindBar(private val editor: RSyntaxTextArea) : JPanel(BorderLayout()) {
             add(wholeWord)
             add(regex)
             add(statusLabel)
-            add(JButton("\u2715").apply { toolTipText = "Close (Escape)"; addActionListener { hideBar() } })
+            add(JButton("\u00D7").apply { toolTipText = "Close (Escape)"; addActionListener { hideBar() } })
         }
 
         replaceRow.apply {

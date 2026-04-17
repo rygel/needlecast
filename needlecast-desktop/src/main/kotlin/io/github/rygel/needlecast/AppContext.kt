@@ -2,15 +2,20 @@ package io.github.rygel.needlecast
 
 import io.github.rygel.needlecast.config.ConfigStore
 import io.github.rygel.needlecast.config.JsonConfigStore
+import io.github.rygel.needlecast.config.PromptLibraryStore
+import io.github.rygel.needlecast.config.SkillLibraryStore
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
 import io.github.rygel.needlecast.model.AppConfig
+import io.github.rygel.needlecast.model.defaultCommandLibrary
+import io.github.rygel.needlecast.model.defaultPromptLibrary
 import io.github.rygel.needlecast.process.CommandRunner
 import io.github.rygel.needlecast.process.ProcessCommandRunner
 import io.github.rygel.needlecast.scanner.CompositeProjectScanner
 import io.github.rygel.needlecast.scanner.ProjectScanner
 import io.github.rygel.outerstellar.i18n.I18nService
 import io.github.rygel.outerstellar.theme.ThemeService
+import java.nio.file.Path
 import java.util.Locale
 
 /** Implemented by objects that hold background resources needing cleanup on shutdown. */
@@ -23,9 +28,20 @@ class AppContext(
     val scanner: ProjectScanner = CompositeProjectScanner(),
     val commandRunner: CommandRunner = ProcessCommandRunner(),
     val gitService: GitService = ProcessGitService(),
+    val promptLibraryStore: PromptLibraryStore = PromptLibraryStore(
+        Path.of(System.getProperty("user.home"), ".needlecast", "prompts"),
+        Path.of(System.getProperty("user.home"), ".needlecast", "commands"),
+    ),
+    val skillLibraryStore: SkillLibraryStore = SkillLibraryStore(
+        Path.of(System.getProperty("user.home"), ".needlecast", "skills"),
+    ),
 ) {
     var config: AppConfig = configStore.load()
         private set
+
+    init {
+        promptLibraryStore.seedDefaults(defaultPromptLibrary(), defaultCommandLibrary())
+    }
 
     // ── i18n ──────────────────────────────────────────────────────────────
 

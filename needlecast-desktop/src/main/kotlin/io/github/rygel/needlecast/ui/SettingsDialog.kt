@@ -16,9 +16,11 @@ import java.awt.CardLayout
 import java.awt.Color
 import java.awt.Component
 import java.awt.Dimension
+import java.awt.FlowLayout
 import java.awt.Font
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
+import javax.swing.JButton
 import javax.swing.JDialog
 import javax.swing.JFrame
 import javax.swing.JLabel
@@ -101,9 +103,25 @@ class SettingsDialog(
             horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
         }
 
+        val closeButton = JButton("Close").apply {
+            addActionListener { dispose() }
+        }
+        // Settings are applied live on every change, so Apply is equivalent to Close.
+        val applyButton = JButton("Apply").apply {
+            addActionListener { dispose() }
+        }
+        val buttonBar = JPanel(FlowLayout(FlowLayout.RIGHT, 8, 8)).apply {
+            border = BorderFactory.createMatteBorder(1, 0, 0, 0,
+                UIManager.getColor("Separator.foreground") ?: Color.GRAY)
+            add(applyButton)
+            add(closeButton)
+        }
+        getRootPane().defaultButton = closeButton
+
         contentPane = JPanel(BorderLayout()).apply {
             add(sidebarScroll, BorderLayout.WEST)
             add(contentPanel,  BorderLayout.CENTER)
+            add(buttonBar,     BorderLayout.SOUTH)
         }
     }
 

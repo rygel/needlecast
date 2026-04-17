@@ -2,35 +2,32 @@
 
 All notable changes to Needlecast are documented here.
 
-## [0.6.21] — 2026-04-12
+## [0.7.0] — 2026-04-17
 
 ### Added
-- **Explorer "Open in File Manager" button** — address bar toolbar now has a dedicated button to open the current directory in the OS file manager (Finder on macOS, Explorer on Windows, `xdg-open` on Linux).
-- **Persistent command editing** — label and argument edits made via Edit Command dialog are now saved to config and survive rescans and app restarts.
+- **Prompt library markdown storage** — prompts and commands are now stored as markdown files with YAML frontmatter in `~/.needlecast/prompts/` and `~/.needlecast/commands/`, organized by category-as-directory. Defaults are seeded on first run.
+- **Skill management system** — dockable Skills panel with a central skill library at `~/.needlecast/skills/`, in-app editing via SkillEditDialog, and one-click deploy/undeploy to projects via symlinks (junctions on Windows). Follows the [agentskills.io](https://agentskills.io) spec.
+- **Media playback speed and autoplay** — speed selector (0.25x–4x) and configurable autoplay for media files in the Explorer panel.
+- **Script directory scanner** — auto-detects `scripts/` directories and per-project extra scan directories for shell and language scripts.
+- **Sortable Explorer columns** — click column headers to sort by name, size, or date; sort state persists per project.
+- **Settings sidebar layout** — Settings dialog reworked to a vertical sidebar layout for better navigation.
+- **Apply and Close in Settings** — new button that applies changes and closes the dialog in one click.
+- **Git write UI** — GitLogPanel now supports commit, stage, fetch, push, and pull actions directly from the panel.
+- **Prompt and command editing** — existing prompts and commands can now be edited in-place from the library dialogs.
+- **Doc Viewer panel** — browse and render project markdown documentation files inline.
+- **Project tree context menu enhancements** — tags, colors, and "Open in File Manager" action.
+- **Persistent command editing** — edits to scanned commands survive rescans and restarts.
+- **Explorer "Open in File Manager" button** — in the address bar toolbar.
 
 ### Fixed
-- **Build-system badges sometimes missing** — individual scanner failures are now isolated so a malformed `package.json` no longer prevents Maven (or any other scanner's) badges from appearing.
-
----
-
-## [0.6.20] — 2026-04-12
-
-### Added
-- **Git write operations** — stage files, write commit messages, and run fetch/pull/push directly from the Git Log panel without leaving the app.
-- **Doc Viewer panel** — browse generated API documentation (Javadoc, KDoc, JSDoc, etc.) for the active project from a dedicated dockable panel.
-- **Edit existing prompts and commands** — prompts and command templates can now be edited in place after they have been added to the library.
-- **Enhanced project tree context menu** — right-click any project to assign color labels, manage tags, and open the directory in the OS file manager.
-- **Docs panel** — browse all Markdown files in the active project from a dedicated panel with inline rendering.
-- **Repair missing project path** — drag a folder from the OS file manager onto a project entry with a missing directory to update its path in one step.
-
-### Changed
-- **Settings dialog layout** — redesigned with a vertical sidebar for cleaner navigation between settings sections; all previous settings are in the same locations, just easier to reach.
-
-### Fixed
-- **Build-system badges sometimes missing** — scanner failures are now isolated so a malformed `package.json` no longer suppresses Maven badges (or any other scanner's results) from the same project.
-- **Renovate error handling** — the Renovate panel now shows a clear error message when Renovate is not installed or when a scan fails, rather than silently showing an empty result.
-- **All build-tool badges shown** — projects with multiple build systems (e.g. Maven + npm) now always display all badges, even when one scanner finishes faster than another.
-- **Unicode glyph rendering** — replaced several glyphs that displayed as squares on Windows and some Linux font configurations.
+- **Screenshot tour modal deadlock** — the screenshot tour could hang indefinitely when modal dialogs blocked the EDT; added proper timeouts and forced exit.
+- **Build-system badges missing** — when multiple scanners ran and one threw, other scanners' badges were suppressed; now each scanner reports independently.
+- **Renovate scan error handling** — shows a clear error when Renovate fails or is not installed instead of silently failing.
+- **Unicode glyph rendering** — replaced unsupported Unicode characters that rendered as squares on some systems.
+- **PowerShell install commands** — Settings Renovate and APM install tabs now use PowerShell instead of cmd on Windows.
+- **Build-tool badges** — all detected build tools are now always shown when a project has multiple build systems.
+- **Scan result delivery** — scan results are pushed to panels immediately after scanning completes.
+- **Config version** — bumped to v5 for the new skill management fields.
 
 ---
 

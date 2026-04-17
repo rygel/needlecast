@@ -29,13 +29,6 @@ class ConfigMigratorTest {
     }
 
     @Test
-    fun `migration preserves prompt library`() {
-        val old = AppConfig(configVersion = 1, promptLibrary = listOf(AppConfig().promptLibrary.first()))
-        val result = ConfigMigrator.migrate(old)
-        assertEquals(1, result.promptLibrary.size)
-    }
-
-    @Test
     fun `migrate is idempotent`() {
         val config = AppConfig(configVersion = 0)
         val once  = ConfigMigrator.migrate(config)

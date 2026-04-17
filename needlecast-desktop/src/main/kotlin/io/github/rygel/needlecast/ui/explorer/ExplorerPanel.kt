@@ -60,6 +60,17 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private var isDark: Boolean = ctx.config.theme == "dark"
     private val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm")
+
+    /** Sort state for each project root — keyed by absolute path. Session-only. */
+    private val sortStateByPath = mutableMapOf<String, ExplorerSortState>()
+    /** Absolute path of the project root currently shown (set by setRootDirectory). */
+    private var projectRootPath: String? = null
+    /** Sort state currently in effect.
+     *  Written only on the EDT; @Volatile ensures the SwingWorker capture in doInBackground
+     *  sees the latest value without a data race. */
+    @Volatile
+    private var currentSortState: ExplorerSortState = DEFAULT_EXPLORER_SORT
+
     init {
         val upButton = JButton("\u2191").apply {
             toolTipText = "Go up one level"
@@ -79,7 +90,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             }
         }
 
-        val openFmButton = JButton("\u29C9").apply {
+        val openFmButton = JButton("\u2197").apply {
             toolTipText = when {
                 IS_MAC     -> "Open in Finder"
                 IS_WINDOWS -> "Open in Explorer"
@@ -154,6 +165,40 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         table.dropMode = DropMode.ON
         table.transferHandler = dropHandler
         tabs.transferHandler = dropHandler
+
+        // Column header click — toggle sort direction or switch column
+        table.tableHeader.addMouseListener(object : MouseAdapter() {
+            override fun mouseClicked(e: MouseEvent) {
+                val col = table.columnAtPoint(e.point)
+                if (col < 0) return
+                currentSortState = if (currentSortState.column == col) {
+                    currentSortState.copy(ascending = !currentSortState.ascending)
+                } else {
+                    ExplorerSortState(col, true)
+                }
+                projectRootPath?.let { sortStateByPath[it] = currentSortState }
+                loadDirectory(currentDir)
+            }
+        })
+
+        // Header renderer — show ▲ / ▼ on the active sort column
+        table.tableHeader.defaultRenderer = object : DefaultTableCellRenderer() {
+            init { horizontalAlignment = SwingConstants.LEFT }
+            override fun getTableCellRendererComponent(
+                table: JTable, value: Any?, isSelected: Boolean,
+                hasFocus: Boolean, row: Int, column: Int,
+            ): Component {
+                val label = super.getTableCellRendererComponent(
+                    table, value, isSelected, hasFocus, row, column) as JLabel
+                val colName = tableModel.getColumnName(column)
+                label.text = if (currentSortState.column == column) {
+                    "$colName ${if (currentSortState.ascending) "▲" else "▼"}"
+                } else {
+                    colName
+                }
+                return label
+            }
+        }
     }
 
     /**
@@ -164,7 +209,10 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     val editorComponent: JTabbedPane get() = tabs
 
     fun setRootDirectory(dir: File) {
-        if (dir.isDirectory) navigateTo(dir)
+        if (!dir.isDirectory) return
+        projectRootPath = dir.absolutePath
+        currentSortState = sortStateByPath[dir.absolutePath] ?: DEFAULT_EXPLORER_SORT
+        navigateTo(dir)
     }
 
     fun applyTheme(dark: Boolean) {
@@ -223,13 +271,13 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private fun loadDirectory(dir: File) {
         object : SwingWorker<List<FileEntry>, Void>() {
             override fun doInBackground(): List<FileEntry> {
+                val sortState = currentSortState   // capture for background thread
                 val children = (dir.listFiles() ?: emptyArray())
                     .filter { showHidden || !it.isHidden }
-                    .sortedWith(compareBy({ it.isFile }, { it.name.lowercase() }))
                 val entries = mutableListOf<FileEntry>()
                 if (dir.parentFile != null) entries.add(FileEntry.ParentDir)
-                children.filter { it.isDirectory }.mapTo(entries) { FileEntry.Dir(it) }
-                children.filter { it.isFile }.mapTo(entries) { FileEntry.RegularFile(it) }
+                entries.addAll(sortGroup(children.filter { it.isDirectory }.map { FileEntry.Dir(it) }, sortState))
+                entries.addAll(sortGroup(children.filter { it.isFile }.map { FileEntry.RegularFile(it) }, sortState))
                 return entries
             }
             override fun done() {
@@ -265,7 +313,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         val panel: javax.swing.JComponent = when {
             isSvgFile(file)    -> SvgViewerPanel(file)
             isImageFile(file)  -> ImageViewerPanel(file)
-            isMediaFile(file)  -> MediaPlayerPanel(file)
+            isMediaFile(file)  -> MediaPlayerPanel(file, ctx)
             else               -> EditorPanel(ctx).also { it.applyTheme(isDark); it.openFile(file, line, column) }
         }
         openFiles[key] = panel
@@ -615,7 +663,7 @@ private class TabHeader(title: String, onClose: () -> Unit) : JPanel(FlowLayout(
         isOpaque = false
         border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         add(JLabel(title))
-        add(JButton("\u2715").apply {
+        add(JButton("\u00D7").apply {
             toolTipText = "Close tab"
             isFocusable = false
             isBorderPainted = false
@@ -630,4 +678,38 @@ sealed class FileEntry {
     object ParentDir : FileEntry()
     data class Dir(val file: File) : FileEntry()
     data class RegularFile(val file: File) : FileEntry()
+}
+
+// ── Explorer sort helpers ─────────────────────────────────────────────────
+
+internal data class ExplorerSortState(val column: Int, val ascending: Boolean)
+
+internal const val COL_NAME     = 0
+internal const val COL_SIZE     = 1
+internal const val COL_MODIFIED = 2
+internal val DEFAULT_EXPLORER_SORT = ExplorerSortState(COL_NAME, true)
+
+/**
+ * Sorts [entries] (a single group — all dirs OR all files, never mixed) by [state].
+ * For the size column applied to directories, falls back to name sort (dirs have no meaningful size).
+ */
+internal fun sortGroup(entries: List<FileEntry>, state: ExplorerSortState): List<FileEntry> {
+    if (entries.isEmpty()) return entries
+    val isDirGroup = entries.first() is FileEntry.Dir
+    val comparator: Comparator<FileEntry> = when {
+        state.column == COL_SIZE && isDirGroup ->
+            compareBy { fileOf(it)?.name?.lowercase() ?: "" }
+        state.column == COL_NAME     -> compareBy { fileOf(it)?.name?.lowercase() ?: "" }
+        state.column == COL_SIZE     -> compareBy { fileOf(it)?.length() ?: 0L }
+        state.column == COL_MODIFIED -> compareBy { fileOf(it)?.lastModified() ?: 0L }
+        else                         -> compareBy { fileOf(it)?.name?.lowercase() ?: "" }
+    }
+    return if (state.ascending) entries.sortedWith(comparator) else entries.sortedWith(comparator.reversed())
+}
+
+/** Returns the underlying [File] for [Dir] and [RegularFile] entries; `null` for [ParentDir]. */
+internal fun fileOf(entry: FileEntry): File? = when (entry) {
+    is FileEntry.Dir         -> entry.file
+    is FileEntry.RegularFile -> entry.file
+    is FileEntry.ParentDir   -> null
 }
