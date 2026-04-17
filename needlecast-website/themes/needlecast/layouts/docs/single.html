@@ -1,0 +1,163 @@
+{{ define "main" }}
+<section class="docs-single">
+    <div class="container">
+        <div class="docs-sidebar">
+            <nav class="docs-nav">
+                {{ $current := . }}
+                {{ range .Site.Sections }}
+                    {{ if eq .Section "docs" }}
+                        {{ range .Pages }}
+                            {{ if .IsSection }}
+                                <div class="docs-section">
+                                    <h3>{{ .Title }}</h3>
+                                    <ul>
+                                        {{ range .Pages }}
+                                        <li>
+                                            <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+                                        </li>
+                                        {{ end }}
+                                    </ul>
+                                </div>
+                            {{ end }}
+                        {{ end }}
+                    {{ end }}
+                {{ end }}
+            </nav>
+        </div>
+        <div class="docs-content">
+            <article>
+                <header>
+                    <h1>{{ .Title }}</h1>
+                    {{ if .Description }}
+                    <p class="description">{{ .Description }}</p>
+                    {{ end }}
+                </header>
+                <div class="content">
+                    {{ .Content }}
+                </div>
+                <footer class="docs-footer">
+                    <div class="docs-navigation">
+                        {{ with .PrevInSection }}
+                        <a href="{{ .RelPermalink }}" class="prev-doc">← {{ .Title }}</a>
+                        {{ end }}
+                        {{ with .NextInSection }}
+                        <a href="{{ .RelPermalink }}" class="next-doc">{{ .Title }} →</a>
+                        {{ end }}
+                    </div>
+                </footer>
+            </article>
+        </div>
+    </div>
+</section>
+{{ end }}
+
+<style>
+.docs-single {
+    padding: 2rem;
+}
+
+.docs-single .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 3rem;
+}
+
+.docs-content article {
+    max-width: 800px;
+}
+
+.docs-content header {
+    margin-bottom: 3rem;
+}
+
+.docs-content h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.docs-content .description {
+    font-size: 1.125rem;
+    color: #6b7280;
+}
+
+.docs-content .content {
+    font-size: 1.125rem;
+    line-height: 1.8;
+}
+
+.docs-content h2 {
+    font-size: 1.75rem;
+    margin-top: 3rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.docs-content h3 {
+    font-size: 1.5rem;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+}
+
+.docs-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    margin: 2rem 0;
+}
+
+.docs-content pre {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+}
+
+.docs-content code {
+    font-family: 'Courier New', monospace;
+    background-color: var(--card-bg);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+}
+
+.docs-footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.docs-navigation {
+    display: flex;
+    justify-content: space-between;
+}
+
+.docs-navigation a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.docs-navigation a:hover {
+    text-decoration: underline;
+}
+
+.prev-doc {
+    text-align: left;
+}
+
+.next-doc {
+    text-align: right;
+}
+
+@media (max-width: 768px) {
+    .docs-single .container {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
