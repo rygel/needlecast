@@ -545,8 +545,8 @@ data class CommandOverride(
 )
 
 data class AppConfig(
-    /** Incremented when a breaking schema change requires migration. Current: 4. */
-    val configVersion: Int = 4,
+    /** Incremented when a breaking schema change requires migration. Current: 5. */
+    val configVersion: Int = 5,
     val groups: List<ProjectGroup> = emptyList(),
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,
@@ -657,6 +657,7 @@ data class ProjectDirectory(
      * stored relative to [path] when possible.
      */
     val extraScanDirs: List<String> = emptyList(),
+    val skillTargetDir: String? = null,
 ) {
     fun label(): String = displayName ?: path.substringAfterLast('/').substringAfterLast('\\').ifBlank { path }
 }

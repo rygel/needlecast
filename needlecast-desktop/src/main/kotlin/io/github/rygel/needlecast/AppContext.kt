@@ -3,6 +3,7 @@ package io.github.rygel.needlecast
 import io.github.rygel.needlecast.config.ConfigStore
 import io.github.rygel.needlecast.config.JsonConfigStore
 import io.github.rygel.needlecast.config.PromptLibraryStore
+import io.github.rygel.needlecast.config.SkillLibraryStore
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
 import io.github.rygel.needlecast.model.AppConfig
@@ -30,6 +31,9 @@ class AppContext(
     val promptLibraryStore: PromptLibraryStore = PromptLibraryStore(
         Path.of(System.getProperty("user.home"), ".needlecast", "prompts"),
         Path.of(System.getProperty("user.home"), ".needlecast", "commands"),
+    ),
+    val skillLibraryStore: SkillLibraryStore = SkillLibraryStore(
+        Path.of(System.getProperty("user.home"), ".needlecast", "skills"),
     ),
 ) {
     var config: AppConfig = configStore.load()

@@ -69,6 +69,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val searchPanel   = SearchPanel { file, line, column -> explorerPanel.openFileAt(file, line, column) }
     private val renovatePanel = RenovatePanel()
     private val docsPanel     = DocsPanel()
+    private val skillsPanel   = SkillsPanel(ctx)
 
     private var pendingProjectSelection: io.github.rygel.needlecast.model.DetectedProject? = null
     private val projectSelectionTimer = javax.swing.Timer(75) {
@@ -127,6 +128,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
     private val docViewerPanel           = DocViewerPanel()
     private val docViewerDockable        = DockablePanel(docViewerPanel, "doc-viewer", "Doc Viewer")
+    private val skillsDockable       = DockablePanel(skillsPanel,               "skills",       "Skills")
 
     private val dockingLayoutFile: File = Path.of(
         System.getProperty("user.home"), ".needlecast", "docking-layout.xml"
@@ -206,6 +208,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             Docking.registerDockable(commandInputDockable)
             Docking.registerDockable(docsDockable)
             Docking.registerDockable(docViewerDockable)
+            Docking.registerDockable(skillsDockable)
             installPanelHoverHighlighter()
 
             contentPane = buildLayout()
@@ -312,6 +315,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             searchPanel.loadProject(path)
             renovatePanel.loadProject(path)
             docsPanel.loadProject(path)
+            skillsPanel.loadProject(project)
             docViewerPanel.loadProject(project)
         }
 
@@ -351,12 +355,12 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         // If any required panel is missing from the restored layout, reset everything.
         // This happens when a new dockable is introduced and the old XML doesn't reference it.
-        val requiredPanels = listOf(terminalDockable, editorDockable, commandsDockable, projectTreeDockable, promptInputDockable, commandInputDockable)
+        val requiredPanels = listOf(terminalDockable, editorDockable, commandsDockable, projectTreeDockable, promptInputDockable, commandInputDockable, skillsDockable)
         val allPresent = requiredPanels.all { Docking.isDocked(it) }
 
         if (!restored || !allPresent) {
             listOf(projectTreeDockable, terminalDockable, commandsDockable,
-                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable, docsDockable, docViewerDockable)
+                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable, docsDockable, docViewerDockable, skillsDockable)
                 .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
             dockingLayoutFile.delete()
             setupDefaultDockingLayout()
@@ -402,6 +406,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.dock(searchDockable,      logViewerDockable,   DockingRegion.CENTER)
         // 5d. Docs tabbed alongside Search
         Docking.dock(docsDockable,        searchDockable,      DockingRegion.CENTER)
+        Docking.dock(skillsDockable,       docsDockable,        DockingRegion.CENTER)
         // 6. Editor tabbed with the terminal in the centre column
         Docking.dock(editorDockable,      terminalDockable,    DockingRegion.CENTER)
         // 7. Console below Commands
@@ -420,7 +425,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     fun resetLayout() {
         AppState.setAutoPersist(false)
         listOf(projectTreeDockable, terminalDockable, commandsDockable,
-               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable, docViewerDockable)
+               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable, docViewerDockable, skillsDockable)
             .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
         dockingLayoutFile.delete()
         setupDefaultDockingLayout()
@@ -996,7 +1001,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val allDockables get() = listOf(
         projectTreeDockable, terminalDockable, commandsDockable, gitLogDockable,
         logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
-        promptInputDockable, commandInputDockable, docsDockable, docViewerDockable,
+        promptInputDockable, commandInputDockable, docsDockable, docViewerDockable, skillsDockable,
     )
     private var highlightedDockable: DockablePanel? = null
 
