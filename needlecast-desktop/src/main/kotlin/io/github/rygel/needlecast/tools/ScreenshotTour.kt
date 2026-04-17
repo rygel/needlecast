@@ -6,7 +6,6 @@ import io.github.rygel.needlecast.config.ConfigStore
 import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
-import io.github.rygel.needlecast.model.PromptTemplate
 import io.github.rygel.needlecast.ui.EnvEditorDialog
 import io.github.rygel.needlecast.ui.MainWindow
 import io.github.rygel.needlecast.ui.PromptLibraryDialog
@@ -1337,8 +1336,7 @@ fun main(args: Array<String>) {
                     sendToTerminal  = {},
                     title           = "Command Library",
                     sendButtonLabel = "Run in Terminal",
-                    loadLibrary     = { ctx.config.commandLibrary },
-                    saveLibrary     = { ctx.updateConfig(ctx.config.copy(commandLibrary = it)) },
+                    isCommand       = true,
                 ).isVisible = true
             }
         } catch (e: Exception) { System.err.println("command-library-dialog failed: ${e.message}") }
@@ -2245,52 +2243,6 @@ private fun buildDemoConfig(projects: List<DemoProject>): AppConfig {
         projectTree  = projectTree,
         windowWidth  = 1440,
         windowHeight = 900,
-        promptLibrary = listOf(
-            PromptTemplate(
-                name        = "Explain Code",
-                category    = "Analysis",
-                description = "Explain what the selected code does.",
-                body        = "Explain the following code:\n\n\${selection}",
-            ),
-            PromptTemplate(
-                name        = "Code Review",
-                category    = "Analysis",
-                description = "Review code for issues and improvements.",
-                body        = "Review this code for issues:\n\n\${selection}",
-            ),
-            PromptTemplate(
-                name        = "Write Tests",
-                category    = "Testing",
-                description = "Generate unit tests for the selected code.",
-                body        = "Write unit tests for:\n\n\${selection}",
-            ),
-            PromptTemplate(
-                name        = "Fix {error}",
-                category    = "Debugging",
-                description = "Fix an error in the given target.",
-                body        = "Fix this error in {target}:\n\n{error}",
-            ),
-        ),
-        commandLibrary = listOf(
-            PromptTemplate(
-                name        = "Full Build",
-                category    = "Maven",
-                description = "Clean and build the entire project.",
-                body        = "mvn clean install -T 4",
-            ),
-            PromptTemplate(
-                name        = "Unit Tests",
-                category    = "Maven",
-                description = "Run unit tests only.",
-                body        = "mvn test -Dsurefire.failIfNoSpecifiedTests=false",
-            ),
-            PromptTemplate(
-                name        = "Docker Build",
-                category    = "Docker",
-                description = "Build a Docker image for the project.",
-                body        = "docker build -t \${project.name}:latest .",
-            ),
-        ),
     )
 }
 

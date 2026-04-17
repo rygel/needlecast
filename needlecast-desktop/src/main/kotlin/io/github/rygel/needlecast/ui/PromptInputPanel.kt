@@ -1,7 +1,6 @@
 package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.AppContext
-import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.PromptTemplate
 import java.awt.BorderLayout
 import java.awt.Component
@@ -41,16 +40,13 @@ import javax.swing.tree.TreeSelectionModel
  * - Selecting a prompt leaf loads its body into the text area.
  * - The "+" / "−" toolbar buttons (and right-click context menu) create / delete prompts.
  * - "Send to Terminal" handles {variable} substitution then writes to the active terminal.
- * - Stays in sync with [AppContext.config.promptLibrary] via a config listener.
  */
 class PromptInputPanel(
     private val ctx: AppContext,
     private val sendToTerminal: (String) -> Unit,
     sendButtonLabel: String = "Send to Terminal",
     private val itemLabel: String = "Prompt",
-    private val loadLibrary: (AppConfig) -> List<PromptTemplate> = { it.promptLibrary },
-    private val updateLibrary: (AppConfig, List<PromptTemplate>) -> AppConfig =
-        { cfg, lib -> cfg.copy(promptLibrary = lib) },
+    private val isCommand: Boolean = false,
 ) : JPanel(BorderLayout()) {
 
     // ── Tree ──────────────────────────────────────────────────────────────────
@@ -127,12 +123,8 @@ class PromptInputPanel(
         editButton.toolTipText   = "Edit selected $itemLabel"
         deleteButton.toolTipText = "Delete selected $itemLabel"
 
-        refreshTree(loadLibrary(ctx.config))
+        refreshTree(currentLibrary())
         wireListeners()
-
-        ctx.addConfigListener { config ->
-            SwingUtilities.invokeLater { refreshTree(loadLibrary(config)) }
-        }
     }
 
     // ── Tree population ───────────────────────────────────────────────────────
@@ -228,7 +220,8 @@ class PromptInputPanel(
         val dialog = NewPromptDialog(owner, "New $itemLabel")
         dialog.isVisible = true
         val template = dialog.result ?: return
-        ctx.updateConfig(updateLibrary(ctx.config, loadLibrary(ctx.config) + template))
+        ctx.promptLibraryStore.save(template, isCommand)
+        refreshTree(currentLibrary())
     }
 
     private fun editSelectedPrompt() {
@@ -237,8 +230,8 @@ class PromptInputPanel(
         val dialog   = NewPromptDialog(owner, "Edit $itemLabel", existing)
         dialog.isVisible = true
         val updated = dialog.result ?: return
-        val newLib = loadLibrary(ctx.config).map { if (it.id == updated.id) updated else it }
-        ctx.updateConfig(updateLibrary(ctx.config, newLib))
+        ctx.promptLibraryStore.save(updated, isCommand)
+        refreshTree(currentLibrary())
     }
 
     private fun deleteSelectedPrompt() {
@@ -251,8 +244,9 @@ class PromptInputPanel(
             JOptionPane.WARNING_MESSAGE,
         )
         if (confirm != JOptionPane.YES_OPTION) return
-        ctx.updateConfig(updateLibrary(ctx.config, loadLibrary(ctx.config).filter { it.id != prompt.id }))
+        ctx.promptLibraryStore.delete(prompt, isCommand)
         textArea.text = ""
+        refreshTree(currentLibrary())
     }
 
     private fun doSend() {
@@ -274,6 +268,9 @@ class PromptInputPanel(
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private fun currentLibrary(): List<PromptTemplate> =
+        if (isCommand) ctx.promptLibraryStore.loadCommands() else ctx.promptLibraryStore.loadPrompts()
 
     private fun selectedPrompt(): PromptTemplate? {
         val node = tree.selectionPath?.lastPathComponent as? DefaultMutableTreeNode ?: return null
