@@ -234,16 +234,6 @@ class PromptInputPanel(
         refreshTree(currentLibrary())
     }
 
-    private fun editSelectedPrompt() {
-        val existing = selectedPrompt() ?: return
-        val owner    = SwingUtilities.getWindowAncestor(this)
-        val dialog   = NewPromptDialog(owner, "Edit $itemLabel", existing)
-        dialog.isVisible = true
-        val updated = dialog.result ?: return
-        val newLib = loadLibrary(ctx.config).map { if (it.id == updated.id) updated else it }
-        ctx.updateConfig(updateLibrary(ctx.config, newLib))
-    }
-
     private fun deleteSelectedPrompt() {
         val prompt  = selectedPrompt() ?: return
         val confirm = JOptionPane.showConfirmDialog(
