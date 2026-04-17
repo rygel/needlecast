@@ -2,6 +2,35 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.7.0] — 2026-04-17
+
+### Added
+- **Prompt library markdown storage** — prompts and commands are now stored as markdown files with YAML frontmatter in `~/.needlecast/prompts/` and `~/.needlecast/commands/`, organized by category-as-directory. Defaults are seeded on first run.
+- **Skill management system** — dockable Skills panel with a central skill library at `~/.needlecast/skills/`, in-app editing via SkillEditDialog, and one-click deploy/undeploy to projects via symlinks (junctions on Windows). Follows the [agentskills.io](https://agentskills.io) spec.
+- **Media playback speed and autoplay** — speed selector (0.25x–4x) and configurable autoplay for media files in the Explorer panel.
+- **Script directory scanner** — auto-detects `scripts/` directories and per-project extra scan directories for shell and language scripts.
+- **Sortable Explorer columns** — click column headers to sort by name, size, or date; sort state persists per project.
+- **Settings sidebar layout** — Settings dialog reworked to a vertical sidebar layout for better navigation.
+- **Apply and Close in Settings** — new button that applies changes and closes the dialog in one click.
+- **Git write UI** — GitLogPanel now supports commit, stage, fetch, push, and pull actions directly from the panel.
+- **Prompt and command editing** — existing prompts and commands can now be edited in-place from the library dialogs.
+- **Doc Viewer panel** — browse and render project markdown documentation files inline.
+- **Project tree context menu enhancements** — tags, colors, and "Open in File Manager" action.
+- **Persistent command editing** — edits to scanned commands survive rescans and restarts.
+- **Explorer "Open in File Manager" button** — in the address bar toolbar.
+
+### Fixed
+- **Screenshot tour modal deadlock** — the screenshot tour could hang indefinitely when modal dialogs blocked the EDT; added proper timeouts and forced exit.
+- **Build-system badges missing** — when multiple scanners ran and one threw, other scanners' badges were suppressed; now each scanner reports independently.
+- **Renovate scan error handling** — shows a clear error when Renovate fails or is not installed instead of silently failing.
+- **Unicode glyph rendering** — replaced unsupported Unicode characters that rendered as squares on some systems.
+- **PowerShell install commands** — Settings Renovate and APM install tabs now use PowerShell instead of cmd on Windows.
+- **Build-tool badges** — all detected build tools are now always shown when a project has multiple build systems.
+- **Scan result delivery** — scan results are pushed to panels immediately after scanning completes.
+- **Config version** — bumped to v5 for the new skill management fields.
+
+---
+
 ## [0.6.19] — 2026-04-11
 
 ### Fixed
