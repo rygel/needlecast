@@ -61,8 +61,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         sendToTerminal  = { terminalPanel.sendInput(it) },
         sendButtonLabel = "Run in Terminal",
         itemLabel       = "Command",
-        loadLibrary     = { it.commandLibrary },
-        updateLibrary   = { cfg, lib -> cfg.copy(commandLibrary = lib) },
+        isCommand       = true,
     )
     private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
     private val gitLogPanel   = GitLogPanel(ctx.gitService)
@@ -683,8 +682,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     sendToTerminal  = { cmd -> terminalPanel.sendInput(cmd) },
                     title           = "Command Library",
                     sendButtonLabel = "Run in Terminal",
-                    loadLibrary     = { ctx.config.commandLibrary },
-                    saveLibrary     = { ctx.updateConfig(ctx.config.copy(commandLibrary = it)) },
+                    isCommand       = true,
                 ).isVisible = true
             }
         }

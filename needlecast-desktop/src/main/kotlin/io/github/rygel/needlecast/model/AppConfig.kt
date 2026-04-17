@@ -545,8 +545,8 @@ data class CommandOverride(
 )
 
 data class AppConfig(
-    /** Incremented when a breaking schema change requires migration. Current: 3. */
-    val configVersion: Int = 3,
+    /** Incremented when a breaking schema change requires migration. Current: 4. */
+    val configVersion: Int = 4,
     val groups: List<ProjectGroup> = emptyList(),
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,
@@ -559,8 +559,6 @@ data class AppConfig(
     val commandHistory: Map<String, List<CommandHistoryEntry>> = emptyMap(),
     /** Overridden keyboard shortcuts keyed by action name. Empty = use built-in defaults. */
     val shortcuts: Map<String, String> = emptyMap(),
-    val promptLibrary: List<PromptTemplate> = defaultPromptLibrary(),
-    val commandLibrary: List<PromptTemplate> = defaultCommandLibrary(),
     val projectTree: List<ProjectTreeEntry> = emptyList(),
     /** Whether the console output pane is visible. */
     val showConsole: Boolean = true,

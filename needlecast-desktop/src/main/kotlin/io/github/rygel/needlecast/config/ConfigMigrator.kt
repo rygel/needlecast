@@ -16,7 +16,7 @@ import io.github.rygel.needlecast.model.AppConfig
  */
 object ConfigMigrator {
 
-    const val CURRENT_VERSION = 3
+    const val CURRENT_VERSION = 4
 
     fun migrate(config: AppConfig): AppConfig {
         if (config.configVersion >= CURRENT_VERSION) return config
