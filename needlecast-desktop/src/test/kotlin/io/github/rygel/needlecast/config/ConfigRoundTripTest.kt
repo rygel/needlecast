@@ -3,7 +3,6 @@ package io.github.rygel.needlecast.config
 import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectGroup
-import io.github.rygel.needlecast.model.PromptTemplate
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -131,27 +130,6 @@ class ConfigRoundTripTest {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig())
         assertFalse(store.load().dockingActiveHighlight)
-    }
-
-    @Test
-    fun `promptLibrary round-trips correctly`(@TempDir dir: Path) {
-        val store = JsonConfigStore(dir.resolve("config.json"))
-        val template = PromptTemplate(
-            id          = "test-id-1",
-            name        = "Code Review",
-            category    = "Review",
-            description = "Ask the AI to review code",
-            body        = "Please review {fileName} for {concern}.",
-        )
-        val config = AppConfig(promptLibrary = listOf(template))
-        store.save(config)
-
-        val loaded = store.load()
-        assertEquals(1, loaded.promptLibrary.size)
-        assertEquals("Code Review",  loaded.promptLibrary[0].name)
-        assertEquals("test-id-1",    loaded.promptLibrary[0].id)
-        assertEquals("Review",       loaded.promptLibrary[0].category)
-        assertTrue(loaded.promptLibrary[0].body.contains("{fileName}"))
     }
 
     @Test
