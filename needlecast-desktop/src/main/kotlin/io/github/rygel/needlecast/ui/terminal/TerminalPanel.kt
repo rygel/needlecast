@@ -20,6 +20,12 @@ import javax.swing.Timer
 /** Braille spinner characters used by many CLI tools while "thinking". */
 private val SPINNER_CHARS = setOf('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
 
+/** Consume remote wheel events after JediTerm forwards them so outer Swing containers cannot scroll instead. */
+internal fun shouldConsumeRemoteMouseWheelEvent(
+    event: MouseWheelEvent,
+    isRemoteMouseAction: Boolean,
+): Boolean = isRemoteMouseAction && !event.isConsumed && !event.isControlDown
+
 class TerminalPanel(
     initialDir: String = System.getProperty("user.home"),
     dark: Boolean = true,
@@ -51,6 +57,7 @@ class TerminalPanel(
         if (themeFg != null || themeBg != null) applyThemeColors(themeFg, themeBg)
     }
     private val termWidget = ShrinkableJediTermWidget(settingsProvider)
+    private val embeddedTerminalPanel = termWidget.terminalPanel
     private val termContainer = object : JPanel(BorderLayout()) {
         override fun getPreferredSize(): Dimension = Dimension(1, 1)
         override fun getMinimumSize(): Dimension = Dimension(0, 0)
@@ -79,6 +86,11 @@ class TerminalPanel(
     /** Last raw output chunk, retained for spinner detection. */
     @Volatile private var lastChunk: String = ""
     private var styleStateWarned = false
+    private val remoteMouseWheelConsumer = MouseWheelListener { event ->
+        if (shouldConsumeRemoteMouseWheelEvent(event, embeddedTerminalPanel.isRemoteMouseAction(event))) {
+            event.consume()
+        }
+    }
 
     /**
      * 2 s silence → WAITING.
@@ -92,6 +104,7 @@ class TerminalPanel(
         termContainer.minimumSize = Dimension(0, 0)
         termContainer.add(termWidget, BorderLayout.CENTER)
         add(termContainer, BorderLayout.CENTER)
+        embeddedTerminalPanel.addMouseWheelListener(remoteMouseWheelConsumer)
         termWidget.addMouseWheelListener(object : MouseWheelListener {
             override fun mouseWheelMoved(e: MouseWheelEvent) {
                 if (e.isControlDown) {
@@ -179,10 +192,9 @@ class TerminalPanel(
      */
     private fun pushStyleToJediTerm(style: TextStyle) {
         try {
-            val innerPanel = termWidget.terminalPanel
-            val field = innerPanel.javaClass.getDeclaredField("myStyleState")
+            val field = embeddedTerminalPanel.javaClass.getDeclaredField("myStyleState")
             field.isAccessible = true
-            (field.get(innerPanel) as? StyleState)?.setDefaultStyle(style)
+            (field.get(embeddedTerminalPanel) as? StyleState)?.setDefaultStyle(style)
         } catch (e: Exception) {
             if (!styleStateWarned) {
                 styleStateWarned = true
@@ -199,6 +211,7 @@ class TerminalPanel(
     fun dispose() {
         silenceTimer.stop()
         transitionTo(AgentStatus.NONE)
+        embeddedTerminalPanel.removeMouseWheelListener(remoteMouseWheelConsumer)
         termWidget.close()
     }
 
