@@ -65,6 +65,8 @@ object ThemeRegistry {
         "cobalt2"            to ThemeEntry("Cobalt 2",          true, GROUP_DARK) { FlatCobalt2IJTheme.setup()            },
         "carbon"             to ThemeEntry("Carbon",            true, GROUP_DARK) { FlatCarbonIJTheme.setup()             },
         "dark-purple"        to ThemeEntry("Dark Purple",       true, GROUP_DARK) { FlatDarkPurpleIJTheme.setup()         },
+        "dark-green"         to ThemeEntry("Dark Green",        true, GROUP_DARK) { applyJson("dark-green")               },
+        "dark-orange"        to ThemeEntry("Dark Orange",       true, GROUP_DARK) { applyJson("dark-orange")              },
         "spacegray"          to ThemeEntry("Spacegray",         true, GROUP_DARK) { FlatSpacegrayIJTheme.setup()          },
         "hiberbee-dark"      to ThemeEntry("Hiberbee Dark",     true, GROUP_DARK) { FlatHiberbeeDarkIJTheme.setup()       },
         "solarized-dark"     to ThemeEntry("Solarized Dark",    true, GROUP_DARK) { FlatSolarizedDarkIJTheme.setup()      },
