@@ -49,9 +49,12 @@ cp "$ARCHIVE" "$RUNTIME_DIR/lib/server/appcds.jsa"
 
 ICON_PATH="$ROOT_DIR/needlecast-desktop/src/main/resources/icons/needlecast.png"
 
-# macOS jpackage requires major version >= 1; map 0.x.y to 1.x.y for the native package only
 JPACKAGE_VERSION="${APP_VERSION%-*}"
-if [[ "$JPACKAGE_VERSION" == 0.* ]]; then
+
+# macOS jpackage rejects major version 0 for CFBundleShortVersionString.
+# Map 0.x.y → 1.x.y on macOS only; Linux and Windows accept 0.x.y fine.
+OS="$(uname -s)"
+if [[ "$OS" == "Darwin" && "$JPACKAGE_VERSION" == 0.* ]]; then
     JPACKAGE_VERSION="1.${JPACKAGE_VERSION#0.}"
 fi
 
