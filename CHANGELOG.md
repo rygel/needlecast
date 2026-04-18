@@ -2,6 +2,19 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.7.2] — 2026-04-18
+
+### Added
+- **Dark Green theme** — warm olive-green Night Owl-inspired theme with muted sage accents and no near-blacks.
+- **Dark Orange theme** — warm amber/terracotta theme with copper accents and a lifted pastel palette.
+
+### Fixed
+- **Mouse wheel scroll in TUI apps** — switched PTY backend from WinPty to ConPTY so VT escape sequences (e.g. `ESC[?1002h` for mouse reporting) pass through correctly to JediTerm's emulator. Mouse wheel events are now forwarded to TUI applications like opencode instead of being consumed by the terminal's scrollback buffer.
+- **Docs panel theme sync** — the Docs panel (raw markdown view and rendered HTML) now follows theme switches instead of keeping stale colors.
+- **Blue color leaks in Dark Orange** — notification info and search option backgrounds no longer show blue fallback colors.
+
+---
+
 ## [0.7.1] — 2026-04-18
 
 ### Fixed

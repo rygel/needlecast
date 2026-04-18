@@ -1,4 +1,4 @@
-name: Release: Open PR (develop → main)
+name: "Release: Open PR (develop → main)"
 
 # Opens (or updates the body of) a develop → main PR whenever develop is pushed.
 # The PR is the gate before a release: ci.yml + native-check.yml must pass on it.
