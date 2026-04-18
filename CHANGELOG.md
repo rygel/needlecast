@@ -2,6 +2,15 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.7.1] — 2026-04-18
+
+### Fixed
+- **Restore update checker setup** — Sparkle4j builder now correctly uses `allowUnsignedUpdates()` for the unsigned appcast, and the update checker instance is exposed via `buildSparkle4jInstance()` for reuse in tests.
+- **Keep mouse wheel in terminal apps** — mouse wheel events in the terminal panel are now correctly routed to the JediTerm widget's scroll handling instead of being consumed by the parent scroll pane.
+- **Remove Monokai Pro theme** — the commercial Monokai Pro theme has been removed; users of Monokai Pro should switch to the built-in Monokai theme.
+
+---
+
 ## [0.7.0] — 2026-04-17
 
 ### Added
