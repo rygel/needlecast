@@ -45,16 +45,14 @@ $javaOpts = "-XX:SharedArchiveFile=`$APPDIR\runtime\lib\server\appcds.jsa"
 
 $iconPath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $root "needlecast-desktop") "src") "main") "resources") "icons") "needlecast.ico"
 
-# jpackage requires major version >= 1; map 0.x.y to 1.x.y for the native package only
-$appVersionTrimmed = $appVersion -replace '-SNAPSHOT$', ''
-if ($appVersionTrimmed -match '^0\.') { $appVersionTrimmed = '1.' + $appVersionTrimmed.Substring(2) }
+$jpackageVersion = $appVersion -replace '-SNAPSHOT$', ''
 
 & jpackage `
   --type app-image `
   --dest (Join-Path $buildDir "jpackage") `
   --input (Split-Path $jarPath) `
   --name $appName `
-  --app-version $appVersionTrimmed `
+  --app-version $jpackageVersion `
   --icon $iconPath `
   --main-jar (Split-Path $jarPath -Leaf) `
   --main-class io.github.rygel.needlecast.MainKt `
@@ -64,7 +62,7 @@ if ($appVersionTrimmed -match '^0\.') { $appVersionTrimmed = '1.' + $appVersionT
 Write-Host "App image created under $buildDir\jpackage"
 
 # ── Portable zip ──────────────────────────────────────────────────────────────
-$portableZip = Join-Path $buildDir "needlecast-$appVersion-windows-portable.zip"
+$portableZip = Join-Path $buildDir "needlecast-$jpackageVersion-windows-portable.zip"
 Compress-Archive -Path (Join-Path $buildDir "jpackage\$appName") -DestinationPath $portableZip
 Write-Host "Portable archive: $portableZip"
 
@@ -75,8 +73,8 @@ if (-not (Test-Path $iscc)) {
     Write-Warning "Install from https://jrsoftware.org/isinfo.php or run in CI."
 } else {
     $issScript = Join-Path (Join-Path $root "scripts") "needlecast.iss"
-    Write-Host "Building Inno Setup installer (version $appVersionTrimmed)..."
-    & $iscc "/DAppVersion=$appVersionTrimmed" $issScript
-    $installer = Join-Path $buildDir "needlecast-$appVersionTrimmed-windows.exe"
+    Write-Host "Building Inno Setup installer (version $jpackageVersion)..."
+    & $iscc "/DAppVersion=$jpackageVersion" $issScript
+    $installer = Join-Path $buildDir "needlecast-$jpackageVersion-win64.exe"
     Write-Host "Installer: $installer"
 }

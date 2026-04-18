@@ -51,9 +51,6 @@ ICON_PATH="$ROOT_DIR/needlecast-desktop/src/main/resources/icons/needlecast.png"
 
 # macOS jpackage requires major version >= 1; map 0.x.y to 1.x.y for the native package only
 JPACKAGE_VERSION="${APP_VERSION%-*}"
-if [[ "$JPACKAGE_VERSION" == 0.* ]]; then
-    JPACKAGE_VERSION="1.${JPACKAGE_VERSION#0.}"
-fi
 
 # ── Platform-specific icon preparation ────────────────────────────────────────
 OS="$(uname -s)"
