@@ -46,15 +46,15 @@ $javaOpts = "-XX:SharedArchiveFile=`$APPDIR\runtime\lib\server\appcds.jsa"
 $iconPath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $root "needlecast-desktop") "src") "main") "resources") "icons") "needlecast.ico"
 
 # jpackage requires major version >= 1; map 0.x.y to 1.x.y for the native package only
-$jpackageVersion = $appVersion
-if ($jpackageVersion -match '^0\.') { $jpackageVersion = '1' + $jpackageVersion.Substring(1) }
+$appVersionTrimmed = $appVersion -replace '-SNAPSHOT$', ''
+if ($appVersionTrimmed -match '^0\.') { $appVersionTrimmed = '1.' + $appVersionTrimmed.Substring(2) }
 
 & jpackage `
   --type app-image `
   --dest (Join-Path $buildDir "jpackage") `
   --input (Split-Path $jarPath) `
   --name $appName `
-  --app-version $jpackageVersion `
+  --app-version $appVersionTrimmed `
   --icon $iconPath `
   --main-jar (Split-Path $jarPath -Leaf) `
   --main-class io.github.rygel.needlecast.MainKt `
