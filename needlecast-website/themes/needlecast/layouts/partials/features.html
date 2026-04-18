@@ -1,0 +1,110 @@
+<section class="features">
+    <div class="container">
+        <h2>Powerful Features for Developers</h2>
+        <p class="section-subtitle">Everything you need to manage projects and workflows</p>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📁</div>
+                <h3>Project Tree & Organization</h3>
+                <p>Organize projects into color-coded groups with a tree-style sidebar.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔧</div>
+                <h3>Auto-detected Commands</h3>
+                <p>14+ build tools detected automatically — no configuration needed.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💻</div>
+                <h3>Embedded Terminals</h3>
+                <p>JediTerm terminal per project with configurable fonts and colors.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📝</div>
+                <h3>Syntax Editor & File Explorer</h3>
+                <p>Syntax-highlighted editor with multiple themes and file browsing.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🖼️</div>
+                <h3>Image & SVG Viewer</h3>
+                <p>Click any image to open an inline viewer. SVGs stay crisp at any zoom.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📋</div>
+                <h3>Log Viewer Panel</h3>
+                <p>Live tailing with 500ms polling, log rotation detection, and level filtering.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Renovate Integration</h3>
+                <p>Scan for outdated dependencies and apply updates directly.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>Prompt & Command Libraries</h3>
+                <p>Reusable AI prompts with {variable} substitution and AI tools menu.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.features {
+    padding: 4rem 2rem;
+    background-color: var(--card-bg);
+}
+
+.features .container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.features h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.features .section-subtitle {
+    text-align: center;
+    color: #6b7280;
+    margin-bottom: 3rem;
+    font-size: 1.125rem;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2rem;
+}
+
+.feature-card {
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.feature-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.feature-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.feature-card h3 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-size: 1.25rem;
+}
+
+.feature-card p {
+    margin: 0;
+    color: #6b7280;
+    line-height: 1.6;
+}
+</style>

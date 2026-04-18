@@ -1,0 +1,26 @@
+<footer>
+    <div class="footer-content">
+        <div class="footer-section">
+            <h3>Needlecast</h3>
+            <p>A modern approach for an agentic coding environment</p>
+        </div>
+        <div class="footer-section">
+            <h3>Links</h3>
+            <ul>
+                <li><a href="{{ .Site.BaseURL }}">Home</a></li>
+                <li><a href="{{ "blog/" | relURL }}">Blog</a></li>
+                <li><a href="{{ "docs/" | relURL }}">Documentation</a></li>
+                <li><a href="{{ "downloads/" | relURL }}">Download</a></li>
+                <li><a href="{{ .Site.Params.githubRepo }}">GitHub</a></li>
+            </ul>
+        </div>
+        <div class="footer-section">
+            <h3>Version</h3>
+            <p>v{{ .Site.Params.version }}</p>
+            <p>MIT License</p>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <p>&copy; {{ now.Format "2006" }} Needlecast. All rights reserved.</p>
+    </div>
+</footer>

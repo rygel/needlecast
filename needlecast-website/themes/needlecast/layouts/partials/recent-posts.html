@@ -1,0 +1,89 @@
+<section class="recent-posts">
+    <div class="container">
+        <h2>Latest from the Blog</h2>
+        <div class="posts-grid">
+            {{ range first 3 (where .Site.RegularPages "Section" "blog") }}
+            <article class="post-preview">
+                <div class="post-meta">
+                    <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "Jan 2, 2006" }}</time>
+                </div>
+                <h3><a href="{{ .RelPermalink }}">{{ .Title }}</a></h3>
+                <p>{{ .Summary | truncate 150 }}</p>
+                <a href="{{ .RelPermalink }}" class="read-more">Read more →</a>
+            </article>
+            {{ end }}
+        </div>
+        <div class="view-all">
+            <a href="{{ "blog/" | relURL }}" class="button secondary">View all posts</a>
+        </div>
+    </div>
+</section>
+
+<style>
+.recent-posts {
+    padding: 4rem 2rem;
+    background-color: var(--bg-color);
+}
+
+.recent-posts .container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.recent-posts h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 3rem;
+}
+
+.posts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.post-preview {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.post-preview:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.post-preview .post-meta {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 0.75rem;
+}
+
+.post-preview h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+}
+
+.post-preview h3 a {
+    color: var(--text-color);
+    text-decoration: none;
+}
+
+.post-preview h3 a:hover {
+    color: var(--primary-color);
+}
+
+.post-preview p {
+    margin-bottom: 1rem;
+    color: #4b5563;
+    line-height: 1.6;
+}
+
+.view-all {
+    text-align: center;
+}
+</style>

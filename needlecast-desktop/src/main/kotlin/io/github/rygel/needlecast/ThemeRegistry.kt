@@ -13,7 +13,6 @@ import com.formdev.flatlaf.intellijthemes.FlatDraculaIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatGradiantoDeepOceanIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatGruvboxDarkHardIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatHiberbeeDarkIJTheme
-import com.formdev.flatlaf.intellijthemes.FlatMonokaiProIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatNordIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatOneDarkIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatSolarizedDarkIJTheme
@@ -63,7 +62,6 @@ object ThemeRegistry {
         "nord"               to ThemeEntry("Nord",              true, GROUP_DARK) { FlatNordIJTheme.setup()               },
         "one-dark"           to ThemeEntry("One Dark",          true, GROUP_DARK) { FlatOneDarkIJTheme.setup()            },
         "gruvbox-dark"       to ThemeEntry("Gruvbox Dark",      true, GROUP_DARK) { FlatGruvboxDarkHardIJTheme.setup()    },
-        "monokai-pro"        to ThemeEntry("Monokai Pro",       true, GROUP_DARK) { FlatMonokaiProIJTheme.setup()         },
         "cobalt2"            to ThemeEntry("Cobalt 2",          true, GROUP_DARK) { FlatCobalt2IJTheme.setup()            },
         "carbon"             to ThemeEntry("Carbon",            true, GROUP_DARK) { FlatCarbonIJTheme.setup()             },
         "dark-purple"        to ThemeEntry("Dark Purple",       true, GROUP_DARK) { FlatDarkPurpleIJTheme.setup()         },

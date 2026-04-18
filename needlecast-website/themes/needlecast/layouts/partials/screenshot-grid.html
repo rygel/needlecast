@@ -1,0 +1,127 @@
+<section class="screenshot-grid">
+    <div class="container">
+        <h2>See Needlecast in Action</h2>
+        <p class="section-subtitle">Explore key features through screenshots</p>
+        
+        <div class="grid">
+            <div class="grid-item">
+                <a href="{{ "screenshots/01-main-window.png" | relURL }}" class="screenshot-link" data-lightbox="screenshots" data-title="Main Window: Project tree, commands, terminal, editor">
+                    <img src="{{ "screenshots/01-main-window.png" | relURL }}" alt="Main Window" loading="lazy">
+                    <div class="caption">Main Window</div>
+                </a>
+            </div>
+            <div class="grid-item">
+                <a href="{{ "screenshots/02-settings.png" | relURL }}" class="screenshot-link" data-lightbox="screenshots" data-title="Settings: Customize themes, shortcuts, and behavior">
+                    <img src="{{ "screenshots/02-settings.png" | relURL }}" alt="Settings" loading="lazy">
+                    <div class="caption">Settings</div>
+                </a>
+            </div>
+            <div class="grid-item">
+                <a href="{{ "screenshots/03-prompt-library.png" | relURL }}" class="screenshot-link" data-lightbox="screenshots" data-title="Prompt Library: Reusable AI prompts with variables">
+                    <img src="{{ "screenshots/03-prompt-library.png" | relURL }}" alt="Prompt Library" loading="lazy">
+                    <div class="caption">Prompt Library</div>
+                </a>
+            </div>
+            <div class="grid-item">
+                <a href="{{ "screenshots/04-command-library.png" | relURL }}" class="screenshot-link" data-lightbox="screenshots" data-title="Command Library: Save and run terminal commands">
+                    <img src="{{ "screenshots/04-command-library.png" | relURL }}" alt="Command Library" loading="lazy">
+                    <div class="caption">Command Library</div>
+                </a>
+            </div>
+            <div class="grid-item">
+                <a href="{{ "screenshots/05-project-switcher.png" | relURL }}" class="screenshot-link" data-lightbox="screenshots" data-title="Project Switcher: Fuzzy search across all projects">
+                    <img src="{{ "screenshots/05-project-switcher.png" | relURL }}" alt="Project Switcher" loading="lazy">
+                    <div class="caption">Project Switcher</div>
+                </a>
+            </div>
+            <div class="grid-item">
+                <a href="{{ "screenshots/06-env-editor.png" | relURL }}" class="screenshot-link" data-lightbox="screenshots" data-title="Environment Variables: Per-project configuration">
+                    <img src="{{ "screenshots/06-env-editor.png" | relURL }}" alt="Environment Variables" loading="lazy">
+                    <div class="caption">Environment Variables</div>
+                </a>
+            </div>
+            <div class="grid-item">
+                <a href="{{ "screenshots/07-about.png" | relURL }}" class="screenshot-link" data-lightbox="screenshots" data-title="About: Version info and update checks">
+                    <img src="{{ "screenshots/07-about.png" | relURL }}" alt="About" loading="lazy">
+                    <div class="caption">About</div>
+                </a>
+            </div>
+            <div class="grid-item">
+                <a href="{{ "screenshots/08-renovate.png" | relURL }}" class="screenshot-link" data-lightbox="screenshots" data-title="Renovate Panel: Dependency updates">
+                    <img src="{{ "screenshots/08-renovate.png" | relURL }}" alt="Renovate Panel" loading="lazy">
+                    <div class="caption">Renovate Panel</div>
+                </a>
+            </div>
+            <div class="grid-item">
+                <a href="{{ "screenshots/09-log-viewer.png" | relURL }}" class="screenshot-link" data-lightbox="screenshots" data-title="Log Viewer: Live tailing with filtering">
+                    <img src="{{ "screenshots/09-log-viewer.png" | relURL }}" alt="Log Viewer" loading="lazy">
+                    <div class="caption">Log Viewer</div>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.screenshot-grid {
+    padding: 4rem 2rem;
+    background-color: var(--bg-color);
+}
+
+.screenshot-grid .container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.screenshot-grid h2 {
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.screenshot-grid .section-subtitle {
+    text-align: center;
+    color: #6b7280;
+    margin-bottom: 3rem;
+    font-size: 1.125rem;
+}
+
+.screenshot-grid .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.screenshot-grid .grid-item {
+    border-radius: 0.75rem;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.screenshot-grid .grid-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.screenshot-grid .screenshot-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.screenshot-grid img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.screenshot-grid .caption {
+    padding: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-color);
+    text-align: center;
+}
+</style>

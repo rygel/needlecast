@@ -43,6 +43,23 @@ import javax.swing.UIManager
 import javax.swing.filechooser.FileNameExtensionFilter
 import javax.swing.plaf.FontUIResource
 
+internal fun buildSparkle4jInstance(
+    version: String,
+    intervalHours: Int,
+    parentComponent: Component? = null,
+): io.github.rygel.sparkle4j.Sparkle4jInstance {
+    val builder = io.github.rygel.sparkle4j.Sparkle4j.builder()
+        .appcastUrl("https://github.com/rygel/needlecast/releases/latest/download/appcast.xml")
+        .currentVersion(version)
+        // The current release workflow publishes an unsigned appcast, so opting out of
+        // signature verification is required until signed release assets are wired in.
+        .allowUnsignedUpdates()
+        .appName("Needlecast")
+        .checkIntervalHours(intervalHours)
+    if (parentComponent != null) builder.parentComponent(parentComponent)
+    return builder.build()
+}
+
 class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private val dockingEnabled = System.getProperty("needlecast.skipDocking")
@@ -1096,13 +1113,11 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         }
         updateLogger.info("Building sparkle4j instance: version={}, interval={}h", version, intervalHours)
         return try {
-            io.github.rygel.sparkle4j.Sparkle4j.builder()
-                .appcastUrl("https://github.com/rygel/needlecast/releases/latest/download/appcast.xml")
-                .currentVersion(version)
-                .appName("Needlecast")
-                .parentComponent(this@MainWindow)
-                .checkIntervalHours(intervalHours)
-                .build()
+            buildSparkle4jInstance(
+                version = version,
+                intervalHours = intervalHours,
+                parentComponent = this@MainWindow,
+            )
         } catch (e: Exception) {
             updateLogger.error("Failed to configure update checker", e)
             null

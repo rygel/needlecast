@@ -190,7 +190,7 @@ Same interface but for shell commands — Git, Maven, Gradle, npm, Docker, Searc
 ![Settings](screenshots/02-settings.png)
 
 ### General
-- **Theme** — 30+ themes: Dark Purple, Dracula, Nord, Monokai Pro, Catppuccin, and more
+- **Theme** — 30+ themes: Dark Purple, Dracula, Nord, Catppuccin, and more
 - **Language** — English, German
 - **External editors** — configure VS Code, IntelliJ, Zed for "Open in editor" actions
 

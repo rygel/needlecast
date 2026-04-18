@@ -1,0 +1,150 @@
+{{ define "main" }}
+<article class="blog-post">
+    <div class="container">
+        <header class="post-header">
+            <div class="post-meta">
+                <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time>
+                {{ if .Params.tags }}
+                <span class="tags">
+                    {{ range .Params.tags }}
+                    <span class="tag">{{ . }}</span>
+                    {{ end }}
+                </span>
+                {{ end }}
+            </div>
+            <h1>{{ .Title }}</h1>
+            {{ if .Params.description }}
+            <p class="post-description">{{ .Params.description }}</p>
+            {{ end }}
+        </header>
+        
+        <div class="post-content">
+            {{ .Content }}
+        </div>
+        
+        <footer class="post-footer">
+            <div class="post-navigation">
+                {{ with .PrevInSection }}
+                <a href="{{ .RelPermalink }}" class="prev-post">← {{ .Title }}</a>
+                {{ end }}
+                {{ with .NextInSection }}
+                <a href="{{ .RelPermalink }}" class="next-post">{{ .Title }} →</a>
+                {{ end }}
+            </div>
+        </footer>
+    </div>
+</article>
+{{ end }}
+
+<style>
+.blog-post {
+    padding: 4rem 2rem;
+}
+
+.blog-post .container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.post-header {
+    margin-bottom: 3rem;
+    text-align: center;
+}
+
+.post-meta {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.post-header h1 {
+    font-size: 2.5rem;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+}
+
+.post-description {
+    font-size: 1.25rem;
+    color: #6b7280;
+    line-height: 1.6;
+}
+
+.post-content {
+    font-size: 1.125rem;
+    line-height: 1.8;
+}
+
+.post-content h2 {
+    font-size: 1.75rem;
+    margin-top: 3rem;
+    margin-bottom: 1rem;
+}
+
+.post-content h3 {
+    font-size: 1.5rem;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+}
+
+.post-content p {
+    margin-bottom: 1.5rem;
+}
+
+.post-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    margin: 2rem 0;
+}
+
+.post-content pre {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+}
+
+.post-content code {
+    font-family: 'Courier New', monospace;
+    background-color: var(--card-bg);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+}
+
+.post-footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.post-navigation {
+    display: flex;
+    justify-content: space-between;
+}
+
+.post-navigation a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.post-navigation a:hover {
+    text-decoration: underline;
+}
+
+.prev-post {
+    text-align: left;
+}
+
+.next-post {
+    text-align: right;
+}
+</style>
