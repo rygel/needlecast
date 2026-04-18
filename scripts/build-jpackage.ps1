@@ -75,8 +75,8 @@ if (-not (Test-Path $iscc)) {
     Write-Warning "Install from https://jrsoftware.org/isinfo.php or run in CI."
 } else {
     $issScript = Join-Path (Join-Path $root "scripts") "needlecast.iss"
-    Write-Host "Building Inno Setup installer (version $appVersion)..."
-    & $iscc "/DAppVersion=$appVersion" $issScript
-    $installer = Join-Path $buildDir "needlecast-$appVersion-windows.exe"
+    Write-Host "Building Inno Setup installer (version $appVersionTrimmed)..."
+    & $iscc "/DAppVersion=$appVersionTrimmed" $issScript
+    $installer = Join-Path $buildDir "needlecast-$appVersionTrimmed-windows.exe"
     Write-Host "Installer: $installer"
 }
