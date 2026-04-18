@@ -87,7 +87,8 @@ class TerminalPanel(
     @Volatile private var lastChunk: String = ""
     private var styleStateWarned = false
     private val remoteMouseWheelConsumer = MouseWheelListener { event ->
-        if (shouldConsumeRemoteMouseWheelEvent(event, embeddedTerminalPanel.isRemoteMouseAction(event))) {
+        val isRemote = embeddedTerminalPanel.isRemoteMouseAction(event)
+        if (shouldConsumeRemoteMouseWheelEvent(event, isRemote)) {
             event.consume()
         }
     }
@@ -208,6 +209,12 @@ class TerminalPanel(
         SwingUtilities.invokeLater { transitionTo(status) }
     }
 
+    internal fun readMouseMode(): String = runCatching {
+        val f = embeddedTerminalPanel.javaClass.getDeclaredField("myMouseMode")
+        f.isAccessible = true
+        f.get(embeddedTerminalPanel).toString()
+    }.getOrDefault("REFLECTION_ERROR")
+
     fun dispose() {
         silenceTimer.stop()
         transitionTo(AgentStatus.NONE)
@@ -270,6 +277,7 @@ class TerminalPanel(
                     .setDirectory(currentDir)
                     .setInitialColumns(120)
                     .setInitialRows(30)
+                    .setUseWinConPty(true)
                     .start()
                 ptyProcess = process
                 val connector = PtyProcessTtyConnector(process, Charset.forName("UTF-8"))
