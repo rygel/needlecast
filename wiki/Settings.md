@@ -181,7 +181,7 @@ Saved to `syntaxTheme`.
 Select a theme from **View → Dark Themes** or **View → Light Themes**. There are **27 built-in themes**:
 
 ### Dark Themes
-Dracula, Nord, One Dark, Gruvbox Dark, Monokai Pro, Cobalt 2, Carbon, **Dark Purple** *(default)*, Spacegray, Hiberbee Dark, Solarized Dark, Xcode Dark, Gradiant Deep Ocean, Atom One Dark, Moonlight, Night Owl, Material Deep Ocean, Material Oceanic, Material Palenight
+Dracula, Nord, One Dark, Gruvbox Dark, Cobalt 2, Carbon, **Dark Purple** *(default)*, Spacegray, Hiberbee Dark, Solarized Dark, Xcode Dark, Gradiant Deep Ocean, Atom One Dark, Moonlight, Night Owl, Material Deep Ocean, Material Oceanic, Material Palenight
 
 ### Light Themes
 Arc, Arc Orange, Cyan Light, Solarized Light, GitHub Light, Atom One Light, Light Owl
