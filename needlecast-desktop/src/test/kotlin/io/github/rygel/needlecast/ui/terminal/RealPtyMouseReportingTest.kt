@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
+import java.awt.GraphicsEnvironment
 import java.awt.event.MouseEvent
 import java.awt.event.MouseWheelEvent
 import java.util.concurrent.CountDownLatch
@@ -15,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
 
+@EnabledOnOs(OS.WINDOWS)
 class RealPtyMouseReportingTest {
 
     private lateinit var terminal: TerminalPanel
@@ -24,6 +28,7 @@ class RealPtyMouseReportingTest {
 
     @BeforeEach
     fun setUp() {
+        if (GraphicsEnvironment.isHeadless()) return
         val dir = System.getProperty("user.home")
         terminal = TerminalPanel(initialDir = dir)
         frame = JFrame("PTY Mouse Test").apply {
