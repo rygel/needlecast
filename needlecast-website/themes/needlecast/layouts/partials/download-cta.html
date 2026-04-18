@@ -1,0 +1,68 @@
+<section class="download-cta">
+    <div class="container">
+        <div class="cta-content">
+            <h2>Ready to Try Needlecast?</h2>
+            <p>Download the latest version and start organizing your projects today.</p>
+            <div class="cta-buttons">
+                <a href="{{ "downloads/" | relURL }}" class="button primary large">Download v{{ .Site.Params.version }}</a>
+                <a href="{{ "docs/" | relURL }}" class="button secondary">View Documentation</a>
+            </div>
+            <p class="cta-note">Available for Windows, macOS, and Linux. Free and open source.</p>
+        </div>
+    </div>
+</section>
+
+<style>
+.download-cta {
+    padding: 4rem 2rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    text-align: center;
+}
+
+.download-cta .container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.cta-content h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.cta-content > p {
+    font-size: 1.25rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+}
+
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.button.large {
+    padding: 1rem 2rem;
+    font-size: 1.125rem;
+}
+
+.cta-note {
+    font-size: 0.875rem;
+    opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+    .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .button.large {
+        width: 100%;
+        max-width: 300px;
+    }
+}
+</style>
