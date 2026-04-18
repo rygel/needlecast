@@ -818,6 +818,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         applyUiFontFromConfig()
         explorerPanel.applyTheme(dark)
         terminalPanel.applyTheme(dark)
+        docsPanel.applyTheme(dark)
     }
 
     private fun setTheme(themeId: String) {
