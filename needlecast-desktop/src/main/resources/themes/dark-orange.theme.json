@@ -188,8 +188,8 @@
 
       "ToolWindow": {
         "informativeForeground": "#e4dcd0",
-        "informativeBackground": "#1e2e48",
-        "informativeBorderColor": "#101a2a",
+        "informativeBackground": "#3a3228",
+        "informativeBorderColor": "#2a2418",
 
         "warningForeground": "#e4dcd0",
         "warningBackground": "#524020",
@@ -294,7 +294,7 @@
       "endBackground": "#7a6a30"
     },
 
-    "SearchOption.selectedBackground": "#2a3448",
+    "SearchOption.selectedBackground": "#4a3a2e",
 
     "SegmentedButton": {
       "selectedButtonColor": "#443a34",

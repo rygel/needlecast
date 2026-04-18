@@ -2,6 +2,7 @@ package io.github.rygel.needlecast.ui
 
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
+import org.fife.ui.rsyntaxtextarea.Theme as RstaTheme
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.gfm.tables.TablesExtension
 import org.commonmark.parser.Parser
@@ -124,6 +125,27 @@ class DocsPanel : JPanel(BorderLayout()) {
         projectRoot = path?.let { File(it) }
         htmlCache.clear()
         refresh()
+    }
+
+    fun applyTheme(dark: Boolean) {
+        val themeFile = if (dark) "monokai.xml" else "idea.xml"
+        try {
+            val stream = RstaTheme::class.java.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/$themeFile")
+            if (stream != null) RstaTheme.load(stream).apply(rawArea)
+        } catch (_: Exception) {}
+
+        val bg = UIManager.getColor("TextArea.background")
+            ?: UIManager.getColor("Panel.background")
+            ?: if (dark) Color(0x1E1E1E) else Color.WHITE
+        val fg = UIManager.getColor("TextArea.foreground")
+            ?: UIManager.getColor("Panel.foreground")
+            ?: if (dark) Color(0xD4D4D4) else Color(0x1E1E1E)
+        rawArea.background = bg
+        rawArea.foreground = fg
+        rawArea.caretColor = fg
+
+        htmlCache.clear()
+        loadSelectedFile()
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
