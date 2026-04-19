@@ -2,6 +2,7 @@ package io.github.rygel.needlecast.ui.explorer
 
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ExternalEditor
+import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.scanner.IS_MAC
 import java.awt.BorderLayout
@@ -242,10 +243,17 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         openFileInTab(file, line, column)
     }
 
+    private fun isCurrentProjectPrivate(): Boolean {
+        val root = projectRootPath ?: return false
+        return ctx.config.projectTree
+            .filterIsInstance<ProjectTreeEntry.Project>()
+            .any { it.directory.path == root && it.directory.private }
+    }
+
     private fun navigateTo(dir: File) {
         if (!dir.isDirectory) return
         currentDir = dir
-        addressField.text = dir.absolutePath
+        addressField.text = if (ctx.config.privacyModeEnabled && isCurrentProjectPrivate()) "\u2022\u2022\u2022\u2022\u2022\u2022" else dir.absolutePath
         loadDirectory(dir)
     }
 
