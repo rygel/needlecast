@@ -6,6 +6,7 @@ import com.jediterm.terminal.model.StyleState
 import com.jediterm.terminal.ui.JediTermWidget
 import com.pty4j.PtyProcess
 import com.pty4j.PtyProcessBuilder
+import com.jediterm.terminal.TtyConnector
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
@@ -87,8 +88,7 @@ class TerminalPanel(
     @Volatile private var lastChunk: String = ""
     private var styleStateWarned = false
     private val remoteMouseWheelConsumer = MouseWheelListener { event ->
-        val isRemote = embeddedTerminalPanel.isRemoteMouseAction(event)
-        if (shouldConsumeRemoteMouseWheelEvent(event, isRemote)) {
+        if (shouldConsumeRemoteMouseWheelEvent(event, embeddedTerminalPanel.isRemoteMouseAction(event))) {
             event.consume()
         }
     }
@@ -209,12 +209,6 @@ class TerminalPanel(
         SwingUtilities.invokeLater { transitionTo(status) }
     }
 
-    internal fun readMouseMode(): String = runCatching {
-        val f = embeddedTerminalPanel.javaClass.getDeclaredField("myMouseMode")
-        f.isAccessible = true
-        f.get(embeddedTerminalPanel).toString()
-    }.getOrDefault("REFLECTION_ERROR")
-
     fun dispose() {
         silenceTimer.stop()
         transitionTo(AgentStatus.NONE)
@@ -271,20 +265,43 @@ class TerminalPanel(
                     put("TERM", "xterm-256color")
                     putAll(extraEnv)
                 }
-                val process = PtyProcessBuilder()
+                val builder = PtyProcessBuilder()
                     .setCommand(cmd)
                     .setEnvironment(env)
                     .setDirectory(currentDir)
                     .setInitialColumns(120)
                     .setInitialRows(30)
-                    .setUseWinConPty(true)
-                    .start()
+                if (IS_WINDOWS) {
+                    logger.info("Starting PTY with WinConPty on Windows: cmd={}", cmd.toList())
+                    builder.setUseWinConPty(true)
+                } else {
+                    logger.info("Starting PTY on {} (unix PTY): cmd={}", System.getProperty("os.name"), cmd.toList())
+                }
+                val process = builder.start()
                 ptyProcess = process
-                val connector = PtyProcessTtyConnector(process, Charset.forName("UTF-8"))
+                logger.info("PTY started: pid={}, alive={}", process.pid(), process.isAlive)
+                val rawConnector = PtyProcessTtyConnector(process, Charset.forName("UTF-8"))
+                val connector = object : TtyConnector by rawConnector {
+                    override fun resize(d: Dimension) {
+                        logger.info("TtyConnector.resize: cols={}, rows={}, connected={}", d.width, d.height, isConnected)
+                        rawConnector.resize(d)
+                    }
+                }
                 val observed = ObservingTtyConnector(connector) { chunk -> handleOutput(chunk) }
                 val session = termWidget.createTerminalSession(observed)
                 session.start()
-                SwingUtilities.invokeLater { transitionTo(AgentStatus.WAITING) }
+
+                SwingUtilities.invokeLater {
+                    embeddedTerminalPanel.addComponentListener(object : java.awt.event.ComponentAdapter() {
+                        override fun componentResized(e: java.awt.event.ComponentEvent) {
+                            val size = embeddedTerminalPanel.size
+                            val termSize = embeddedTerminalPanel.getTerminalSizeFromComponent()
+                            logger.info("TerminalPanel componentResized: panel={}x{}, termCols={}, termRows={}",
+                                size.width, size.height, termSize?.width, termSize?.height)
+                        }
+                    })
+                    transitionTo(AgentStatus.WAITING)
+                }
                 if (!startupCommand.isNullOrBlank()) {
                     val line = if (IS_WINDOWS) "$startupCommand\r\n" else "$startupCommand\n"
                     try {
