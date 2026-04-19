@@ -22,6 +22,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import javax.swing.JDialog
 import javax.swing.JFrame
@@ -85,7 +86,7 @@ fun main(args: Array<String>) {
     val robot = Robot()
     Thread.sleep(3000)
 
-    val w = mainWindow!!
+    var w = mainWindow!!
 
     // Force tree to recalculate cell widths now that the window is fully laid out
     SwingUtilities.invokeAndWait {
@@ -133,24 +134,68 @@ fun main(args: Array<String>) {
         } catch (e: Exception) { System.err.println("overview-light-theme failed: ${e.message}") }
 
         // 1.3 overview-empty-first-launch.png — blank-slate window with empty config
+        // ModernDocking uses a global registry; we must dispose the main window
+        // to deregister its dockables before creating a second MainWindow.
         try {
+            SwingUtilities.invokeAndWait { w.dispose() }
+            Thread.sleep(500)
             val emptyCtx = AppContext(configStore = FixedConfigStore(AppConfig()))
             val emptyWindowReady = CountDownLatch(1)
             var emptyWindow: MainWindow? = null
             SwingUtilities.invokeLater {
-                val ew = MainWindow(emptyCtx)
-                ew.setSize(1440, 900)
-                ew.setLocationRelativeTo(null)
-                ew.defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
-                ew.isVisible = true
-                emptyWindow = ew
-                emptyWindowReady.countDown()
+                try {
+                    val ew = MainWindow(emptyCtx)
+                    ew.setSize(1440, 900)
+                    ew.setLocationRelativeTo(null)
+                    ew.defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
+                    ew.isVisible = true
+                    emptyWindow = ew
+                } catch (_: Exception) {
+                } finally {
+                    emptyWindowReady.countDown()
+                }
             }
-            emptyWindowReady.await()
+            if (!emptyWindowReady.await(10, TimeUnit.SECONDS)) {
+                throw RuntimeException("Timeout creating empty window")
+            }
             Thread.sleep(1500)
-            screenshot(robot, emptyWindow!!, outputDir.resolve("overview-empty-first-launch.png"))
-            println("  > overview-empty-first-launch.png")
-            SwingUtilities.invokeAndWait { emptyWindow!!.dispose() }
+            if (emptyWindow != null) {
+                screenshot(robot, emptyWindow!!, outputDir.resolve("overview-empty-first-launch.png"))
+                println("  > overview-empty-first-launch.png")
+                SwingUtilities.invokeAndWait { emptyWindow!!.dispose() }
+            }
+            Thread.sleep(500)
+            // Recreate the main window for remaining screenshots
+            val mainWindowReady = CountDownLatch(1)
+            SwingUtilities.invokeLater {
+                try {
+                    val mw = MainWindow(ctx)
+                    mw.setSize(1440, 900)
+                    mw.setLocationRelativeTo(null)
+                    mw.defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
+                    mw.isVisible = true
+                    mainWindow = mw
+                } catch (_: Exception) {
+                } finally {
+                    mainWindowReady.countDown()
+                }
+            }
+            if (!mainWindowReady.await(10, TimeUnit.SECONDS)) {
+                throw RuntimeException("Timeout recreating main window")
+            }
+            Thread.sleep(2000)
+            w = mainWindow!!
+            // Re-initialize tree layout after recreating the window
+            SwingUtilities.invokeAndWait {
+                try {
+                    val field = w.javaClass.getDeclaredField("projectTreePanel")
+                    field.isAccessible = true
+                    val treePanel = field.get(w)
+                    treePanel.javaClass.getMethod("invalidateTreeLayout").invoke(treePanel)
+                } catch (e: Exception) { e.printStackTrace() }
+            }
+            Thread.sleep(500)
+            waitForProjectTreeData(w, projects.size)
         } catch (e: Exception) { System.err.println("overview-empty-first-launch failed: ${e.message}") }
 
         // ════════════════════════════════════════════════════════════════
