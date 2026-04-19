@@ -22,7 +22,7 @@ import org.junit.jupiter.api.condition.EnabledOnOs
 import org.junit.jupiter.api.condition.OS
 
 @DisabledOnOs(OS.WINDOWS)
-class ZshResizeTest {
+class ZshResizeUiTest {
 
     private lateinit var frame: JFrame
     private lateinit var widget: JediTermWidget

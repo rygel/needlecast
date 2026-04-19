@@ -23,7 +23,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.OS
 
 @DisabledOnOs(OS.WINDOWS)
-class RealTuiResizeTest {
+class RealTuiResizeUiTest {
 
     private lateinit var frame: JFrame
     private lateinit var widget: JediTermWidget

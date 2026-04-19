@@ -20,7 +20,7 @@ import javax.swing.JFrame
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 
-class TerminalResizeTest {
+class TerminalResizeUiTest {
 
     private lateinit var frame: JFrame
     private lateinit var widget: JediTermWidget

@@ -16,7 +16,7 @@ import javax.swing.JFrame
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 
-class ShrinkableWidgetResizeTest {
+class ShrinkableWidgetResizeUiTest {
 
     private lateinit var frame: JFrame
     private lateinit var container: JPanel
@@ -37,7 +37,7 @@ class ShrinkableWidgetResizeTest {
             val widget = ShrinkableWidget(settings)
             val inner = widget.terminalPanel
 
-            val connector = TerminalResizeTest.ResizeTrackingConnector(
+            val connector = TerminalResizeUiTest.ResizeTrackingConnector(
                 java.util.concurrent.atomic.AtomicInteger(),
                 java.util.concurrent.atomic.AtomicReference(),
             )
