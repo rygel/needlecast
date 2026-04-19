@@ -20,6 +20,7 @@
 ## Features
 
 **Project management**
+- Use any vibe coding CLI (Claude, Codex, Opencode, Kilocode, etc.)
 - Organize your projects into color-coded groups with a tree-style sidebar
 - Fuzzy project switcher (`Ctrl+P`) across all groups
 - Edit and view all text files in the integrated text editor with syntax highlighting
