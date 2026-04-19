@@ -874,7 +874,7 @@ class ProjectTreePanel(
             }, BorderLayout.SOUTH)
         }
 
-        if (JOptionPane.showConfirmDialog(owner, form, "Script Directories \u2014 ${dir.label()}",
+        if (JOptionPane.showConfirmDialog(owner, form, "Script Directories \u2014 ${dir.label(ctx.config.privacyModeEnabled)}",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return
 
         val newDirs = (0 until listModel.size).map { listModel.getElementAt(it) }
