@@ -63,4 +63,5 @@ jobs:
           git add docs/screenshots/
           git diff --cached --quiet && echo "No screenshot changes" && exit 0
           git commit -m "docs: update auto-generated screenshots [skip ci]"
+          git pull --rebase origin develop
           git push
