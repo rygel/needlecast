@@ -6,7 +6,7 @@
 
     <groupId>io.github.rygel</groupId>
     <artifactId>needlecast-parent</artifactId>
-    <version>0.7.2</version>
+    <version>0.7.3</version>
     <packaging>pom</packaging>
     <name>Needlecast (Parent)</name>
 

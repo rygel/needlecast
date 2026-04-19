@@ -2,6 +2,15 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.7.3] — 2026-04-19
+
+### Fixed
+- **Terminal resize on macOS and Linux** — WinConPty is now only enabled on Windows (`setUseWinConPty(true)` is conditional on `IS_WINDOWS`). On macOS and Linux, the PTY now uses the native Unix PTY backend, which correctly propagates `SIGWINCH` when the terminal widget is resized. The TTY connector's `resize()` method is now properly delegated through `ObservingTtyConnector` so resize events reach the underlying PTY process.
+- **Remove unnecessary 0.x.y → 1.x.y version mapping** — jpackage scripts no longer remap `0.x.y` to `1.x.y` for macOS; the mapping was a workaround that is no longer needed.
+- **Quote workflow names containing colons** — `release-pr.yml` workflow name with a colon no longer causes YAML parsing issues.
+
+---
+
 ## [0.7.2] — 2026-04-18
 
 ### Added
