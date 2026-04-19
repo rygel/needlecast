@@ -6,7 +6,7 @@
 
 <p align="center">
   A modern approach for an agentic coding environment<br><br>
-  Use any vibe coding CLI and get some tools around it to quickly edit files or see images, videos, listen to audio. When even VS Code is too heavy. Offers a customizable project tree for all 100+ projects you created this week alone XD 
+  Use any vibe coding CLI and get tooling around it to quickly edit files or interact with media files. When even VS Code is too heavy. Offers a customizable project tree for all 100+ projects you created this week alone XD 
 </p>
 
 <p align="center">
@@ -20,10 +20,13 @@
 ## Features
 
 **Project management**
-- Organize projects into color-coded groups with a tree-style sidebar
+- Organize your projects into color-coded groups with a tree-style sidebar
 - Fuzzy project switcher (`Ctrl+P`) across all groups
 - Git branch and dirty-state indicator per project
-- File watcher auto-refreshes command list when build files change
+- File watcher auto-refreshes command list when build files change, run you build scripts from the UI
+- Create and manage you personal prompt library (alpha)
+- Manage your skills from within the application (alpha)
+- Run [renovate](https://github.com/renovatebot/renovate) to keep you dependencies up-to-date
 - Environment variables per project, injected into commands and terminals
 - File explorer automatically switches to the active project's directory
 
