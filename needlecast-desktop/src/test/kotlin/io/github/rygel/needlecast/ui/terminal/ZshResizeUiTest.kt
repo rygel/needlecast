@@ -21,7 +21,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs
 import org.junit.jupiter.api.condition.EnabledOnOs
 import org.junit.jupiter.api.condition.OS
 
-@DisabledOnOs(OS.WINDOWS)
+@EnabledOnOs(OS.MAC)
 class ZshResizeUiTest {
 
     private lateinit var frame: JFrame
