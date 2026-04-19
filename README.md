@@ -22,8 +22,10 @@
 **Project management**
 - Organize your projects into color-coded groups with a tree-style sidebar
 - Fuzzy project switcher (`Ctrl+P`) across all groups
+- Edit and view all text files in the integrated text editor with syntax highlighting
+- Media viewer for images, audio, video (when you generate media via AI)
 - Git branch and dirty-state indicator per project
-- File watcher auto-refreshes command list when build files change, run you build scripts from the UI
+- Run you build scripts from the UI
 - Create and manage you personal prompt library (alpha)
 - Manage your skills from within the application (alpha)
 - Run [renovate](https://github.com/renovatebot/renovate) to keep you dependencies up-to-date
