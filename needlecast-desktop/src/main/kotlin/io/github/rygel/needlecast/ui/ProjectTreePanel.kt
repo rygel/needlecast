@@ -1048,6 +1048,14 @@ class ProjectTreePanel(
                     if (topTags.isNotEmpty()) addSeparator()
                     add(JMenuItem("Edit\u2026").apply { addActionListener { editTags(node, entry) } })
                 })
+                menu.add(JCheckBoxMenuItem("Private", entry.directory.private).apply {
+                    toolTipText = "Hide project name and path when Privacy Mode is on"
+                    addActionListener {
+                        val cur = node.userObject as? ProjectTreeEntry.Project ?: return@addActionListener
+                        node.userObject = cur.copy(directory = cur.directory.copy(private = isSelected))
+                        treeModel.nodeChanged(node); persist(); tree.repaint()
+                    }
+                })
                 menu.add(JMenuItem("Shell Settings\u2026").apply { addActionListener { editShellSettings(node, entry) } })
                 menu.add(JMenuItem("Environment\u2026").apply { addActionListener { editEnv(node, entry) } })
                 menu.add(JMenuItem("Script Directories\u2026").apply { addActionListener { editScriptDirs(node, entry) } })
