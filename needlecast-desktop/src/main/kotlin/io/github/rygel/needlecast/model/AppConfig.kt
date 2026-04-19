@@ -619,6 +619,7 @@ data class AppConfig(
     val commandOverrides: Map<String, List<CommandOverride>> = emptyMap(),
     /** Whether media files start playing automatically when opened in the Explorer. Default true. */
     val mediaAutoplay: Boolean = true,
+    val privacyModeEnabled: Boolean = false,
 )
 
 data class AiCliDefinition(
@@ -658,6 +659,13 @@ data class ProjectDirectory(
      */
     val extraScanDirs: List<String> = emptyList(),
     val skillTargetDir: String? = null,
+    val private: Boolean = false,
 ) {
     fun label(): String = displayName ?: path.substringAfterLast('/').substringAfterLast('\\').ifBlank { path }
+
+    fun label(privacyModeEnabled: Boolean): String =
+        if (private && privacyModeEnabled) "••••••" else label()
+
+    fun redactedPath(privacyModeEnabled: Boolean): String =
+        if (private && privacyModeEnabled) "••••••" else path
 }
