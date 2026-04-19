@@ -4,6 +4,7 @@ import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.AiCliDefinition
 import io.github.rygel.needlecast.ui.AiCli
 import io.github.rygel.needlecast.ui.KNOWN_AI_CLIS
+import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.FlowLayout
@@ -95,7 +96,7 @@ class AiToolsSettingsPanel(
             }
         }
 
-        val removeBtn = JButton("− Remove Custom CLI").apply {
+        val removeBtn = JButton(RemixIcons.icon("ri-subtract-line", 16)).apply {
             addActionListener {
                 val customOnly = allClis.filter { it.second }.map { it.first }
                 if (customOnly.isEmpty()) {

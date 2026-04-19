@@ -18,6 +18,7 @@ import javax.swing.JTextField
 import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
 import javax.swing.text.DefaultHighlighter
+import io.github.rygel.needlecast.ui.RemixIcons
 
 class ConsolePanel : JPanel(BorderLayout()) {
 
@@ -127,10 +128,10 @@ private class ConsoleSearchBar(private val textArea: JTextArea) : JPanel(BorderL
         val row = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
             add(JLabel("Find:"))
             add(searchField)
-            add(JButton("\u25B2").apply { toolTipText = "Previous (Shift+Enter)"; addActionListener { step(-1) } })
-            add(JButton("\u25BC").apply { toolTipText = "Next (Enter)";           addActionListener { step(+1) } })
+            add(JButton(RemixIcons.icon("ri-arrow-up-s-line", 12)).apply { toolTipText = "Previous (Shift+Enter)"; addActionListener { step(-1) } })
+            add(JButton(RemixIcons.icon("ri-arrow-down-s-line", 12)).apply { toolTipText = "Next (Enter)";           addActionListener { step(+1) } })
             add(statusLabel)
-            add(JButton("\u2715").apply { toolTipText = "Close (Escape)"; addActionListener { hideBar() } })
+            add(JButton(RemixIcons.icon("ri-close-line", 12)).apply { toolTipText = "Close (Escape)"; addActionListener { hideBar() } })
         }
         add(row, BorderLayout.CENTER)
 

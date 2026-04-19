@@ -2,6 +2,7 @@ package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.PromptTemplate
+import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
@@ -72,16 +73,16 @@ class PromptInputPanel(
 
     // ── Toolbar buttons ───────────────────────────────────────────────────────
 
-    private val newButton = JButton("+").apply {
+    private val newButton = JButton(RemixIcons.icon("ri-add-line", 16)).apply {
         isFocusable = false
         margin = Insets(1, 5, 1, 5)
     }
-    private val editButton = JButton("\u270F").apply {   // ✏ (pencil)
+    private val editButton = JButton(RemixIcons.icon("ri-edit-line", 16)).apply {
         isFocusable = false
         isEnabled   = false
         margin = Insets(1, 5, 1, 5)
     }
-    private val deleteButton = JButton("\u2212").apply {   // − (minus sign)
+    private val deleteButton = JButton(RemixIcons.icon("ri-delete-bin-line", 16)).apply {
         isFocusable = false
         isEnabled   = false
         margin = Insets(1, 5, 1, 5)

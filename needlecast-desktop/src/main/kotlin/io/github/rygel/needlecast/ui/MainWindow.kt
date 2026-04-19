@@ -10,6 +10,7 @@ import io.github.andrewauclair.moderndocking.settings.Settings
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.ThemeRegistry
 import io.github.rygel.needlecast.isOsDark
+import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.explorer.ExplorerPanel
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
 import io.github.rygel.needlecast.ui.terminal.ClaudeHookServer
@@ -718,7 +719,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 menu.add(commandLibraryItem)
                 menu.addSeparator()
 
-                menu.add(JMenuItem("↻ Rescan").apply {
+                menu.add(JMenuItem("Rescan").apply {
+                    icon = RemixIcons.icon("ri-refresh-line", 16)
                     addActionListener { cliCacheReady = false; refreshCliCache(); menu.doClick() }
                 })
                 menu.addSeparator()
@@ -733,7 +735,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     menu.add(JMenuItem("No AI CLIs detected").apply { isEnabled = false })
                 } else {
                     found.forEach { (cli, _) ->
-                        menu.add(JMenuItem("▶  ${cli.name}").apply {
+                        menu.add(JMenuItem(cli.name).apply {
+                            icon = RemixIcons.icon("ri-play-line", 16)
                             toolTipText = cli.description
                             font = font.deriveFont(Font.BOLD)
                             addActionListener { launchCliInTerminal(cli) }
