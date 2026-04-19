@@ -886,6 +886,12 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             addSeparator()
             add(showConsoleCb)
             add(showExplorerCb)
+            add(JCheckBoxMenuItem("Privacy Mode", ctx.config.privacyModeEnabled).apply {
+                toolTipText = "Hide private project names and paths for screenshots"
+                addActionListener {
+                    ctx.updateConfig(ctx.config.copy(privacyModeEnabled = isSelected))
+                }
+            })
             addSeparator()
             add(JCheckBoxMenuItem("Highlight panel on hover  [alpha]", ctx.config.panelHoverHighlight).apply {
                 toolTipText = "Draws a colored border around the panel under the mouse cursor. Experimental."
