@@ -615,6 +615,8 @@ data class AppConfig(
      * When false (default), agent status is detected by polling terminal output.
      */
     val claudeHooksEnabled: Boolean = false,
+    /** Show Claude Code usage quota (5h/7d rate limits) in the status bar. Requires Claude Code credentials. */
+    val claudeQuotaEnabled: Boolean = true,
     /** Per-project command overrides. Outer key = working directory path. */
     val commandOverrides: Map<String, List<CommandOverride>> = emptyMap(),
     /** Whether media files start playing automatically when opened in the Explorer. Default true. */
