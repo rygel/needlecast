@@ -13,6 +13,7 @@ import javax.swing.JCheckBox
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextField
+import io.github.rygel.needlecast.ui.RemixIcons
 
 /**
  * Inline find/replace bar that sits at the bottom of the editor.
@@ -37,13 +38,13 @@ class FindBar(private val editor: RSyntaxTextArea) : JPanel(BorderLayout()) {
         val findRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
             add(JLabel("Find:"))
             add(searchField)
-            add(JButton("\u25B2").apply { toolTipText = "Previous (Shift+Enter)"; addActionListener { find(forward = false) } })
-            add(JButton("\u25BC").apply { toolTipText = "Next (Enter)";           addActionListener { find(forward = true) } })
+            add(JButton(RemixIcons.icon("ri-arrow-up-s-line", 12)).apply { toolTipText = "Previous (Shift+Enter)"; addActionListener { find(forward = false) } })
+            add(JButton(RemixIcons.icon("ri-arrow-down-s-line", 12)).apply { toolTipText = "Next (Enter)";           addActionListener { find(forward = true) } })
             add(matchCase)
             add(wholeWord)
             add(regex)
             add(statusLabel)
-            add(JButton("\u00D7").apply { toolTipText = "Close (Escape)"; addActionListener { hideBar() } })
+            add(JButton(RemixIcons.icon("ri-close-line", 12)).apply { toolTipText = "Close (Escape)"; addActionListener { hideBar() } })
         }
 
         replaceRow.apply {

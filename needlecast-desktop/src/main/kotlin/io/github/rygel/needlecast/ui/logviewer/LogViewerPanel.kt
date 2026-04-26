@@ -11,6 +11,7 @@ import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import java.io.File
 import java.io.RandomAccessFile
+import io.github.rygel.needlecast.ui.RemixIcons
 import javax.swing.BorderFactory
 import javax.swing.DefaultComboBoxModel
 import javax.swing.JButton
@@ -100,7 +101,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         }
     }
 
-    private val followButton = JToggleButton("\u21E3").apply {
+    private val followButton = JToggleButton(RemixIcons.icon("ri-arrow-down-line", 16)).apply {
         isSelected = true
         toolTipText = "Follow (auto-scroll to newest)"
         isFocusPainted = false

@@ -2,6 +2,8 @@ package io.github.rygel.needlecast.ui.explorer
 
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ExternalEditor
+import io.github.rygel.needlecast.model.ProjectTreeEntry
+import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.scanner.IS_MAC
 import java.awt.BorderLayout
@@ -72,15 +74,15 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private var currentSortState: ExplorerSortState = DEFAULT_EXPLORER_SORT
 
     init {
-        val upButton = JButton("\u2191").apply {
+        val upButton = JButton(RemixIcons.icon("ri-arrow-up-line", 16)).apply {
             toolTipText = "Go up one level"
             addActionListener { navigateUp() }
         }
-        val refreshButton = JButton("\u21BB").apply {
+        val refreshButton = JButton(RemixIcons.icon("ri-refresh-line", 16)).apply {
             toolTipText = "Refresh"
             addActionListener { loadDirectory(currentDir) }
         }
-        val hiddenButton = JButton("\u25CC").apply {
+        val hiddenButton = JButton(RemixIcons.icon("ri-eye-line", 16)).apply {
             toolTipText = "Show hidden files"
             addActionListener {
                 showHidden = !showHidden
@@ -90,7 +92,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             }
         }
 
-        val openFmButton = JButton("\u2197").apply {
+        val openFmButton = JButton(RemixIcons.icon("ri-external-link-line", 16)).apply {
             toolTipText = when {
                 IS_MAC     -> "Open in Finder"
                 IS_WINDOWS -> "Open in Explorer"
@@ -242,10 +244,17 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         openFileInTab(file, line, column)
     }
 
+    private fun isCurrentProjectPrivate(): Boolean {
+        val root = projectRootPath ?: return false
+        return ctx.config.projectTree
+            .filterIsInstance<ProjectTreeEntry.Project>()
+            .any { it.directory.path == root && it.directory.private }
+    }
+
     private fun navigateTo(dir: File) {
         if (!dir.isDirectory) return
         currentDir = dir
-        addressField.text = dir.absolutePath
+        addressField.text = if (ctx.config.privacyModeEnabled && isCurrentProjectPrivate()) "\u2022\u2022\u2022\u2022\u2022\u2022" else dir.absolutePath
         loadDirectory(dir)
     }
 
@@ -663,12 +672,11 @@ private class TabHeader(title: String, onClose: () -> Unit) : JPanel(FlowLayout(
         isOpaque = false
         border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         add(JLabel(title))
-        add(JButton("\u00D7").apply {
+        add(JButton(RemixIcons.icon("ri-close-line", 12)).apply {
             toolTipText = "Close tab"
             isFocusable = false
             isBorderPainted = false
             isContentAreaFilled = false
-            font = font.deriveFont(9f)
             addActionListener { onClose() }
         })
     }

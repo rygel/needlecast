@@ -38,12 +38,15 @@ class ProjectSwitcherDialog(
     private val onSelect: (groupId: String, path: String) -> Unit,
 ) : JDialog(owner, ModalityType.APPLICATION_MODAL) {
 
-    data class Entry(val dir: ProjectDirectory, val folderPath: String) {
-        val label: String    get() = dir.label()
-        val subtitle: String get() = if (folderPath.isEmpty()) dir.path else "$folderPath  •  ${dir.path}"
+    data class Entry(val dir: ProjectDirectory, val folderPath: String, val privacyModeEnabled: Boolean = false) {
+        val label: String    get() = dir.label(privacyModeEnabled)
+        val subtitle: String get() {
+            val path = dir.redactedPath(privacyModeEnabled)
+            return if (folderPath.isEmpty()) path else "$folderPath  •  $path"
+        }
     }
 
-    private val allEntries: List<Entry> = collectProjects(loadProjectTree(), "")
+    private val allEntries: List<Entry> = collectProjects(loadProjectTree(), "", ctx.config.privacyModeEnabled)
 
     private val listModel  = DefaultListModel<Entry>()
     private val resultList = JList(listModel).apply {
@@ -212,13 +215,13 @@ class ProjectSwitcherDialog(
 }
 
 /** Recursively collect all project entries from the tree, tracking folder path breadcrumb. */
-private fun collectProjects(entries: List<ProjectTreeEntry>, folderPath: String): List<ProjectSwitcherDialog.Entry> =
+private fun collectProjects(entries: List<ProjectTreeEntry>, folderPath: String, privacyModeEnabled: Boolean): List<ProjectSwitcherDialog.Entry> =
     entries.flatMap { entry ->
         when (entry) {
-            is ProjectTreeEntry.Project -> listOf(ProjectSwitcherDialog.Entry(entry.directory, folderPath))
+            is ProjectTreeEntry.Project -> listOf(ProjectSwitcherDialog.Entry(entry.directory, folderPath, privacyModeEnabled))
             is ProjectTreeEntry.Folder  -> {
                 val path = if (folderPath.isEmpty()) entry.name else "$folderPath / ${entry.name}"
-                collectProjects(entry.children, path)
+                collectProjects(entry.children, path, privacyModeEnabled)
             }
         }
     }

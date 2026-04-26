@@ -10,6 +10,7 @@ class ProjectSwitcherFilterTest {
         ProjectSwitcherDialog.Entry(
             dir        = ProjectDirectory(path = path, displayName = name),
             folderPath = folderPath,
+            privacyModeEnabled = false,
         )
 
     private val entries = listOf(
@@ -46,7 +47,6 @@ class ProjectSwitcherFilterTest {
 
     @Test
     fun `filter matches multiple entries`() {
-        // "back" matches both "Backend" and "/workspace/backend" but deduped as the same entry
         val result = filterEntries(entries, "back")
         assertEquals(1, result.size)
         assertEquals("Backend", result[0].label)
@@ -56,5 +56,53 @@ class ProjectSwitcherFilterTest {
     fun `filter matches on path segment shared by multiple entries`() {
         val result = filterEntries(entries, "workspace")
         assertEquals(4, result.size)
+    }
+
+    @Test
+    fun `private project name is redacted when privacy mode on`() {
+        val e = ProjectSwitcherDialog.Entry(
+            dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", private = true),
+            folderPath = "Work",
+            privacyModeEnabled = true,
+        )
+        assertEquals("••••••", e.label)
+        assertEquals("Work  •  ••••••", e.subtitle)
+    }
+
+    @Test
+    fun `private project name is visible when privacy mode off`() {
+        val e = ProjectSwitcherDialog.Entry(
+            dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", private = true),
+            folderPath = "Work",
+            privacyModeEnabled = false,
+        )
+        assertEquals("Secret Project", e.label)
+        assertEquals("Work  •  /workspace/secret", e.subtitle)
+    }
+
+    @Test
+    fun `filter matches on redacted label when privacy mode on`() {
+        val entries = listOf(
+            ProjectSwitcherDialog.Entry(
+                dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", private = true),
+                folderPath = "Work",
+                privacyModeEnabled = true,
+            ),
+        )
+        val result = filterEntries(entries, "••••••")
+        assertEquals(1, result.size)
+    }
+
+    @Test
+    fun `filter matches on real path even when privacy mode on`() {
+        val entries = listOf(
+            ProjectSwitcherDialog.Entry(
+                dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", private = true),
+                folderPath = "Work",
+                privacyModeEnabled = true,
+            ),
+        )
+        val result = filterEntries(entries, "secret")
+        assertEquals(1, result.size)
     }
 }

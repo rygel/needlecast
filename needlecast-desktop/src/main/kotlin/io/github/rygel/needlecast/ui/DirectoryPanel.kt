@@ -76,12 +76,12 @@ class DirectoryPanel(
         private val logger = LoggerFactory.getLogger(DirectoryPanel::class.java)
     }
 
-    private val activateButton = JButton("\u25B6").apply {
+    private val activateButton = JButton(RemixIcons.icon("ri-play-line", 16)).apply {
         toolTipText = "Activate terminal for this project"
         isFocusPainted = false
         isEnabled = false
     }
-    private val deactivateButton = JButton("\u23F9").apply {
+    private val deactivateButton = JButton(RemixIcons.icon("ri-stop-line", 16)).apply {
         toolTipText = "Deactivate terminal for this project"
         isFocusPainted = false
         isEnabled = false
@@ -93,15 +93,15 @@ class DirectoryPanel(
             font = font.deriveFont(Font.BOLD)
         }
 
-        val addButton = JButton("+").apply {
+        val addButton = JButton(RemixIcons.icon("ri-add-line", 16)).apply {
             toolTipText = "Add directory"
             isFocusPainted = false
         }
-        val removeButton = JButton("-").apply {
+        val removeButton = JButton(RemixIcons.icon("ri-subtract-line", 16)).apply {
             toolTipText = "Remove directory"
             isFocusPainted = false
         }
-        val rescanButton = JButton("\u21BB").apply {
+        val rescanButton = JButton(RemixIcons.icon("ri-refresh-line", 16)).apply {
             toolTipText = "Rescan all directories"
             isFocusPainted = false
         }
@@ -505,9 +505,7 @@ private class CompactProjectDirectoryRenderer(
     private val nameLabel = JLabel().apply {
         font = font.deriveFont(Font.BOLD, 12f)
     }
-    private val activeDot = JLabel("\u25CF").apply {   // ●
-        font = font.deriveFont(Font.PLAIN, 10f)
-        foreground = Color(0x4CAF50)
+    private val activeDot = JLabel(RemixIcons.icon("ri-checkbox-blank-circle-fill", 10, Color(0x4CAF50))).apply {
         border = BorderFactory.createEmptyBorder(0, 0, 0, 4)
     }
     private val branchLabel = JLabel().apply {
@@ -561,7 +559,9 @@ private class CompactProjectDirectoryRenderer(
         tagsPanel.removeAll()
         if (value != null) {
             if (value.scanFailed) {
-                tagsPanel.add(buildTagLabel(null, "⚠", "#B71C1C"))
+                tagsPanel.add(JLabel(RemixIcons.icon("ri-error-warning-line", 10, Color(0xB71C1C))).apply {
+                    toolTipText = "Scan failed — check logs or rescan"
+                })
             } else {
                 val tools = value.buildTools
                 val tags = if (tools.isEmpty()) listOf(null) else tools.map { it }
