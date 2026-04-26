@@ -26,7 +26,8 @@ class StatusBar : JPanel(BorderLayout()) {
     }
 
     fun showUpdateAvailable(version: String, onClick: () -> Unit) {
-        updateBadge.text = "⬆ $version available  "
+        updateBadge.icon = RemixIcons.icon("ri-arrow-up-circle-fill", 12, java.awt.Color(0x4CAF50))
+        updateBadge.text = " $version available  "
         updateBadge.foreground = UIManager.getColor("Component.accentColor") ?: Color(0x00BCD4)
         updateBadge.mouseListeners.forEach { updateBadge.removeMouseListener(it) }
         updateBadge.addMouseListener(object : MouseAdapter() {

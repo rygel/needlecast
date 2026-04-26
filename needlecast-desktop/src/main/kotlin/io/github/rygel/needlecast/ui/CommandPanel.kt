@@ -8,6 +8,7 @@ import io.github.rygel.needlecast.model.CommandOverride
 import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProcessResult
 import io.github.rygel.needlecast.process.ProcessOutputListener
+import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.service.CommandHistoryManager
 import io.github.rygel.needlecast.service.CommandQueue
 import io.github.rygel.needlecast.service.QueuedCommand
@@ -71,10 +72,10 @@ class CommandPanel(
         setCellRenderer(HistoryCellRenderer())
     }
 
-    private val runButton    = JButton("\u25B6  Run").apply    { isEnabled = false }
-    private val cancelButton = JButton("\u25A0  Cancel").apply { isEnabled = false }
-    private val queueButton  = JButton("\u25B6\u25B6  Queue").apply  { isEnabled = false; toolTipText = "Add selected command to queue" }
-    private val historyToggle = JToggleButton("\u2713 History").apply { isSelected = false }
+    private val runButton    = JButton(" Run").apply    { icon = RemixIcons.icon("ri-play-line", 16); isEnabled = false }
+    private val cancelButton = JButton(" Cancel").apply { icon = RemixIcons.icon("ri-stop-line", 16); isEnabled = false }
+    private val queueButton  = JButton(" Queue").apply  { icon = RemixIcons.icon("ri-play-circle-line", 16); isEnabled = false; toolTipText = "Add selected command to queue" }
+    private val historyToggle = JToggleButton(" History").apply { icon = RemixIcons.icon("ri-history-line", 16); isSelected = false }
     private val queueToggle   = JToggleButton("\u25B6\u25B6 Queue").apply   { isSelected = false }
 
     private val queueList = JList(queueModel).apply {
@@ -339,10 +340,12 @@ class CommandPanel(
         val notRunning = processResult !is ProcessResult.Running
         val menu = JPopupMenu()
         menu.add(JMenuItem("\u25B6  Run").apply {
+            icon = RemixIcons.icon("ri-play-line", 12)
             isEnabled = supported && notRunning
             addActionListener { runSelected() }
         })
         menu.add(JMenuItem("\u25B6\u25B6  Queue").apply {
+            icon = RemixIcons.icon("ri-play-circle-line", 12)
             isEnabled = supported
             addActionListener { enqueueSelected() }
         })

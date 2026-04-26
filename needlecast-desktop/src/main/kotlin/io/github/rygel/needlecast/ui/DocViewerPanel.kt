@@ -4,6 +4,7 @@ import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.DocCategory
 import io.github.rygel.needlecast.model.DocTarget
 import io.github.rygel.needlecast.service.DocRegistry
+import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
@@ -51,7 +52,7 @@ class DocViewerPanel : JPanel(BorderLayout()) {
         setCellRenderer(DocRowRenderer())
     }
     private val openButton    = JButton("Open in Browser").apply { isEnabled = false }
-    private val refreshButton = JButton("\u21BB  Refresh")    // ↻
+    private val refreshButton = JButton(RemixIcons.icon("ri-refresh-line", 16))
 
     private var currentProject: DetectedProject? = null
     private var reloadGeneration = 0

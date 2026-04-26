@@ -3,6 +3,7 @@ package io.github.rygel.needlecast.ui.settings
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.process.ProcessExecutor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
+import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -63,7 +64,7 @@ class ApmSettingsPanel(
         }
         installPanel.add(buttonsPanel, BorderLayout.CENTER)
 
-        val recheckButton = JButton("↻ Recheck").apply { addActionListener { checkApm() } }
+        val recheckButton = JButton(RemixIcons.icon("ri-refresh-line", 16)).apply { addActionListener { checkApm() } }
 
         val topSection = JPanel(BorderLayout(0, 8)).apply {
             add(infoLabel, BorderLayout.NORTH)
@@ -97,11 +98,13 @@ class ApmSettingsPanel(
             override fun done() {
                 val (found, version) = get()
                 if (found) {
-                    statusLabel.text = "✓  APM is installed"
+                    statusLabel.icon = RemixIcons.icon("ri-checkbox-circle-fill", 16, java.awt.Color(0x4CAF50))
+                    statusLabel.text = " APM is installed"
                     statusLabel.foreground = Color(0x4CAF50)
                     versionLabel.text = if (version.isNotEmpty()) "version $version" else ""
                 } else {
-                    statusLabel.text = "✗  APM not found on PATH"
+                    statusLabel.icon = RemixIcons.icon("ri-close-circle-line", 16, java.awt.Color(0xF44336))
+                    statusLabel.text = " APM not found on PATH"
                     statusLabel.foreground = Color(0xF44336)
                     versionLabel.text = "Use one of the buttons below to install it"
                 }

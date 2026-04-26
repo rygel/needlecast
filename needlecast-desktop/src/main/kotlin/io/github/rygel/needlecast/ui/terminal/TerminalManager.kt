@@ -3,6 +3,7 @@ package io.github.rygel.needlecast.ui.terminal
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.AiCli
+import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.ShellDetector
 import java.awt.BorderLayout
 import java.awt.CardLayout
@@ -445,12 +446,11 @@ private class TerminalTabHeader(
         isOpaque = false
         border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         add(JLabel(title))
-        add(JButton("\u2715").apply {
+        add(JButton(RemixIcons.icon("ri-close-line", 12)).apply {
             toolTipText = "Close tab"
             isFocusable = false
             isBorderPainted = false
             isContentAreaFilled = false
-            font = font.deriveFont(9f)
             addActionListener { if (canClose()) onClose() }
         })
     }
