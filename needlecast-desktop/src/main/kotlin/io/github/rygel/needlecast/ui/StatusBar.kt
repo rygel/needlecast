@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui
 
+import io.github.rygel.needlecast.ui.terminal.ClaudeUsageData
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Cursor
@@ -13,6 +14,10 @@ import javax.swing.UIManager
 class StatusBar : JPanel(BorderLayout()) {
 
     private val label = JLabel(" Ready")
+    private val quotaLabel = JLabel().apply {
+        isVisible = false
+        border = BorderFactory.createEmptyBorder(0, 8, 0, 8)
+    }
     private val updateBadge = JLabel().apply {
         isVisible = false
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
@@ -22,6 +27,7 @@ class StatusBar : JPanel(BorderLayout()) {
     init {
         border = BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY)
         add(label, BorderLayout.WEST)
+        add(quotaLabel, BorderLayout.CENTER)
         add(updateBadge, BorderLayout.EAST)
     }
 
@@ -52,5 +58,45 @@ class StatusBar : JPanel(BorderLayout()) {
 
     fun setReady() {
         label.text = " Ready"
+    }
+
+    fun updateQuota(data: ClaudeUsageData?) {
+        if (data == null) {
+            quotaLabel.isVisible = false
+            return
+        }
+
+        val fiveH = data.fiveHourPercent
+        val sevenD = data.sevenDayPercent
+
+        if (fiveH == null && sevenD == null) {
+            quotaLabel.isVisible = false
+            return
+        }
+
+        val parts = mutableListOf<String>()
+        if (fiveH != null) parts.add("5h: ${"%.0f".format(fiveH)}%")
+        if (sevenD != null) parts.add("7d: ${"%.0f".format(sevenD)}%")
+        quotaLabel.text = parts.joinToString(" | ")
+
+        val worstPct = listOfNotNull(fiveH, sevenD).maxOrNull() ?: 0.0
+        quotaLabel.foreground = when {
+            worstPct >= 90 -> Color(0xF44336)
+            worstPct >= 70 -> Color(0xFF9800)
+            else -> UIManager.getColor("Label.foreground") ?: Color(0x4CAF50)
+        }
+
+        val tooltipParts = mutableListOf<String>()
+        if (fiveH != null) tooltipParts.add("5-hour window: ${"%.1f".format(fiveH)}%${data.fiveHourResetsAt?.let { " (resets $it)" } ?: ""}")
+        if (sevenD != null) tooltipParts.add("7-day window: ${"%.1f".format(sevenD)}%${data.sevenDayResetsAt?.let { " (resets $it)" } ?: ""}")
+        if (data.sevenDaySonnetPercent != null) tooltipParts.add("7d Sonnet: ${"%.1f".format(data.sevenDaySonnetPercent)}%")
+        if (data.sevenDayOpusPercent != null) tooltipParts.add("7d Opus: ${"%.1f".format(data.sevenDayOpusPercent)}%")
+        quotaLabel.toolTipText = "<html>${tooltipParts.joinToString("<br>")}</html>"
+
+        quotaLabel.isVisible = true
+    }
+
+    fun hideQuota() {
+        quotaLabel.isVisible = false
     }
 }
