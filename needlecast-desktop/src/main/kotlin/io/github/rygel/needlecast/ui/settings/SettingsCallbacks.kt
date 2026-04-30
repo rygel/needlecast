@@ -11,4 +11,5 @@ data class SettingsCallbacks(
     val onEditorFontChanged: (family: String?, size: Int) -> Unit = { _, _ -> },
     val onTerminalFontChanged: (family: String?) -> Unit = { _ -> },
     val onSyntaxThemeChanged: () -> Unit = {},
+    val onClaudeQuotaToggled: (Boolean) -> Unit = {},
 )
