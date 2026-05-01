@@ -552,6 +552,7 @@ data class AppConfig(
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,
     val lastSelectedGroupId: String? = null,
+    val lastSelectedProjectPath: String? = null,
     val theme: String = "dark-purple",
     /** BCP 47 language tag (e.g. "en", "de", "fr"). Drives the I18nService locale. */
     val language: String = "en",
