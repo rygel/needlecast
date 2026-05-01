@@ -841,6 +841,88 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         }
     }
 
+    private fun importWorkspace() {
+        val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
+            dialogTitle = "Import Workspace"
+            fileFilter = FileNameExtensionFilter(
+                "Needlecast workspace files (*.$WORKSPACE_FILE_EXTENSION)",
+                WORKSPACE_FILE_EXTENSION
+            )
+        }
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return
+        try {
+            val imported = ctx.configStore.importWorkspace(chooser.selectedFile.toPath(), ctx.config)
+            if (!confirmWorkspaceImportTerminalClosure()) return
+            applyImportedWorkspace(imported)
+            JOptionPane.showMessageDialog(
+                this,
+                "Workspace imported.",
+                "Import Successful",
+                JOptionPane.INFORMATION_MESSAGE,
+            )
+        } catch (e: Exception) {
+            JOptionPane.showMessageDialog(this, "Failed to import workspace: ${e.message}", "Import Error", JOptionPane.ERROR_MESSAGE)
+        }
+    }
+
+    private fun exportWorkspace() {
+        val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
+            dialogTitle = "Export Workspace"
+            fileFilter = FileNameExtensionFilter(
+                "Needlecast workspace files (*.$WORKSPACE_FILE_EXTENSION)",
+                WORKSPACE_FILE_EXTENSION
+            )
+        }
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return
+        val selected = chooser.selectedFile
+        val target = if (selected.name.endsWith(".$WORKSPACE_FILE_EXTENSION", ignoreCase = true)) {
+            selected
+        } else {
+            File("${selected.absolutePath}.$WORKSPACE_FILE_EXTENSION")
+        }
+        try {
+            ctx.configStore.exportWorkspace(ctx.config.copy(lastSelectedProjectPath = lastSelectedPath), target.toPath())
+            statusBar.setStatus("Workspace exported to ${target.name}")
+        } catch (e: Exception) {
+            JOptionPane.showMessageDialog(this, "Failed to export workspace: ${e.message}", "Export Error", JOptionPane.ERROR_MESSAGE)
+        }
+    }
+
+    private fun applyImportedWorkspace(imported: io.github.rygel.needlecast.model.AppConfig) {
+        closeActiveProjectTerminals()
+        pendingProjectSelection = null
+        applyProjectSelection(null)
+        lastSelectedPath = imported.lastSelectedProjectPath
+        lastSelectedCommandsKey = null
+        ctx.updateConfig(imported)
+        projectTreePanel.reloadFromConfig()
+        projectTreePanel.setActivePaths(terminalPanel.activePaths())
+        SwingUtilities.invokeLater { projectTreePanel.invalidateTreeLayout() }
+    }
+
+    private fun confirmWorkspaceImportTerminalClosure(): Boolean {
+        val activePaths = terminalPanel.activePaths().sorted()
+        if (activePaths.isEmpty()) return true
+        val lines = activePaths.joinToString("<br>") { "&nbsp;&nbsp;&bull; ${escapeHtml(it)}" }
+        val message = "<html>Importing a workspace will close these active terminals:<br><br>$lines<br><br>Continue?</html>"
+        return JOptionPane.showConfirmDialog(
+            this,
+            message,
+            "Close Active Terminals?",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE,
+        ) == JOptionPane.YES_OPTION
+    }
+
+    private fun closeActiveProjectTerminals() {
+        terminalPanel.activePaths().toList().forEach { path ->
+            terminalPanel.deactivateProject(path)
+        }
+        projectTreePanel.setActivePaths(terminalPanel.activePaths())
+    }
+
+    private fun escapeHtml(text: String): String =
+        text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     private fun applyTheme(dark: Boolean) {
         applyUiFontFromConfig()
         explorerPanel.applyTheme(dark)
@@ -1220,6 +1302,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     companion object {
+        private const val WORKSPACE_FILE_EXTENSION = "needlecast-workspace"
+
         private fun currentVersion(): String? = try {
             val props = java.util.Properties()
             props.load(MainWindow::class.java.getResourceAsStream("/version.properties"))

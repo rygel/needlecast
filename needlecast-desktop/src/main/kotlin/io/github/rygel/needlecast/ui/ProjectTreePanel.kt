@@ -438,6 +438,14 @@ class ProjectTreePanel(
 
     fun triggerRescan() = rescanAll()
 
+    fun reloadFromConfig() {
+        scanResults.clear()
+        gitStatusCache.clear()
+        activePaths = emptySet()
+        pendingSelectPath = null
+        loadFromConfig()
+    }
+
     fun triggerActivateTerminal() {
         val entry = selectedProjectEntry() ?: return
         val detected = scanResults[entry.directory.path] ?: return
