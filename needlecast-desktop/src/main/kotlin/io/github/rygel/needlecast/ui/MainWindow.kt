@@ -415,8 +415,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
      * All other panels are docked relative to already-docked panels.
      *
      * ┌──────────────────┬──────────────────────┬────────────────┐
-     * │ Projects/Explorer│  Terminal | Editor   │Commands/GitLog │
-     * │   (tabbed)        │   (tabbed together)  ├────────────────┤
+     * │ Projects|Explorer│  Terminal | Editor   │Commands/GitLog │
+     * │   (single rail)  │   (tabbed together)  ├────────────────┤
      * │                  │                      │    Console     │
      * └──────────────────┴──────────────────────┴────────────────┘
      */
@@ -431,10 +431,10 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         applyTabPreference()
         // 1. Terminal docked to window root — the central, dominant panel
         Docking.dock(terminalDockable,    this,                DockingRegion.CENTER)
-        // 2. Project tree to the top-left (always visible)
+        // 2. Project tree to the left rail (always visible)
         Docking.dock(projectTreeDockable, terminalDockable,    DockingRegion.WEST,   0.15)
-        // 3. File explorer below the project tree in the left column
-        Docking.dock(explorerDockable,    projectTreeDockable, DockingRegion.SOUTH,  0.50)
+        // 3. File explorer tabbed with Projects in the same left rail
+        Docking.dock(explorerDockable,    projectTreeDockable, DockingRegion.CENTER)
         // 4. Commands panel to the right of the terminal
         Docking.dock(commandsDockable,    terminalDockable,    DockingRegion.EAST,   0.20)
         // 5. Git Log tabbed alongside Commands
@@ -635,12 +635,19 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val exportItem = JMenuItem(i18n.translate("menu.file.export")).apply {
             addActionListener { exportConfig() }
         }
+        val importWorkspaceItem = JMenuItem("Import Workspace...").apply {
+            addActionListener { importWorkspace() }
+        }
+        val exportWorkspaceItem = JMenuItem("Export Workspace...").apply {
+            addActionListener { exportWorkspace() }
+        }
         val exitItem = JMenuItem(i18n.translate("menu.file.exit")).apply {
             addActionListener { dispatchEvent(WindowEvent(this@MainWindow, WindowEvent.WINDOW_CLOSING)) }
         }
         val fileMenu = JMenu(i18n.translate("menu.file")).apply {
             add(settingsItem); addSeparator()
-            add(importItem); add(exportItem); addSeparator()
+            add(importItem); add(exportItem)
+            add(importWorkspaceItem); add(exportWorkspaceItem); addSeparator()
             add(exitItem)
         }
 
