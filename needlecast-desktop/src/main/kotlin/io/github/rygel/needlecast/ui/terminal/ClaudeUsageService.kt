@@ -1,6 +1,7 @@
 package io.github.rygel.needlecast.ui.terminal
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.JsonNode
 import org.slf4j.LoggerFactory
 import java.net.URI
 import java.net.http.HttpClient
@@ -81,7 +82,7 @@ class ClaudeUsageService(
                     .build()
                 val response = client.send(request, HttpResponse.BodyHandlers.ofString())
                 if (response.statusCode() != 200) {
-                    logger.warn("Claude usage API returned status {}: {}", response.statusCode(), response.body().take(200))
+                    logger.warn("Claude usage API request failed with status {}", response.statusCode())
                     return@submit
                 }
                 val data = parseResponse(response.body())
@@ -97,21 +98,32 @@ class ClaudeUsageService(
         return try {
             val tree = mapper.readTree(body)
             if (tree.has("error")) {
-                logger.warn("Claude usage API error: {}", tree.get("error"))
+                logger.warn("Claude usage API returned error payload")
                 return null
             }
             ClaudeUsageData(
-                fiveHourPercent = tree.at("/five_hour/utilization")?.asDouble(),
-                fiveHourResetsAt = tree.at("/five_hour/resets_at")?.asText(),
-                sevenDayPercent = tree.at("/seven_day/utilization")?.asDouble(),
-                sevenDayResetsAt = tree.at("/seven_day/resets_at")?.asText(),
-                sevenDaySonnetPercent = tree.at("/seven_day_sonnet/utilization")?.asDouble(),
-                sevenDayOpusPercent = tree.at("/seven_day_opus/utilization")?.asDouble(),
+                fiveHourPercent = tree.doubleAtOrNull("/five_hour/utilization"),
+                fiveHourResetsAt = tree.textAtOrNull("/five_hour/resets_at"),
+                sevenDayPercent = tree.doubleAtOrNull("/seven_day/utilization"),
+                sevenDayResetsAt = tree.textAtOrNull("/seven_day/resets_at"),
+                sevenDaySonnetPercent = tree.doubleAtOrNull("/seven_day_sonnet/utilization"),
+                sevenDayOpusPercent = tree.doubleAtOrNull("/seven_day_opus/utilization"),
             )
         } catch (e: Exception) {
             logger.warn("Failed to parse Claude usage response: {}", e.message)
             null
         }
+    }
+
+    private fun JsonNode.doubleAtOrNull(pointer: String): Double? {
+        val node = at(pointer)
+        return if (node.isMissingNode || node.isNull || !node.isNumber) null else node.asDouble()
+    }
+
+    private fun JsonNode.textAtOrNull(pointer: String): String? {
+        val node = at(pointer)
+        if (node.isMissingNode || node.isNull || !node.isTextual) return null
+        return node.asText().takeIf { it.isNotBlank() }
     }
 
     companion object {

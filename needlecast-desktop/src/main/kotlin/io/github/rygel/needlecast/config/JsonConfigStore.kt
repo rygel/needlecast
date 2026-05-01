@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.config.ConfigMigrator
+import io.github.rygel.needlecast.model.WorkspaceSnapshot
+import io.github.rygel.needlecast.model.toWorkspaceSnapshot
+import io.github.rygel.needlecast.model.withWorkspaceSnapshot
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -92,6 +95,16 @@ class JsonConfigStore(
 
     override fun export(config: AppConfig, path: Path) {
         mapper.writeValue(path.toFile(), config)
+    }
+
+    override fun importWorkspace(path: Path, baseConfig: AppConfig): AppConfig {
+        val snapshot = mapper.readValue(path.toFile(), WorkspaceSnapshot::class.java)
+        return baseConfig.withWorkspaceSnapshot(snapshot)
+    }
+
+    override fun exportWorkspace(config: AppConfig, path: Path) {
+        Files.createDirectories(path.parent)
+        mapper.writeValue(path.toFile(), config.toWorkspaceSnapshot())
     }
 
     companion object {

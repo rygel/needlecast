@@ -61,7 +61,7 @@ class ProjectSwitcherFilterTest {
     @Test
     fun `private project name is redacted when privacy mode on`() {
         val e = ProjectSwitcherDialog.Entry(
-            dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", private = true),
+            dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", isPrivate = true),
             folderPath = "Work",
             privacyModeEnabled = true,
         )
@@ -72,7 +72,7 @@ class ProjectSwitcherFilterTest {
     @Test
     fun `private project name is visible when privacy mode off`() {
         val e = ProjectSwitcherDialog.Entry(
-            dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", private = true),
+            dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", isPrivate = true),
             folderPath = "Work",
             privacyModeEnabled = false,
         )
@@ -84,7 +84,7 @@ class ProjectSwitcherFilterTest {
     fun `filter matches on redacted label when privacy mode on`() {
         val entries = listOf(
             ProjectSwitcherDialog.Entry(
-                dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", private = true),
+                dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", isPrivate = true),
                 folderPath = "Work",
                 privacyModeEnabled = true,
             ),
@@ -97,7 +97,7 @@ class ProjectSwitcherFilterTest {
     fun `filter matches on real path even when privacy mode on`() {
         val entries = listOf(
             ProjectSwitcherDialog.Entry(
-                dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", private = true),
+                dir = ProjectDirectory(path = "/workspace/secret", displayName = "Secret Project", isPrivate = true),
                 folderPath = "Work",
                 privacyModeEnabled = true,
             ),
