@@ -2,6 +2,7 @@ package io.github.rygel.needlecast.model
 
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonProperty
 import java.util.UUID
 
 // CommandHistoryEntry is defined in CommandDescriptor.kt (same package)
@@ -661,13 +662,14 @@ data class ProjectDirectory(
      */
     val extraScanDirs: List<String> = emptyList(),
     val skillTargetDir: String? = null,
-    val private: Boolean = false,
+    @JsonProperty("private")
+    val isPrivate: Boolean = false,
 ) {
     fun label(): String = displayName ?: path.substringAfterLast('/').substringAfterLast('\\').ifBlank { path }
 
     fun label(privacyModeEnabled: Boolean): String =
-        if (private && privacyModeEnabled) "••••••" else label()
+        if (isPrivate && privacyModeEnabled) "••••••" else label()
 
     fun redactedPath(privacyModeEnabled: Boolean): String =
-        if (private && privacyModeEnabled) "••••••" else path
+        if (isPrivate && privacyModeEnabled) "••••••" else path
 }

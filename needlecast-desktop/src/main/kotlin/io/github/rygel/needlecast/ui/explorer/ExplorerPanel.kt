@@ -201,6 +201,10 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                 return label
             }
         }
+
+        ctx.addConfigListener {
+            SwingUtilities.invokeLater { refreshAddressField() }
+        }
     }
 
     /**
@@ -246,16 +250,31 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private fun isCurrentProjectPrivate(): Boolean {
         val root = projectRootPath ?: return false
-        return ctx.config.projectTree
-            .filterIsInstance<ProjectTreeEntry.Project>()
-            .any { it.directory.path == root && it.directory.private }
+        return findProjectEntryByPath(ctx.config.projectTree, root)?.directory?.isPrivate == true
+    }
+
+    private fun findProjectEntryByPath(entries: List<ProjectTreeEntry>, rootPath: String): ProjectTreeEntry.Project? {
+        for (entry in entries) {
+            when (entry) {
+                is ProjectTreeEntry.Project -> if (entry.directory.path == rootPath) return entry
+                is ProjectTreeEntry.Folder -> {
+                    val nested = findProjectEntryByPath(entry.children, rootPath)
+                    if (nested != null) return nested
+                }
+            }
+        }
+        return null
     }
 
     private fun navigateTo(dir: File) {
         if (!dir.isDirectory) return
         currentDir = dir
-        addressField.text = if (ctx.config.privacyModeEnabled && isCurrentProjectPrivate()) "\u2022\u2022\u2022\u2022\u2022\u2022" else dir.absolutePath
+        refreshAddressField()
         loadDirectory(dir)
+    }
+
+    private fun refreshAddressField() {
+        addressField.text = if (ctx.config.privacyModeEnabled && isCurrentProjectPrivate()) "••••••" else currentDir.absolutePath
     }
 
     private fun navigateUp() {

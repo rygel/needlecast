@@ -1065,11 +1065,11 @@ class ProjectTreePanel(
                     if (topTags.isNotEmpty()) addSeparator()
                     add(JMenuItem("Edit\u2026").apply { addActionListener { editTags(node, entry) } })
                 })
-                menu.add(JCheckBoxMenuItem("Private", entry.directory.private).apply {
+                menu.add(JCheckBoxMenuItem("Private", entry.directory.isPrivate).apply {
                     toolTipText = "Hide project name and path when Privacy Mode is on"
                     addActionListener {
                         val cur = node.userObject as? ProjectTreeEntry.Project ?: return@addActionListener
-                        node.userObject = cur.copy(directory = cur.directory.copy(private = isSelected))
+                        node.userObject = cur.copy(directory = cur.directory.copy(isPrivate = isSelected))
                         treeModel.nodeChanged(node); persist(); tree.repaint()
                     }
                 })
@@ -1273,12 +1273,12 @@ class ProjectTreePanel(
                     agentLed.blinkOn   = blinkOn
                     val isMissing = entry.directory.path in missingPaths
                     missingIcon.isVisible = isMissing
-                    lockLabel.isVisible = entry.directory.private
+                    lockLabel.isVisible = entry.directory.isPrivate
                     nameLabel.text = entry.directory.label(ctx.config.privacyModeEnabled)
                     nameLabel.foreground = if (isMissing && !selected) Color(0xE53935) else fg
 
                     val gs = gitStatusCache[entry.directory.path]
-                    val isPrivateRedacted = entry.directory.private && ctx.config.privacyModeEnabled
+                    val isPrivateRedacted = entry.directory.isPrivate && ctx.config.privacyModeEnabled
                     if (gs?.branch != null && !isPrivateRedacted) {
                         branchLabel.text = "${gs.branch}${if (gs.isDirty) "*" else ""}"
                         branchLabel.toolTipText = gs.branch
