@@ -2,6 +2,21 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.7.4] — 2026-05-01
+
+### Added
+- **Workspace import/export** — import and export project tree workspace state from the File menu so you can move/share workspace setup across machines.
+
+### Changed
+- **Workspace files use a dedicated extension** — workspace export now defaults to `.needlecast-workspace` instead of `.json` to avoid confusion with full app config files.
+
+### Fixed
+- **Privacy-mode project flag naming** — internal project privacy field now uses `isPrivate` while keeping JSON compatibility with existing `private` values.
+- **Explorer privacy lookup for nested projects** — private projects inside folders are now correctly detected for path redaction.
+- **Claude quota parsing/logging hardening** — usage polling no longer logs raw API payloads on failure, and missing response fields are treated as absent instead of `0`/empty strings.
+
+---
+
 ## [0.7.3] — 2026-04-19
 
 ### Fixed
