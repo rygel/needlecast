@@ -73,7 +73,7 @@ class SettingsDialog(
             add(LayoutSettingsPanel(ctx, callbacks),            "layout")
             add(TerminalSettingsPanel(ctx, callbacks),          "terminal")
             add(ExternalEditorsSettingsPanel(ctx),              "editors")
-            add(AiToolsSettingsPanel(ctx),                      "ai-tools")
+            add(AiToolsSettingsPanel(ctx, callbacks),            "ai-tools")
             add(RenovateSettingsPanel(ctx, sendToTerminal),     "renovate")
             add(ApmSettingsPanel(ctx, sendToTerminal),          "apm")
             add(ShortcutsSettingsPanel(ctx, callbacks),         "shortcuts")

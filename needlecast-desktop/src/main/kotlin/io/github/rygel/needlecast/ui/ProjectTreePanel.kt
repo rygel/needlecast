@@ -85,7 +85,7 @@ class ProjectTreePanel(
         override fun getToolTipText(e: java.awt.event.MouseEvent): String? {
             val path = getPathForLocation(e.x, e.y) ?: return null
             val entry = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject
-            return (entry as? ProjectTreeEntry.Project)?.directory?.path
+            return (entry as? ProjectTreeEntry.Project)?.directory?.redactedPath(ctx.config.privacyModeEnabled)
         }
     }.apply {
         isRootVisible = false
@@ -196,15 +196,32 @@ class ProjectTreePanel(
             isContentAreaFilled = false
             border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
         }
-        val addFolderBtn = iconBtn(plusOverlayIcon(UIManager.getIcon("FileView.directoryIcon")), "\uD83D\uDCC1+", "Add a folder to organize projects").apply {
+        val addFolderBtn = iconBtn(RemixIcons.icon("ri-folder-add-line", 16), "", "Add a folder to organize projects").apply {
             addActionListener { addFolder(selectedFolderNode()) }
         }
-        val addProjectBtn = iconBtn(plusOverlayIcon(UIManager.getIcon("FileView.fileIcon")), "\uD83D\uDCC4+", "Add a project directory").apply {
+        val addProjectBtn = iconBtn(RemixIcons.icon("ri-file-add-line", 16), "", "Add a project directory").apply {
             addActionListener { addProject(selectedFolderNode()) }
         }
-        val rescanBtn = iconBtn(null, "\u21BB", "Rescan all projects (F5)").apply {
-            isContentAreaFilled = false
+        val rescanBtn = iconBtn(RemixIcons.icon("ri-refresh-line", 16), "", "Rescan all projects (F5)").apply {
             addActionListener { rescanAll() }
+        }
+
+        val privacyBtn = JButton(RemixIcons.icon("ri-eye-line", 16)).apply {
+            toolTipText = "Privacy Mode \u2014 hide private project names and paths"
+            isFocusPainted = false
+            isContentAreaFilled = false
+            border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
+            isOpaque = false
+            val updateState = {
+                icon = if (ctx.config.privacyModeEnabled) RemixIcons.icon("ri-eye-off-line", 16) else RemixIcons.icon("ri-eye-line", 16)
+                toolTipText = if (ctx.config.privacyModeEnabled) "Privacy Mode ON \u2014 click to show names" else "Privacy Mode \u2014 hide private project names and paths"
+            }
+            updateState()
+            addActionListener {
+                ctx.updateConfig(ctx.config.copy(privacyModeEnabled = !ctx.config.privacyModeEnabled))
+                updateState()
+                tree.repaint()
+            }
         }
 
         val filterField = JTextField().apply {
@@ -221,7 +238,7 @@ class ProjectTreePanel(
             border = BorderFactory.createEmptyBorder(2, 2, 2, 2)
             val btnPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
                 isOpaque = false
-                add(addFolderBtn); add(addProjectBtn); add(rescanBtn)
+                add(privacyBtn); add(addFolderBtn); add(addProjectBtn); add(rescanBtn)
             }
             add(filterField, BorderLayout.CENTER)
             add(btnPanel,    BorderLayout.EAST)
@@ -817,7 +834,7 @@ class ProjectTreePanel(
             add(JLabel("<html><small>Shell: e.g. <tt>zsh</tt>, <tt>pwsh</tt> — blank = <tt>$defaultShell</tt><br>" +
                 "Startup: sent on open, e.g. <tt>conda activate ml</tt></small></html>"), gc)
         }
-        if (JOptionPane.showConfirmDialog(owner, form, "Shell Settings \u2014 ${dir.label()}",
+        if (JOptionPane.showConfirmDialog(owner, form, "Shell Settings \u2014 ${dir.label(ctx.config.privacyModeEnabled)}",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return
         node.userObject = entry.copy(directory = dir.copy(
             shellExecutable = shellField.text.trim().takeIf { it.isNotEmpty() },
@@ -829,7 +846,7 @@ class ProjectTreePanel(
 
     private fun editEnv(node: DefaultMutableTreeNode, entry: ProjectTreeEntry.Project) {
         val owner = SwingUtilities.getWindowAncestor(this) ?: return
-        EnvEditorDialog(owner, entry.directory.label(), entry.directory.env) { newEnv ->
+        EnvEditorDialog(owner, entry.directory.label(ctx.config.privacyModeEnabled), entry.directory.env) { newEnv ->
             node.userObject = entry.copy(directory = entry.directory.copy(env = newEnv))
             treeModel.nodeChanged(node)
             persist()
@@ -874,7 +891,7 @@ class ProjectTreePanel(
             }, BorderLayout.SOUTH)
         }
 
-        if (JOptionPane.showConfirmDialog(owner, form, "Script Directories \u2014 ${dir.label()}",
+        if (JOptionPane.showConfirmDialog(owner, form, "Script Directories \u2014 ${dir.label(ctx.config.privacyModeEnabled)}",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return
 
         val newDirs = (0 until listModel.size).map { listModel.getElementAt(it) }
@@ -1048,6 +1065,14 @@ class ProjectTreePanel(
                     if (topTags.isNotEmpty()) addSeparator()
                     add(JMenuItem("Edit\u2026").apply { addActionListener { editTags(node, entry) } })
                 })
+                menu.add(JCheckBoxMenuItem("Private", entry.directory.private).apply {
+                    toolTipText = "Hide project name and path when Privacy Mode is on"
+                    addActionListener {
+                        val cur = node.userObject as? ProjectTreeEntry.Project ?: return@addActionListener
+                        node.userObject = cur.copy(directory = cur.directory.copy(private = isSelected))
+                        treeModel.nodeChanged(node); persist(); tree.repaint()
+                    }
+                })
                 menu.add(JMenuItem("Shell Settings\u2026").apply { addActionListener { editShellSettings(node, entry) } })
                 menu.add(JMenuItem("Environment\u2026").apply { addActionListener { editEnv(node, entry) } })
                 menu.add(JMenuItem("Script Directories\u2026").apply { addActionListener { editScriptDirs(node, entry) } })
@@ -1105,10 +1130,15 @@ class ProjectTreePanel(
             border = BorderFactory.createEmptyBorder(0, 0, 0, 2)
         }
         private val agentLed = LedIndicator()
+        private val lockLabel = JLabel().apply {
+            icon = RemixIcons.icon("ri-lock-line", 12)
+            isVisible = false
+        }
         private val dotsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
             isOpaque = false
             add(activeDot)
             add(agentLed)
+            add(lockLabel)
         }
         private val branchLabel = JLabel().apply {
             font = Font(Font.MONOSPACED, Font.PLAIN, 10); foreground = Color(0x888888)
@@ -1243,11 +1273,13 @@ class ProjectTreePanel(
                     agentLed.blinkOn   = blinkOn
                     val isMissing = entry.directory.path in missingPaths
                     missingIcon.isVisible = isMissing
-                    nameLabel.text = entry.directory.label()
+                    lockLabel.isVisible = entry.directory.private
+                    nameLabel.text = entry.directory.label(ctx.config.privacyModeEnabled)
                     nameLabel.foreground = if (isMissing && !selected) Color(0xE53935) else fg
 
                     val gs = gitStatusCache[entry.directory.path]
-                    if (gs?.branch != null) {
+                    val isPrivateRedacted = entry.directory.private && ctx.config.privacyModeEnabled
+                    if (gs?.branch != null && !isPrivateRedacted) {
                         branchLabel.text = "${gs.branch}${if (gs.isDirty) "*" else ""}"
                         branchLabel.toolTipText = gs.branch
                         branchLabel.foreground = if (gs.isDirty) Color(0xE6A817) else Color(0x888888)

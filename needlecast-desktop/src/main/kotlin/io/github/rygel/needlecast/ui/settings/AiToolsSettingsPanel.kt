@@ -4,6 +4,7 @@ import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.AiCliDefinition
 import io.github.rygel.needlecast.ui.AiCli
 import io.github.rygel.needlecast.ui.KNOWN_AI_CLIS
+import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.FlowLayout
@@ -22,10 +23,19 @@ import javax.swing.JTextField
 
 class AiToolsSettingsPanel(
     private val ctx: AppContext,
+    private val callbacks: SettingsCallbacks = SettingsCallbacks(),
 ) : JPanel(BorderLayout(0, 6)) {
 
     init {
         border = BorderFactory.createEmptyBorder(8, 10, 8, 10)
+
+        val quotaToggle = JCheckBox("Show Claude quota in status bar", ctx.config.claudeQuotaEnabled).apply {
+            toolTipText = "Display 5-hour and 7-day usage percentages from your Claude subscription in the status bar. Requires Claude Code credentials."
+            addActionListener {
+                ctx.updateConfig(ctx.config.copy(claudeQuotaEnabled = isSelected))
+                callbacks.onClaudeQuotaToggled(isSelected)
+            }
+        }
 
         val enabledMap = ctx.config.aiCliEnabled.toMutableMap()
         val builtIn    = KNOWN_AI_CLIS.map { it to false }
@@ -95,7 +105,7 @@ class AiToolsSettingsPanel(
             }
         }
 
-        val removeBtn = JButton("− Remove Custom CLI").apply {
+        val removeBtn = JButton(RemixIcons.icon("ri-subtract-line", 16)).apply {
             addActionListener {
                 val customOnly = allClis.filter { it.second }.map { it.first }
                 if (customOnly.isEmpty()) {
@@ -112,9 +122,12 @@ class AiToolsSettingsPanel(
             }
         }
 
-        add(JLabel("<html>Check the AI tools shown in the project tree and AI Tools menu.<br>" +
-            "Built-in tools are detected automatically; custom tools use PATH lookup.</html>").apply {
-            border = BorderFactory.createEmptyBorder(0, 0, 4, 0)
+        add(JPanel(BorderLayout()).apply {
+            add(JLabel("<html>Check the AI tools shown in the project tree and AI Tools menu.<br>" +
+                "Built-in tools are detected automatically; custom tools use PATH lookup.</html>").apply {
+                border = BorderFactory.createEmptyBorder(0, 0, 4, 0)
+            }, BorderLayout.NORTH)
+            add(quotaToggle, BorderLayout.SOUTH)
         }, BorderLayout.NORTH)
         add(JScrollPane(listPanel).apply { border = BorderFactory.createEmptyBorder() }, BorderLayout.CENTER)
         add(JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply { add(addBtn); add(removeBtn) }, BorderLayout.SOUTH)

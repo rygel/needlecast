@@ -10,9 +10,11 @@ import io.github.andrewauclair.moderndocking.settings.Settings
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.ThemeRegistry
 import io.github.rygel.needlecast.isOsDark
+import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.explorer.ExplorerPanel
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
 import io.github.rygel.needlecast.ui.terminal.ClaudeHookServer
+import io.github.rygel.needlecast.ui.terminal.ClaudeUsageService
 import io.github.rygel.needlecast.ui.terminal.TerminalManager
 import java.awt.AWTEvent
 import java.awt.BorderLayout
@@ -70,6 +72,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val claudeHookServer: ClaudeHookServer? =
         if (ctx.config.claudeHooksEnabled) ClaudeHookServer { cwd, status -> terminalPanel.onHookEvent(cwd, status) }
         else null
+    private var claudeUsageService: ClaudeUsageService? = null
     private val terminalPanel  = TerminalManager()
     private val explorerPanel  = ExplorerPanel(ctx)
     private val promptInputPanel  = PromptInputPanel(ctx, sendToTerminal = { terminalPanel.sendInput(it) })
@@ -191,6 +194,10 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 .apply { isDaemon = true; start() }
         }
 
+        if (ctx.config.claudeQuotaEnabled) {
+            startUsageService()
+        }
+
         // Application icon (taskbar, title bar, Alt+Tab)
         val iconUrl = MainWindow::class.java.getResource("/icons/needlecast.png")
         if (iconUrl != null) {
@@ -273,6 +280,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     logViewerPanel.dispose()
                     terminalPanel.dispose()
                     claudeHookServer?.stop()
+                    claudeUsageService?.stop()
                     edtMonitorRunning = false
                     dispose()
                 } finally {
@@ -297,6 +305,20 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             }
         }
         super.dispose()
+    }
+
+    private fun startUsageService() {
+        val svc = ClaudeUsageService { data ->
+            statusBar.updateQuota(data)
+        }
+        claudeUsageService = svc
+        svc.start()
+    }
+
+    private fun stopUsageService() {
+        claudeUsageService?.stop()
+        claudeUsageService = null
+        statusBar.hideQuota()
     }
 
     // ── Layout ───────────────────────────────────────────────────────────────
@@ -600,6 +622,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                         onEditorFontChanged     = { family, size -> explorerPanel.applyEditorFont(family, size) },
                         onTerminalFontChanged   = { family -> terminalPanel.applyFontFamily(family) },
                         onSyntaxThemeChanged    = { explorerPanel.applyTheme(ThemeRegistry.isDark(ctx.config.theme)) },
+                        onClaudeQuotaToggled    = { enabled ->
+                            if (enabled) startUsageService() else stopUsageService()
+                        },
                     ),
                 ).isVisible = true
             }
@@ -718,7 +743,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 menu.add(commandLibraryItem)
                 menu.addSeparator()
 
-                menu.add(JMenuItem("↻ Rescan").apply {
+                menu.add(JMenuItem("Rescan").apply {
+                    icon = RemixIcons.icon("ri-refresh-line", 16)
                     addActionListener { cliCacheReady = false; refreshCliCache(); menu.doClick() }
                 })
                 menu.addSeparator()
@@ -733,7 +759,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     menu.add(JMenuItem("No AI CLIs detected").apply { isEnabled = false })
                 } else {
                     found.forEach { (cli, _) ->
-                        menu.add(JMenuItem("▶  ${cli.name}").apply {
+                        menu.add(JMenuItem(cli.name).apply {
+                            icon = RemixIcons.icon("ri-play-line", 16)
                             toolTipText = cli.description
                             font = font.deriveFont(Font.BOLD)
                             addActionListener { launchCliInTerminal(cli) }
@@ -886,6 +913,12 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             addSeparator()
             add(showConsoleCb)
             add(showExplorerCb)
+            add(JCheckBoxMenuItem("Privacy Mode", ctx.config.privacyModeEnabled).apply {
+                toolTipText = "Hide private project names and paths for screenshots"
+                addActionListener {
+                    ctx.updateConfig(ctx.config.copy(privacyModeEnabled = isSelected))
+                }
+            })
             addSeparator()
             add(JCheckBoxMenuItem("Highlight panel on hover  [alpha]", ctx.config.panelHoverHighlight).apply {
                 toolTipText = "Draws a colored border around the panel under the mouse cursor. Experimental."

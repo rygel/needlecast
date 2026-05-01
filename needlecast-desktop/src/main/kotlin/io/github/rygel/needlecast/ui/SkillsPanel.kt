@@ -5,6 +5,7 @@ import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.model.SkillEntry
+import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
@@ -49,9 +50,9 @@ class SkillsPanel(
         font = Font(Font.SANS_SERIF, Font.PLAIN, 12)
         border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
     }
-    private val newButton = JButton("+")
-    private val editButton = JButton("\u270F")
-    private val deleteButton = JButton("\u2212")
+    private val newButton = JButton(RemixIcons.icon("ri-add-line", 16))
+    private val editButton = JButton(RemixIcons.icon("ri-edit-line", 16))
+    private val deleteButton = JButton(RemixIcons.icon("ri-delete-bin-line", 16))
     private val deployButton = JButton("Deploy")
     private var currentProject: DetectedProject? = null
     private var deployedNames: Set<String> = emptySet()
@@ -264,8 +265,8 @@ class SkillsPanel(
         ): Component {
             if (value == null) return label
             val deployed = value.name in deployedNames
-            val text = if (deployed) "\u2705 ${value.name}" else value.name
-            label.text = "<html>${text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}</html>"
+            label.text = value.name
+            label.icon = if (deployed) RemixIcons.icon("ri-checkbox-circle-fill", 12, java.awt.Color(0x4CAF50)) else null
             label.toolTipText = value.description.ifBlank { null }
             label.foreground = if (isSelected) list.selectionForeground else list.foreground
             label.background = if (isSelected) list.selectionBackground else list.background

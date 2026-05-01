@@ -2,6 +2,7 @@ package io.github.rygel.needlecast.ui.settings
 
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ExternalEditor
+import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.awt.GridBagConstraints
@@ -33,7 +34,7 @@ class ExternalEditorsSettingsPanel(
         }
 
         val addButton    = JButton("+")
-        val removeButton = JButton("−").apply { isEnabled = false }
+        val removeButton = JButton(RemixIcons.icon("ri-subtract-line", 16)).apply { isEnabled = false }
 
         list.addListSelectionListener {
             removeButton.isEnabled = list.selectedValue != null

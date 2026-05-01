@@ -27,6 +27,7 @@ import javax.swing.JPopupMenu
 import javax.swing.JMenuItem
 import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
+import io.github.rygel.needlecast.ui.RemixIcons
 
 /**
  * Ordered list of charsets to try when reading a file.
@@ -73,7 +74,7 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         val saveButton = JButton("Save").apply {
             addActionListener { saveFile() }
         }
-        val openWithButton = JButton("Open with \u25BE").apply {
+        val openWithButton = JButton("Open with", RemixIcons.icon("ri-arrow-down-s-line", 12)).apply {
             addActionListener { showOpenWithMenu(this) }
         }
 
