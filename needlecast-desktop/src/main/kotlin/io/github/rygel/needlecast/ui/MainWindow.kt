@@ -16,6 +16,10 @@ import io.github.rygel.needlecast.ui.terminal.AgentStatus
 import io.github.rygel.needlecast.ui.terminal.ClaudeHookServer
 import io.github.rygel.needlecast.ui.terminal.ClaudeUsageService
 import io.github.rygel.needlecast.ui.terminal.TerminalManager
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.URI
+import java.net.UnknownHostException
 import java.awt.AWTEvent
 import java.awt.BorderLayout
 import java.awt.Component
@@ -44,6 +48,10 @@ import javax.swing.SwingUtilities
 import javax.swing.UIManager
 import javax.swing.filechooser.FileNameExtensionFilter
 import javax.swing.plaf.FontUIResource
+import javax.net.ssl.SSLException
+import javax.net.ssl.SSLHandshakeException
+
+private const val APPCAST_URL = "https://github.com/rygel/needlecast/releases/latest/download/appcast.xml"
 
 internal fun buildSparkle4jInstance(
     version: String,
@@ -51,7 +59,7 @@ internal fun buildSparkle4jInstance(
     parentComponent: Component? = null,
 ): io.github.rygel.sparkle4j.Sparkle4jInstance {
     val builder = io.github.rygel.sparkle4j.Sparkle4j.builder()
-        .appcastUrl("https://github.com/rygel/needlecast/releases/latest/download/appcast.xml")
+        .appcastUrl(APPCAST_URL)
         .currentVersion(version)
         // The current release workflow publishes an unsigned appcast, so opting out of
         // signature verification is required until signed release assets are wired in.
@@ -647,6 +655,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val fileMenu = JMenu(i18n.translate("menu.file")).apply {
             add(settingsItem); addSeparator()
             add(importItem); add(exportItem)
+            addSeparator()
             add(importWorkspaceItem); add(exportWorkspaceItem); addSeparator()
             add(exitItem)
         }
@@ -1264,7 +1273,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                     }
                 }
             } catch (e: Exception) {
-                updateLogger.warn("Update check failed", e)
+                logUpdateCheckFailure("Periodic update check", e)
             }
         }.also { it.isDaemon = true; it.name = "update-check" }.start()
     }
@@ -1301,11 +1310,63 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 openReleasesPage()
             }
         } catch (e: Exception) {
-            updateLogger.error("Manual update check failed", e)
+            logUpdateCheckFailure("Manual update check", e)
             JOptionPane.showMessageDialog(this,
                 "Could not check for updates: ${e.message}",
                 "Check for Updates", JOptionPane.ERROR_MESSAGE)
         }
+    }
+
+    private fun logUpdateCheckFailure(context: String, error: Throwable) {
+        val root = rootCause(error)
+        val category = classifyUpdateError(root)
+        val appcastHost = runCatching { URI(APPCAST_URL).host }.getOrNull() ?: "unknown"
+        updateLogger.warn(
+            "{} failed: category={}, appcastHost={}, exceptionType={}, message={}, rootType={}, rootMessage={}",
+            context,
+            category,
+            appcastHost,
+            error::class.java.name,
+            sanitizeLogField(error.message),
+            root::class.java.name,
+            sanitizeLogField(root.message),
+        )
+        if (category.startsWith("tls")) {
+            updateLogger.warn(
+                "{} TLS hint: verify corporate proxy/SSL interception trust chain and JVM trust store",
+                context
+            )
+        }
+        updateLogger.debug("{} stacktrace", context, error)
+    }
+
+    private fun rootCause(error: Throwable): Throwable {
+        var current = error
+        while (current.cause != null && current.cause !== current) {
+            current = current.cause!!
+        }
+        return current
+    }
+
+    private fun classifyUpdateError(error: Throwable): String = when (error) {
+        is SSLHandshakeException -> "tls_handshake"
+        is SSLException -> "tls_ssl"
+        is UnknownHostException -> "dns_unresolved_host"
+        is SocketTimeoutException -> "network_timeout"
+        is ConnectException -> "network_connect_refused"
+        else -> {
+            val message = (error.message ?: "").lowercase()
+            when {
+                message.contains("pkix") || message.contains("certification path") -> "tls_cert_path"
+                message.contains("certificate") -> "tls_certificate"
+                else -> "unknown"
+            }
+        }
+    }
+
+    private fun sanitizeLogField(value: String?): String {
+        if (value.isNullOrBlank()) return "-"
+        return value.replace(Regex("[\\r\\n\\t]+"), " ").trim()
     }
 
     companion object {
