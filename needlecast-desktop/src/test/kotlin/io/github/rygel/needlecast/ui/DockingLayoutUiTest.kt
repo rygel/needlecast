@@ -145,6 +145,20 @@ class DockingLayoutUiTest {
             "Project tree (${projectBounds.width}px) should be narrower than commands (${commandsBounds.width}px)")
     }
 
+    @Test
+    fun `project tree and explorer share one left sidebar rail`() {
+        window = startApp()
+        fixture = FrameFixture(robot, window)
+        fixture.show()
+        robot.waitForIdle()
+
+        val projectBounds  = boundsOf("project-tree") ?: error("project-tree not found")
+        val explorerBounds = boundsOf("explorer") ?: error("explorer not found")
+
+        assertEquals(projectBounds.x, explorerBounds.x, "Explorer should share the left rail X position")
+        assertEquals(projectBounds.width, explorerBounds.width, "Explorer should share left rail width")
+    }
+
     /**
      * After View → Reset Layout is triggered, all panels must return to the docked state.
      * (Simulates a user who had undocked panels and wants to restore defaults.)
