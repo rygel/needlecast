@@ -112,6 +112,36 @@ object DiffParser {
             j++
         }
 
-        return HunkParseResult(Hunk(oldStart, oldCount, newStart, newCount, diffLines), j)
+        return HunkParseResult(Hunk(oldStart, oldCount, newStart, newCount, computeWordDiffs(diffLines)), j)
+    }
+
+    private fun computeWordDiffs(lines: List<DiffLine>): List<DiffLine> {
+        val result = lines.toMutableList()
+        var i = 0
+        while (i < result.size) {
+            if (result[i].type == DiffLineType.REMOVED) {
+                val removedStart = i
+                var removedEnd = i
+                while (removedEnd < result.size && result[removedEnd].type == DiffLineType.REMOVED) {
+                    removedEnd++
+                }
+                var addedEnd = removedEnd
+                while (addedEnd < result.size && result[addedEnd].type == DiffLineType.ADDED) {
+                    addedEnd++
+                }
+                val removedCount = removedEnd - removedStart
+                val addedCount = addedEnd - removedEnd
+
+                if (removedCount == 1 && addedCount == 1) {
+                    val wd = WordDiffCalculator.compute(result[removedStart].content, result[removedEnd].content)
+                    result[removedStart] = result[removedStart].copy(wordDiffs = wd.removed)
+                    result[removedEnd] = result[removedEnd].copy(wordDiffs = wd.added)
+                }
+                i = addedEnd
+            } else {
+                i++
+            }
+        }
+        return result
     }
 }

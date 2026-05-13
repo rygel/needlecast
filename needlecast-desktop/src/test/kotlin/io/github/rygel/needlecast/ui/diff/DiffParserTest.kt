@@ -159,6 +159,27 @@ diff --git a/F.kt b/F.kt
     }
 
     @Test
+    fun `computes word diffs for consecutive removed-added pairs`() {
+        val raw = """
+diff --git a/F.kt b/F.kt
+--- a/F.kt
++++ b/F.kt
+@@ -1 +1 @@
+-old text here
++new text here
+        """.trimIndent()
+
+        val lines = DiffParser.parse(raw).files[0].hunks[0].lines
+        val removed = lines[0]
+        val added = lines[1]
+
+        assertEquals(DiffLineType.REMOVED, removed.type)
+        assertEquals(DiffLineType.ADDED, added.type)
+        assertEquals(listOf(WordDiff(WordDiffType.REMOVED, "old")), removed.wordDiffs)
+        assertEquals(listOf(WordDiff(WordDiffType.ADDED, "new")), added.wordDiffs)
+    }
+
+    @Test
     fun `computes stats from parsed data`() {
         val raw = """
 diff --git a/A.kt b/A.kt
