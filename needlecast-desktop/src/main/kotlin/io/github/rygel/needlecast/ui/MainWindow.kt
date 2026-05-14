@@ -11,6 +11,7 @@ import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.ThemeRegistry
 import io.github.rygel.needlecast.isOsDark
 import io.github.rygel.needlecast.ui.RemixIcons
+import io.github.rygel.needlecast.ui.diff.DiffViewerPanel
 import io.github.rygel.needlecast.ui.explorer.ExplorerPanel
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
 import io.github.rygel.needlecast.ui.terminal.ClaudeHookServer
@@ -92,7 +93,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         isCommand       = true,
     )
     private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
-    private val gitLogPanel   = GitLogPanel(ctx.gitService) { path ->
+    private val gitLogPanel   = GitLogPanel(ctx.gitService)
+    private val diffViewerPanel = DiffViewerPanel { path ->
         explorerPanel.openFile(java.io.File(path))
     }
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
@@ -147,6 +149,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val terminalDockable    = DockablePanel(terminalPanel,                 "terminal",     "Terminal", closable = false)
     private val commandsDockable    = DockablePanel(commandPanel,                  "commands",     "Commands")
     private val gitLogDockable      = DockablePanel(gitLogPanel,                   "git-log",      "Git Log")
+    private val diffDockable        = DockablePanel(diffViewerPanel, "diff-viewer", "Diff")
     private val explorerDockable    = DockablePanel(explorerPanel,                 "explorer",     "Explorer")
     private val editorDockable      = DockablePanel(explorerPanel.editorComponent, "editor",       "Editor")
     private val renovateDockable     = DockablePanel(renovatePanel,                 "renovate",     "Renovate")
@@ -176,6 +179,13 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         terminalPanel.onProjectStatusChanged = { path, status ->
             projectTreePanel.updateProjectStatus(path, status)
+        }
+
+        gitLogPanel.onCommitSelected = { result ->
+            diffViewerPanel.display(result)
+            if (dockingEnabled && !Docking.isDocked(diffDockable)) {
+                toggleDiff(true)
+            }
         }
 
         // Restore persisted terminal colors and font size
@@ -232,6 +242,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             Docking.registerDockable(terminalDockable)
             Docking.registerDockable(commandsDockable)
             Docking.registerDockable(gitLogDockable)
+            Docking.registerDockable(diffDockable)
             Docking.registerDockable(logViewerDockable)
             Docking.registerDockable(searchDockable)
             Docking.registerDockable(explorerDockable)
@@ -409,7 +420,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         if (!restored || !allPresent) {
             listOf(projectTreeDockable, terminalDockable, commandsDockable,
-                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable, docsDockable, docViewerDockable, skillsDockable)
+                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable, docsDockable, docViewerDockable, skillsDockable, diffDockable)
                 .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
             dockingLayoutFile.delete()
             setupDefaultDockingLayout()
@@ -466,6 +477,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.dock(promptInputDockable,  terminalDockable,   DockingRegion.SOUTH,  0.90)
         // 9. Command input tabbed with prompt input
         Docking.dock(commandInputDockable, promptInputDockable, DockingRegion.CENTER)
+        Docking.dock(diffDockable, terminalDockable, DockingRegion.SOUTH, 0.25)
 
         SwingUtilities.invokeLater { selectPrimaryTabs() }
     }
@@ -474,7 +486,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     fun resetLayout() {
         AppState.setAutoPersist(false)
         listOf(projectTreeDockable, terminalDockable, commandsDockable,
-               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable, docViewerDockable, skillsDockable)
+               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable, docViewerDockable, skillsDockable, diffDockable)
             .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
         dockingLayoutFile.delete()
         setupDefaultDockingLayout()
@@ -558,6 +570,14 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             else dockTo(gitLogDockable, terminalDockable, DockingRegion.EAST, 0.28)
         } else if (!show && Docking.isDocked(gitLogDockable)) {
             Docking.undock(gitLogDockable)
+        }
+    }
+
+    private fun toggleDiff(show: Boolean) {
+        if (show && !Docking.isDocked(diffDockable)) {
+            Docking.dock(diffDockable, terminalDockable, DockingRegion.SOUTH, 0.25)
+        } else if (!show && Docking.isDocked(diffDockable)) {
+            Docking.undock(diffDockable)
         }
     }
 
@@ -1039,6 +1059,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val gitLogCb = JCheckBoxMenuItem("Git Log").apply {
             addActionListener { toggleGitLog(isSelected) }
         }
+        val diffCb = JCheckBoxMenuItem("Diff").apply {
+            addActionListener { toggleDiff(isSelected) }
+        }
         val searchCb = JCheckBoxMenuItem("Search").apply {
             addActionListener { toggleSearch(isSelected) }
         }
@@ -1067,6 +1090,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         fun syncState() {
             commandsCb.isSelected = Docking.isDocked(commandsDockable)
             gitLogCb.isSelected = Docking.isDocked(gitLogDockable)
+            diffCb.isSelected = Docking.isDocked(diffDockable)
             searchCb.isSelected = Docking.isDocked(searchDockable)
             explorerCb.isSelected = Docking.isDocked(explorerDockable)
             editorCb.isSelected = Docking.isDocked(editorDockable)
@@ -1085,6 +1109,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             })
             add(commandsCb)
             add(gitLogCb)
+            add(diffCb)
             add(searchCb)
             add(renovateCb)
             add(docViewerCb)
@@ -1152,7 +1177,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val allDockables get() = listOf(
         projectTreeDockable, terminalDockable, commandsDockable, gitLogDockable,
         logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
-        promptInputDockable, commandInputDockable, docsDockable, docViewerDockable, skillsDockable,
+        promptInputDockable, commandInputDockable, docsDockable, docViewerDockable, skillsDockable, diffDockable,
     )
     private var highlightedDockable: DockablePanel? = null
 
