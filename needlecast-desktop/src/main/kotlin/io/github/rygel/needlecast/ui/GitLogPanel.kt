@@ -3,6 +3,10 @@ package io.github.rygel.needlecast.ui
 import io.github.rygel.needlecast.git.ChangedFile
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
+import io.github.rygel.needlecast.ui.diff.DiffParser
+import io.github.rygel.needlecast.ui.diff.DiffResult
+import io.github.rygel.needlecast.ui.diff.DiffStats
+import io.github.rygel.needlecast.ui.diff.DiffViewerPanel
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -36,7 +40,10 @@ private data class GitCommit(val hash: String, val subject: String)
  * - Commit: staging checklist + commit message field
  * - Output: streaming text for fetch/push/pull
  */
-class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JPanel(BorderLayout()) {
+class GitLogPanel(
+    private val gitService: GitService = ProcessGitService(),
+    private val fileOpener: ((String) -> Unit)? = null,
+) : JPanel(BorderLayout()) {
 
     // ── Log view ──────────────────────────────────────────────────────────────
     private val logModel = DefaultListModel<GitCommit>()
@@ -46,13 +53,7 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
         setCellRenderer(CommitCellRenderer())
         fixedCellHeight = 28
     }
-    private val diffArea = JTextArea().apply {
-        name = "diff-area"
-        isEditable = false
-        font = Font(Font.MONOSPACED, Font.PLAIN, 11)
-        lineWrap = false
-        border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
-    }
+    private val diffViewer = DiffViewerPanel(fileOpener)
 
     // ── Commit view (wired in Task 4) ─────────────────────────────────────────
     private val fileListModel = DefaultListModel<ChangedFile>()
@@ -90,7 +91,7 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
     private val cardPanel  = JPanel(cardLayout)
 
     private var currentPath: String? = null
-    private var pendingDiffWorker: SwingWorker<String, Void>? = null
+    private var pendingDiffWorker: SwingWorker<*, Void>? = null
     private val maxDiffChars = 400_000
 
     init {
@@ -100,7 +101,7 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
         val split = JSplitPane(
             JSplitPane.VERTICAL_SPLIT,
             JScrollPane(logList).apply { minimumSize = Dimension(0, 0) },
-            JScrollPane(diffArea).apply { minimumSize = Dimension(0, 0) },
+            diffViewer,
         ).apply { resizeWeight = 0.4 }
 
         logList.addListSelectionListener { e ->
@@ -135,9 +136,11 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
     fun loadProject(path: String?) {
         currentPath = path
         logModel.clear()
-        TextChunker.cancel(diffArea)
-        diffArea.text = if (path == null) "" else "Loading commits\u2026"
-        if (path == null) return
+        if (path == null) {
+            diffViewer.displayEmpty("")
+            return
+        }
+        diffViewer.displayEmpty("Loading commits\u2026")
 
         object : SwingWorker<List<GitCommit>, Void>() {
             override fun doInBackground(): List<GitCommit> =
@@ -154,10 +157,9 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
                 val commits = try { get() } catch (_: Exception) { return }
                 commits.forEach { logModel.addElement(it) }
                 if (logModel.size > 0) {
-                    diffArea.text = "Select a commit to view details."
-                    diffArea.caretPosition = 0
+                    diffViewer.displayEmpty("Select a commit to view details.")
                 } else {
-                    diffArea.text = "No commits found."
+                    diffViewer.displayEmpty("No commits found.")
                 }
             }
         }.execute()
@@ -310,17 +312,16 @@ class GitLogPanel(private val gitService: GitService = ProcessGitService()) : JP
     private fun showCommit(hash: String) {
         val path = currentPath ?: return
         pendingDiffWorker?.cancel(true)
-        pendingDiffWorker = object : SwingWorker<String, Void>() {
-            override fun doInBackground(): String =
-                gitService.show(path, hash) ?: "Could not load commit $hash"
+        pendingDiffWorker = object : SwingWorker<DiffResult, Void>() {
+            override fun doInBackground(): DiffResult {
+                val raw = gitService.show(path, hash) ?: return DiffResult(emptyList(), DiffStats(0, 0))
+                val truncated = if (raw.length > maxDiffChars) raw.take(maxDiffChars) else raw
+                return DiffParser.parse(truncated)
+            }
             override fun done() {
                 if (isCancelled) return
-                val text = try { get() } catch (_: Exception) { return }
-                val rendered = if (text.length > maxDiffChars) {
-                    val omitted = text.length - maxDiffChars
-                    text.take(maxDiffChars) + "\n\n[Diff truncated: omitted ${omitted} characters]"
-                } else text
-                TextChunker.setTextChunked(diffArea, rendered) { diffArea.caretPosition = 0 }
+                val result = try { get() } catch (_: Exception) { return }
+                diffViewer.display(result)
             }
         }.also { it.execute() }
     }

@@ -92,7 +92,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         isCommand       = true,
     )
     private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
-    private val gitLogPanel   = GitLogPanel(ctx.gitService)
+    private val gitLogPanel   = GitLogPanel(ctx.gitService) { path ->
+        explorerPanel.openFile(java.io.File(path))
+    }
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
     private val searchPanel   = SearchPanel { file, line, column -> explorerPanel.openFileAt(file, line, column) }
     private val renovatePanel = RenovatePanel()
