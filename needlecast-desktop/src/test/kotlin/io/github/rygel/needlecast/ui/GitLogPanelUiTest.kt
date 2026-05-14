@@ -20,7 +20,7 @@ import javax.swing.JList
 import javax.swing.JTextArea
 import javax.swing.JToggleButton
 import org.junit.jupiter.api.Assertions.assertTrue
-import io.github.rygel.needlecast.ui.diff.DiffViewerPanel
+import io.github.rygel.needlecast.ui.diff.DiffResult
 
 private class FakeGitService(
     val logLines: String? = "",
@@ -58,7 +58,6 @@ class GitLogPanelUiTest {
     private lateinit var fixture: FrameFixture
     private lateinit var panel: GitLogPanel
     private lateinit var list: JList<*>
-    private lateinit var diffViewer: DiffViewerPanel
 
     @TempDir
     lateinit var tempDir: Path
@@ -86,12 +85,11 @@ class GitLogPanelUiTest {
         fix.show()
         robot.waitForIdle()
         list = robot.finder().findByName(panel, "log-list", JList::class.java, true)
-        diffViewer = robot.finder().findByName(panel, "diff-viewer", DiffViewerPanel::class.java, true)
         return fix
     }
 
     @Test
-    fun `clicking a commit displays the parsed diff in the viewer`() {
+    fun `clicking a commit invokes onCommitSelected with parsed diff result`() {
         val diffOutput = buildString {
             appendLine("commit abc123")
             appendLine("Author: Test")
@@ -110,32 +108,21 @@ class GitLogPanelUiTest {
         }
         val fake = FakeGitService(logLines = "abc123 Commit one\n", showOutput = diffOutput)
         panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
-        fixture = showInFrame(panel)
 
+        var capturedResult: DiffResult? = null
+        panel.onCommitSelected = { result -> capturedResult = result }
+
+        fixture = showInFrame(panel)
         GuiActionRunner.execute { panel.loadProject(tempDir.toString()) }
         waitForListSize(1, 2_000)
 
         GuiActionRunner.execute { list.selectedIndex = 0 }
 
-        waitUntil(5_000) {
-            val result = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
-                override fun executeInEDT(): Boolean {
-                    val content = diffViewer.contentPanel.leftPane.styledDocument
-                    return content.length > 0
-                }
-            })
-            result == true
-        }
+        waitUntil(5_000) { capturedResult != null }
 
-        val leftText = GuiActionRunner.execute(object : GuiQuery<String>() {
-            override fun executeInEDT(): String = diffViewer.contentPanel.leftPane.styledDocument.getText(0, diffViewer.contentPanel.leftPane.styledDocument.length)
-        })
-        assertTrue(leftText.contains("old line"), "Expected removed line in left pane: $leftText")
-
-        val rightText = GuiActionRunner.execute(object : GuiQuery<String>() {
-            override fun executeInEDT(): String = diffViewer.contentPanel.rightPane.styledDocument.getText(0, diffViewer.contentPanel.rightPane.styledDocument.length)
-        })
-        assertTrue(rightText.contains("new line"), "Expected added line in right pane: $rightText")
+        val result = capturedResult!!
+        assertEquals(1, result.files.size, "Expected 1 file in diff result")
+        assertEquals("src/Main.kt", result.files[0].filePath)
     }
 
     @Test

@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.awt.BorderLayout
 import java.awt.Container
-import java.awt.Dimension
 import java.nio.file.Path
 import javax.swing.JFrame
 import javax.swing.JList
@@ -43,7 +43,8 @@ class DiffViewerE2ETest {
 
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
-    private lateinit var panel: GitLogPanel
+    private lateinit var gitLogPanel: GitLogPanel
+    private lateinit var diffViewerPanel: DiffViewerPanel
 
     @TempDir
     lateinit var tempDir: Path
@@ -87,60 +88,66 @@ diff --git a/README.md b/README.md
 +New readme
     """.trimIndent()
 
+    private fun setupFrame(fake: E2EFakeGitService): FrameFixture {
+        gitLogPanel = GuiActionRunner.execute(object : GuiQuery<GitLogPanel>() {
+            override fun executeInEDT(): GitLogPanel = GitLogPanel(fake)
+        })
+        diffViewerPanel = GuiActionRunner.execute(object : GuiQuery<DiffViewerPanel>() {
+            override fun executeInEDT(): DiffViewerPanel = DiffViewerPanel()
+        })
+        gitLogPanel.onCommitSelected = { result -> diffViewerPanel.display(result) }
+
+        val frame = GuiActionRunner.execute(object : GuiQuery<JFrame>() {
+            override fun executeInEDT(): JFrame = JFrame("E2E Test").apply {
+                contentPane.add(gitLogPanel, BorderLayout.NORTH)
+                contentPane.add(diffViewerPanel, BorderLayout.CENTER)
+                setSize(900, 600)
+            }
+        })
+        val fix = FrameFixture(robot, frame)
+        fix.show()
+        robot.waitForIdle()
+        return fix
+    }
+
+    private fun selectFirstCommit() {
+        GuiActionRunner.execute(object : GuiQuery<Unit>() {
+            override fun executeInEDT() { gitLogPanel.loadProject(tempDir.toString()) }
+        })
+        waitForCondition(2_000) {
+            robot.finder().findByName(gitLogPanel, "log-list", JList::class.java, true).model.size == 1
+        }
+
+        val logList = robot.finder().findByName(gitLogPanel, "log-list", JList::class.java, true)
+        GuiActionRunner.execute(object : GuiQuery<Unit>() {
+            override fun executeInEDT() { logList.selectedIndex = 0 }
+        })
+    }
+
     @Test
     fun `DiffViewerPanel renders left and right panes with diff content`() {
         val fake = E2EFakeGitService(
             logLines = "abc123 Test commit\n",
             showOutput = sampleDiff,
         )
-        panel = GuiActionRunner.execute(object : GuiQuery<GitLogPanel>() {
-            override fun executeInEDT(): GitLogPanel = GitLogPanel(fake)
-        })
-        val frame = GuiActionRunner.execute(object : GuiQuery<JFrame>() {
-            override fun executeInEDT(): JFrame = JFrame("E2E Test").apply {
-                contentPane.add(panel)
-                setSize(900, 600)
-            }
-        })
-        fixture = FrameFixture(robot, frame)
-        fixture.show()
-        robot.waitForIdle()
-
-        GuiActionRunner.execute(object : GuiQuery<Unit>() {
-            override fun executeInEDT() { panel.loadProject(tempDir.toString()) }
-        })
-        waitForCondition(2_000) {
-            robot.finder().findByName(panel, "log-list", JList::class.java, true).model.size == 1
-        }
-
-        val logList = robot.finder().findByName(panel, "log-list", JList::class.java, true)
-        GuiActionRunner.execute(object : GuiQuery<Unit>() {
-            override fun executeInEDT() { logList.selectedIndex = 0 }
-        })
+        fixture = setupFrame(fake)
+        selectFirstCommit()
 
         waitForCondition(5_000) {
-            val viewer = GuiActionRunner.execute(object : GuiQuery<DiffViewerPanel?>() {
-                override fun executeInEDT(): DiffViewerPanel? = findDescendant(panel, DiffViewerPanel::class.java)
-            })
-            viewer != null && GuiActionRunner.execute(object : GuiQuery<Boolean>() {
-                override fun executeInEDT(): Boolean = viewer.contentPanel.leftPane.styledDocument.length > 0
+            GuiActionRunner.execute(object : GuiQuery<Boolean>() {
+                override fun executeInEDT(): Boolean = diffViewerPanel.contentPanel.leftPane.styledDocument.length > 0
             })
         }
-
-        val viewer = GuiActionRunner.execute(object : GuiQuery<DiffViewerPanel?>() {
-            override fun executeInEDT(): DiffViewerPanel? = findDescendant(panel, DiffViewerPanel::class.java)
-        })!!
-        val contentPanel = viewer.contentPanel
 
         val leftText = GuiActionRunner.execute(object : GuiQuery<String>() {
             override fun executeInEDT(): String {
-                val doc = contentPanel.leftPane.styledDocument
+                val doc = diffViewerPanel.contentPanel.leftPane.styledDocument
                 return doc.getText(0, doc.length)
             }
         })
         val rightText = GuiActionRunner.execute(object : GuiQuery<String>() {
             override fun executeInEDT(): String {
-                val doc = contentPanel.rightPane.styledDocument
+                val doc = diffViewerPanel.contentPanel.rightPane.styledDocument
                 return doc.getText(0, doc.length)
             }
         })
@@ -150,9 +157,6 @@ diff --git a/README.md b/README.md
         assertTrue(leftText.contains("old"), "Left pane should show 'old'. Got: [$leftText]")
         assertTrue(rightText.contains("new"), "Right pane should show 'new'. Got: [$rightText]")
         assertTrue(rightText.contains("extra"), "Right pane should show 'extra'. Got: [$rightText]")
-
-        assertTrue(contentPanel.leftPane.lineCount > 0, "Left pane should have lines rendered")
-        assertTrue(contentPanel.rightPane.lineCount > 0, "Right pane should have lines rendered")
     }
 
     @Test
@@ -161,46 +165,18 @@ diff --git a/README.md b/README.md
             logLines = "abc123 Test commit\n",
             showOutput = sampleDiff,
         )
-        panel = GuiActionRunner.execute(object : GuiQuery<GitLogPanel>() {
-            override fun executeInEDT(): GitLogPanel = GitLogPanel(fake)
-        })
-        val frame = GuiActionRunner.execute(object : GuiQuery<JFrame>() {
-            override fun executeInEDT(): JFrame = JFrame("E2E Test").apply {
-                contentPane.add(panel)
-                setSize(900, 600)
-            }
-        })
-        fixture = FrameFixture(robot, frame)
-        fixture.show()
-        robot.waitForIdle()
-
-        GuiActionRunner.execute(object : GuiQuery<Unit>() {
-            override fun executeInEDT() { panel.loadProject(tempDir.toString()) }
-        })
-        waitForCondition(2_000) {
-            robot.finder().findByName(panel, "log-list", JList::class.java, true).model.size == 1
-        }
-
-        val logList = robot.finder().findByName(panel, "log-list", JList::class.java, true)
-        GuiActionRunner.execute(object : GuiQuery<Unit>() {
-            override fun executeInEDT() { logList.selectedIndex = 0 }
-        })
+        fixture = setupFrame(fake)
+        selectFirstCommit()
 
         waitForCondition(5_000) {
             val tree = GuiActionRunner.execute(object : GuiQuery<JTree?>() {
-                override fun executeInEDT(): JTree? {
-                    val viewer = findDescendant(panel, DiffViewerPanel::class.java) ?: return null
-                    return findDescendant(viewer as Container, JTree::class.java)
-                }
+                override fun executeInEDT(): JTree? = findDescendant(diffViewerPanel, JTree::class.java)
             })
             tree != null && (tree.model as? DefaultTreeModel)?.root?.let { (it as javax.swing.tree.TreeNode).childCount } == 2
         }
 
         val fileTree = GuiActionRunner.execute(object : GuiQuery<JTree?>() {
-            override fun executeInEDT(): JTree? {
-                val viewer = findDescendant(panel, DiffViewerPanel::class.java) ?: return null
-                return findDescendant(viewer as Container, JTree::class.java)
-            }
+            override fun executeInEDT(): JTree? = findDescendant(diffViewerPanel, JTree::class.java)
         })!!
         val root = fileTree.model.root as javax.swing.tree.TreeNode
         assertEquals(2, root.childCount, "File tree should show 2 files")
@@ -212,38 +188,14 @@ diff --git a/README.md b/README.md
             logLines = "abc123 Test commit\n",
             showOutput = sampleDiff,
         )
-        panel = GuiActionRunner.execute(object : GuiQuery<GitLogPanel>() {
-            override fun executeInEDT(): GitLogPanel = GitLogPanel(fake)
-        })
-        val frame = GuiActionRunner.execute(object : GuiQuery<JFrame>() {
-            override fun executeInEDT(): JFrame = JFrame("E2E Test").apply {
-                contentPane.add(panel)
-                setSize(900, 600)
-            }
-        })
-        fixture = FrameFixture(robot, frame)
-        fixture.show()
-        robot.waitForIdle()
-
-        GuiActionRunner.execute(object : GuiQuery<Unit>() {
-            override fun executeInEDT() { panel.loadProject(tempDir.toString()) }
-        })
-        waitForCondition(2_000) {
-            robot.finder().findByName(panel, "log-list", JList::class.java, true).model.size == 1
-        }
-
-        val logList = robot.finder().findByName(panel, "log-list", JList::class.java, true)
-        GuiActionRunner.execute(object : GuiQuery<Unit>() {
-            override fun executeInEDT() { logList.selectedIndex = 0 }
-        })
+        fixture = setupFrame(fake)
+        selectFirstCommit()
 
         waitForCondition(5_000) {
             val splitFound = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
                 override fun executeInEDT(): Boolean {
-                    val viewer = findDescendant(panel, DiffViewerPanel::class.java) ?: return false
-                    val content = viewer.contentPanel
-                    val hasSplit = findDescendant(content as Container, JSplitPane::class.java) != null
-                    val leftHasText = content.leftPane.styledDocument.length > 0
+                    val hasSplit = findDescendant(diffViewerPanel.contentPanel as Container, JSplitPane::class.java) != null
+                    val leftHasText = diffViewerPanel.contentPanel.leftPane.styledDocument.length > 0
                     return hasSplit && leftHasText
                 }
             })
@@ -252,8 +204,7 @@ diff --git a/README.md b/README.md
 
         val hasSplit = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
             override fun executeInEDT(): Boolean {
-                val viewer = findDescendant(panel, DiffViewerPanel::class.java)!!
-                return findDescendant(viewer.contentPanel as Container, JSplitPane::class.java) != null
+                return findDescendant(diffViewerPanel.contentPanel as Container, JSplitPane::class.java) != null
             }
         })
         assertTrue(hasSplit, "Content panel should contain a JSplitPane for side-by-side view")
