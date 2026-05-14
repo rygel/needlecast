@@ -6,7 +6,6 @@ import io.github.rygel.needlecast.git.ProcessGitService
 import io.github.rygel.needlecast.ui.diff.DiffParser
 import io.github.rygel.needlecast.ui.diff.DiffResult
 import io.github.rygel.needlecast.ui.diff.DiffStats
-import io.github.rygel.needlecast.ui.diff.DiffViewerPanel
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -24,7 +23,6 @@ import javax.swing.JList
 import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
-import javax.swing.JSplitPane
 import javax.swing.JTextArea
 import javax.swing.JTextField
 import javax.swing.JToggleButton
@@ -42,7 +40,6 @@ private data class GitCommit(val hash: String, val subject: String)
  */
 class GitLogPanel(
     private val gitService: GitService = ProcessGitService(),
-    private val fileOpener: ((String) -> Unit)? = null,
 ) : JPanel(BorderLayout()) {
 
     // ── Log view ──────────────────────────────────────────────────────────────
@@ -53,7 +50,7 @@ class GitLogPanel(
         setCellRenderer(CommitCellRenderer())
         fixedCellHeight = 28
     }
-    private val diffViewer = DiffViewerPanel(fileOpener)
+    var onCommitSelected: ((DiffResult) -> Unit)? = null
 
     // ── Commit view (wired in Task 4) ─────────────────────────────────────────
     private val fileListModel = DefaultListModel<ChangedFile>()
@@ -97,12 +94,7 @@ class GitLogPanel(
     init {
         minimumSize = Dimension(0, 0)
 
-        // Log card: existing split pane
-        val split = JSplitPane(
-            JSplitPane.VERTICAL_SPLIT,
-            JScrollPane(logList).apply { minimumSize = Dimension(0, 0) },
-            diffViewer,
-        ).apply { resizeWeight = 0.4 }
+        val logCard = JScrollPane(logList).apply { minimumSize = Dimension(0, 0) }
 
         logList.addListSelectionListener { e ->
             if (!e.valueIsAdjusting) {
@@ -111,7 +103,7 @@ class GitLogPanel(
             }
         }
 
-        cardPanel.add(split,              "log")
+        cardPanel.add(logCard,            "log")
         cardPanel.add(buildCommitCard(), "commit")
         cardPanel.add(buildOutputCard(), "output")
 
@@ -137,10 +129,8 @@ class GitLogPanel(
         currentPath = path
         logModel.clear()
         if (path == null) {
-            diffViewer.displayEmpty("")
             return
         }
-        diffViewer.displayEmpty("Loading commits\u2026")
 
         object : SwingWorker<List<GitCommit>, Void>() {
             override fun doInBackground(): List<GitCommit> =
@@ -156,11 +146,6 @@ class GitLogPanel(
             override fun done() {
                 val commits = try { get() } catch (_: Exception) { return }
                 commits.forEach { logModel.addElement(it) }
-                if (logModel.size > 0) {
-                    diffViewer.displayEmpty("Select a commit to view details.")
-                } else {
-                    diffViewer.displayEmpty("No commits found.")
-                }
             }
         }.execute()
     }
@@ -321,7 +306,7 @@ class GitLogPanel(
             override fun done() {
                 if (isCancelled) return
                 val result = try { get() } catch (_: Exception) { return }
-                diffViewer.display(result)
+                onCommitSelected?.invoke(result)
             }
         }.also { it.execute() }
     }
