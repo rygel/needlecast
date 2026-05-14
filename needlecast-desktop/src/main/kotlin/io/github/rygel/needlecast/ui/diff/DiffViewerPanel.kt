@@ -20,7 +20,7 @@ class DiffViewerPanel(
 ) : JPanel(BorderLayout()) {
 
     private val fileTree = DiffFileTree()
-    private val contentPanel = DiffContentPanel()
+    internal val contentPanel = DiffContentPanel()
     private val overviewBar = DiffOverviewBar(contentPanel.leftScroll)
     private val searchBar = DiffSearchBar()
 
@@ -45,6 +45,7 @@ class DiffViewerPanel(
     private var currentHunkIndex: Int = -1
 
     init {
+        name = "diff-viewer"
         minimumSize = Dimension(0, 0)
 
         ButtonGroup().apply { add(sideBySideToggle); add(unifiedToggle) }

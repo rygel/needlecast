@@ -20,6 +20,7 @@ import javax.swing.JList
 import javax.swing.JTextArea
 import javax.swing.JToggleButton
 import org.junit.jupiter.api.Assertions.assertTrue
+import io.github.rygel.needlecast.ui.diff.DiffViewerPanel
 
 private class FakeGitService(
     val logLines: String? = "",
@@ -57,7 +58,7 @@ class GitLogPanelUiTest {
     private lateinit var fixture: FrameFixture
     private lateinit var panel: GitLogPanel
     private lateinit var list: JList<*>
-    private lateinit var diffArea: JTextArea
+    private lateinit var diffViewer: DiffViewerPanel
 
     @TempDir
     lateinit var tempDir: Path
@@ -85,17 +86,29 @@ class GitLogPanelUiTest {
         fix.show()
         robot.waitForIdle()
         list = robot.finder().findByName(panel, "log-list", JList::class.java, true)
-        diffArea = robot.finder().findByName(panel, "diff-area", JTextArea::class.java, true)
+        diffViewer = robot.finder().findByName(panel, "diff-viewer", DiffViewerPanel::class.java, true)
         return fix
     }
 
     @Test
-    fun `large diffs render incrementally without blocking`() {
-        val huge = buildString {
-            repeat(50_000) { append("line ").append(it).append(" lorem ipsum dolor sit amet\n") }
+    fun `clicking a commit displays the parsed diff in the viewer`() {
+        val diffOutput = buildString {
+            appendLine("commit abc123")
+            appendLine("Author: Test")
+            appendLine("Date:   Now")
+            appendLine()
+            appendLine("    test commit")
+            appendLine()
+            appendLine(" 1 file changed, 1 insertion(+), 1 deletion(-)")
+            appendLine()
+            appendLine("diff --git a/src/Main.kt b/src/Main.kt")
+            appendLine("--- a/src/Main.kt")
+            appendLine("+++ b/src/Main.kt")
+            appendLine("@@ -1 +1 @@")
+            appendLine("-old line")
+            appendLine("+new line")
         }
-        val maxDiffChars = 400_000
-        val fake = FakeGitService(logLines = "abc123 Commit one\n", showOutput = huge)
+        val fake = FakeGitService(logLines = "abc123 Commit one\n", showOutput = diffOutput)
         panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
         fixture = showInFrame(panel)
 
@@ -104,29 +117,25 @@ class GitLogPanelUiTest {
 
         GuiActionRunner.execute { list.selectedIndex = 0 }
 
-        val totalLength = if (huge.length > maxDiffChars) {
-            val omitted = huge.length - maxDiffChars
-            maxDiffChars + "\n\n[Diff truncated: omitted ${omitted} characters]".length
-        } else huge.length
-        Thread.sleep(50)
-        val partialLength = GuiActionRunner.execute(object : GuiQuery<Int>() {
-            override fun executeInEDT(): Int = diffArea.document.length
-        })
-        org.junit.jupiter.api.Assertions.assertTrue(
-            partialLength in 1 until totalLength,
-            "Expected incremental rendering; length=$partialLength total=$totalLength"
-        )
-
-        waitForDocLength(totalLength, 5_000)
-        if (huge.length > maxDiffChars) {
-            val text = GuiActionRunner.execute(object : GuiQuery<String>() {
-                override fun executeInEDT(): String = diffArea.text
+        waitUntil(5_000) {
+            val result = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
+                override fun executeInEDT(): Boolean {
+                    val content = diffViewer.contentPanel.leftPane.styledDocument
+                    return content.length > 0
+                }
             })
-            org.junit.jupiter.api.Assertions.assertTrue(
-                text.contains("Diff truncated"),
-                "Expected truncation notice in rendered diff"
-            )
+            result == true
         }
+
+        val leftText = GuiActionRunner.execute(object : GuiQuery<String>() {
+            override fun executeInEDT(): String = diffViewer.contentPanel.leftPane.styledDocument.getText(0, diffViewer.contentPanel.leftPane.styledDocument.length)
+        })
+        assertTrue(leftText.contains("old line"), "Expected removed line in left pane: $leftText")
+
+        val rightText = GuiActionRunner.execute(object : GuiQuery<String>() {
+            override fun executeInEDT(): String = diffViewer.contentPanel.rightPane.styledDocument.getText(0, diffViewer.contentPanel.rightPane.styledDocument.length)
+        })
+        assertTrue(rightText.contains("new line"), "Expected added line in right pane: $rightText")
     }
 
     @Test
@@ -261,15 +270,4 @@ class GitLogPanelUiTest {
         throw AssertionError("Timed out waiting for list size >= $size")
     }
 
-    private fun waitForDocLength(expected: Int, timeoutMs: Long) {
-        val deadline = System.nanoTime() + (timeoutMs * 1_000_000)
-        while (System.nanoTime() < deadline) {
-            val len = GuiActionRunner.execute(object : GuiQuery<Int>() {
-                override fun executeInEDT(): Int = diffArea.document.length
-            })
-            if (len == expected) return
-            Thread.sleep(20)
-        }
-        throw AssertionError("Timed out waiting for diff length $expected")
-    }
 }
