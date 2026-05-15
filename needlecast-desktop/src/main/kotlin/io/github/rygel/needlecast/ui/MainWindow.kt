@@ -469,15 +469,16 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         Docking.dock(skillsDockable,       docsDockable,        DockingRegion.CENTER)
         // 6. Editor tabbed with the terminal in the centre column
         Docking.dock(editorDockable,      terminalDockable,    DockingRegion.CENTER)
-        // 7. Console below Commands
+        // 7. Diff below Commands (always visible)
+        Docking.dock(diffDockable, commandsDockable, DockingRegion.SOUTH, 0.55)
+        // 8. Console tabbed with Diff
         if (ctx.config.showConsole) {
-            Docking.dock(consoleDockable, commandsDockable,    DockingRegion.SOUTH,  0.65)
+            Docking.dock(consoleDockable, diffDockable, DockingRegion.CENTER)
         }
-        // 8. Prompt input below the terminal/editor column
+        // 9. Prompt input below the terminal/editor column
         Docking.dock(promptInputDockable,  terminalDockable,   DockingRegion.SOUTH,  0.90)
-        // 9. Command input tabbed with prompt input
+        // 10. Command input tabbed with prompt input
         Docking.dock(commandInputDockable, promptInputDockable, DockingRegion.CENTER)
-        Docking.dock(diffDockable, terminalDockable, DockingRegion.SOUTH, 0.25)
 
         SwingUtilities.invokeLater { selectPrimaryTabs() }
     }
@@ -575,7 +576,12 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private fun toggleDiff(show: Boolean) {
         if (show && !Docking.isDocked(diffDockable)) {
-            Docking.dock(diffDockable, terminalDockable, DockingRegion.SOUTH, 0.25)
+            val anchor = when {
+                Docking.isDocked(consoleDockable) -> consoleDockable
+                Docking.isDocked(commandsDockable) -> commandsDockable
+                else -> terminalDockable
+            }
+            Docking.dock(diffDockable, anchor, DockingRegion.SOUTH, 0.55)
         } else if (!show && Docking.isDocked(diffDockable)) {
             Docking.undock(diffDockable)
         }
