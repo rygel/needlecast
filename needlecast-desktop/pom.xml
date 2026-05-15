@@ -19,7 +19,7 @@
     <properties>
         <mainClass>io.github.rygel.needlecast.MainKt</mainClass>
         <!-- Default: exclude UI tests unless explicitly enabled -->
-        <uiTestExclude>**/*UiTest</uiTestExclude>
+        <uiTestExclude>**/*UiTest, **/*E2ETest</uiTestExclude>
     </properties>
 
     <dependencies>
@@ -323,6 +323,7 @@
                         <configuration>
                             <includes>
                                 <include>**/*UiTest</include>
+                                <include>**/*E2ETest</include>
                             </includes>
                             <excludes/>
                             <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
