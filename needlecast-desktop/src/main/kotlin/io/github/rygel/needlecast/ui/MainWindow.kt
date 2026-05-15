@@ -944,7 +944,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private fun importLayout() {
         val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
             dialogTitle = "Import Layout"
-            fileFilter = FileNameExtensionFilter("Layout files (*.xml)", "xml")
+            fileFilter = FileNameExtensionFilter("Needlecast layout (*.needlecast-layout)", "needlecast-layout")
         }
         if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return
         try {
@@ -970,11 +970,11 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         }
         val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
             dialogTitle = "Export Layout"
-            fileFilter = FileNameExtensionFilter("Layout files (*.xml)", "xml")
-            selectedFile = File("needlecast-layout.xml")
+            fileFilter = FileNameExtensionFilter("Needlecast layout (*.needlecast-layout)", "needlecast-layout")
+            selectedFile = File("layout.needlecast-layout")
         }
         if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return
-        val target = if (chooser.selectedFile.name.endsWith(".xml")) chooser.selectedFile else File("${chooser.selectedFile.absolutePath}.xml")
+        val target = if (chooser.selectedFile.name.endsWith(".needlecast-layout")) chooser.selectedFile else File("${chooser.selectedFile.absolutePath}.needlecast-layout")
         try {
             java.nio.file.Files.copy(dockingLayoutFile.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
             statusBar.setStatus("Layout exported to ${target.name}")
