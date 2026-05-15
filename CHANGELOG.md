@@ -2,6 +2,21 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.7.5] — 2026-05-15
+
+### Added
+- **IntelliJ-style diff viewer** — side-by-side color-coded diff with file tree, overview minimap bar, Ctrl+F search, prev/next change navigation, and inline word diff highlighting. Docked as its own panel alongside Output in the right rail, selected by default.
+- **Layout import/export** — import and export panel arrangements (`.needlecast-layout` files) from the File menu, separate from full workspace or config export.
+
+### Changed
+- **Diff viewer is a standalone dockable panel** — the diff viewer is no longer buried inside Git Log; it has its own tab in the docking layout and can be toggled from the Panels menu.
+- **Opaque diff background colors** — added/removed line backgrounds use solid pastel green/red instead of near-invisible alpha-blended colors.
+
+### Fixed
+- **Diff viewer not rendering** — replaced alpha=30 background colors (nearly invisible) with fully opaque alternatives.
+
+---
+
 ## [0.7.4] — 2026-05-01
 
 ### Added

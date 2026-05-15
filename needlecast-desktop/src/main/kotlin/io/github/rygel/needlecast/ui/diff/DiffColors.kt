@@ -6,16 +6,16 @@ import javax.swing.UIManager
 object DiffColors {
 
     val addedBackground: Color
-        get() = resolveColor("Diff.addedBackground") { Color(70, 180, 70, 30) }
+        get() = resolveColor("Diff.addedBackground") { Color(0xD4, 0xF4, 0xDD) }
 
     val removedBackground: Color
-        get() = resolveColor("Diff.removedBackground") { Color(255, 70, 70, 30) }
+        get() = resolveColor("Diff.removedBackground") { Color(0xF4, 0xD4, 0xD4) }
 
     val addedInline: Color
-        get() = resolveColor("Diff.addedInline") { Color(70, 180, 70, 90) }
+        get() = resolveColor("Diff.addedInline") { Color(0xA8, 0xE6, 0xB8) }
 
     val removedInline: Color
-        get() = resolveColor("Diff.removedInline") { Color(255, 70, 70, 90) }
+        get() = resolveColor("Diff.removedInline") { Color(0xE6, 0xA8, 0xA8) }
 
     val addedForeground: Color
         get() = resolveColor("Diff.addedForeground") { Color(106, 135, 89) }
