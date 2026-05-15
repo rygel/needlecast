@@ -678,6 +678,12 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         val exportWorkspaceItem = JMenuItem("Export Workspace...").apply {
             addActionListener { exportWorkspace() }
         }
+        val importLayoutItem = JMenuItem("Import Layout...").apply {
+            addActionListener { importLayout() }
+        }
+        val exportLayoutItem = JMenuItem("Export Layout...").apply {
+            addActionListener { exportLayout() }
+        }
         val exitItem = JMenuItem(i18n.translate("menu.file.exit")).apply {
             addActionListener { dispatchEvent(WindowEvent(this@MainWindow, WindowEvent.WINDOW_CLOSING)) }
         }
@@ -685,7 +691,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             add(settingsItem); addSeparator()
             add(importItem); add(exportItem)
             addSeparator()
-            add(importWorkspaceItem); add(exportWorkspaceItem); addSeparator()
+            add(importWorkspaceItem); add(exportWorkspaceItem)
+            addSeparator()
+            add(importLayoutItem); add(exportLayoutItem); addSeparator()
             add(exitItem)
         }
 
@@ -930,6 +938,48 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             statusBar.setStatus("Workspace exported to ${target.name}")
         } catch (e: Exception) {
             JOptionPane.showMessageDialog(this, "Failed to export workspace: ${e.message}", "Export Error", JOptionPane.ERROR_MESSAGE)
+        }
+    }
+
+    private fun importLayout() {
+        val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
+            dialogTitle = "Import Layout"
+            fileFilter = FileNameExtensionFilter("Layout files (*.xml)", "xml")
+        }
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return
+        try {
+            java.nio.file.Files.copy(chooser.selectedFile.toPath(), dockingLayoutFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            AppState.setAutoPersist(false)
+            listOf(projectTreeDockable, terminalDockable, commandsDockable,
+                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable, docViewerDockable, skillsDockable, diffDockable)
+                .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
+            setupDefaultDockingLayout()
+            AppState.restore()
+            AppState.setAutoPersist(true)
+            statusBar.setStatus("Layout imported")
+        } catch (e: Exception) {
+            JOptionPane.showMessageDialog(this, "Failed to import layout: ${e.message}", "Import Error", JOptionPane.ERROR_MESSAGE)
+        }
+    }
+
+    private fun exportLayout() {
+        if (!dockingLayoutFile.exists()) {
+            JOptionPane.showMessageDialog(this, "No saved layout found. Arrange your panels first, then export.",
+                "Export Layout", JOptionPane.WARNING_MESSAGE)
+            return
+        }
+        val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
+            dialogTitle = "Export Layout"
+            fileFilter = FileNameExtensionFilter("Layout files (*.xml)", "xml")
+            selectedFile = File("needlecast-layout.xml")
+        }
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return
+        val target = if (chooser.selectedFile.name.endsWith(".xml")) chooser.selectedFile else File("${chooser.selectedFile.absolutePath}.xml")
+        try {
+            java.nio.file.Files.copy(dockingLayoutFile.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            statusBar.setStatus("Layout exported to ${target.name}")
+        } catch (e: Exception) {
+            JOptionPane.showMessageDialog(this, "Failed to export layout: ${e.message}", "Export Error", JOptionPane.ERROR_MESSAGE)
         }
     }
 
