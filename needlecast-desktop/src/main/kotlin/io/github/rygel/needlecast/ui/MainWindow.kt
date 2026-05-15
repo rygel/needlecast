@@ -499,6 +499,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         selectDockableTab(projectTreeDockable)
         selectDockableTab(terminalDockable)
         selectDockableTab(commandsDockable)
+        selectDockableTab(diffDockable)
         selectDockableTab(promptInputDockable)
     }
 
