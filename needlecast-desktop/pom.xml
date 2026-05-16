@@ -19,7 +19,7 @@
     <properties>
         <mainClass>io.github.rygel.needlecast.MainKt</mainClass>
         <!-- Default: exclude UI tests unless explicitly enabled -->
-        <uiTestExclude>**/*UiTest, **/*E2ETest</uiTestExclude>
+        <uiTestExclude>**/*UiTest, **/*E2ETest, **/PowerShellResizeTest</uiTestExclude>
     </properties>
 
     <dependencies>
