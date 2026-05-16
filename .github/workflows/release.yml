@@ -262,6 +262,12 @@ jobs:
           MAC_SIZE=$(echo "$ASSETS" | grep '\.dmg ' | awk '{print $2}')
           DEB_FILE=$(echo "$ASSETS" | grep '\.deb ' | awk '{print $1}')
           DEB_SIZE=$(echo "$ASSETS" | grep '\.deb ' | awk '{print $2}')
+          WIN_PORTABLE=$(echo "$ASSETS" | grep 'windows-portable' | awk '{print $1}')
+          WIN_PORTABLE_SIZE=$(echo "$ASSETS" | grep 'windows-portable' | awk '{print $2}')
+          MAC_PORTABLE=$(echo "$ASSETS" | grep 'macos-portable' | awk '{print $1}')
+          MAC_PORTABLE_SIZE=$(echo "$ASSETS" | grep 'macos-portable' | awk '{print $2}')
+          LIN_PORTABLE=$(echo "$ASSETS" | grep 'linux-portable' | awk '{print $1}')
+          LIN_PORTABLE_SIZE=$(echo "$ASSETS" | grep 'linux-portable' | awk '{print $2}')
 
           cat > appcast.xml << EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -278,8 +284,11 @@ jobs:
                 <sparkle:version>$VERSION</sparkle:version>
                 <sparkle:releaseNotesLink>$RELEASE_NOTES</sparkle:releaseNotesLink>
                 <enclosure url="$BASE_URL/$WIN_FILE" sparkle:os="windows" length="$WIN_SIZE" type="application/octet-stream"/>
+                <enclosure url="$BASE_URL/$WIN_PORTABLE" sparkle:os="windows" length="$WIN_PORTABLE_SIZE" type="application/zip"/>
                 <enclosure url="$BASE_URL/$MAC_FILE" sparkle:os="macos" length="$MAC_SIZE" type="application/octet-stream"/>
+                <enclosure url="$BASE_URL/$MAC_PORTABLE" sparkle:os="macos" length="$MAC_PORTABLE_SIZE" type="application/zip"/>
                 <enclosure url="$BASE_URL/$DEB_FILE" sparkle:os="linux" length="$DEB_SIZE" type="application/vnd.debian.binary-package"/>
+                <enclosure url="$BASE_URL/$LIN_PORTABLE" sparkle:os="linux" length="$LIN_PORTABLE_SIZE" type="application/gzip"/>
               </item>
             </channel>
           </rss>

@@ -1288,33 +1288,40 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private fun checkForUpdatesManual() {
-        try {
-            // interval=0 bypasses the "already checked recently" cache
-            val instance = buildSparkle4j(0)
-            if (instance == null) {
-                JOptionPane.showMessageDialog(this,
-                    "Update checking is not available (version unknown).",
-                    "Check for Updates", JOptionPane.WARNING_MESSAGE)
-                return
-            }
-            updateLogger.info("Manual update check")
-            val item = instance.checkNow().orElse(null)
-            if (item == null) {
-                updateLogger.info("No update found — already on latest version")
-                JOptionPane.showMessageDialog(this,
-                    "You are running the latest version of Needlecast.",
-                    "Check for Updates", JOptionPane.INFORMATION_MESSAGE)
-            } else {
-                updateLogger.info("Update found: {}", item.version())
-                statusBar.showUpdateAvailable(item.version()) { openReleasesPage() }
-                openReleasesPage()
-            }
-        } catch (e: Exception) {
-            logUpdateCheckFailure("Manual update check", e)
+        val instance = buildSparkle4j(0)
+        if (instance == null) {
             JOptionPane.showMessageDialog(this,
-                "Could not check for updates: ${e.message}",
-                "Check for Updates", JOptionPane.ERROR_MESSAGE)
+                "Update checking is not available (version unknown).",
+                "Check for Updates", JOptionPane.WARNING_MESSAGE)
+            return
         }
+        statusBar.setStatus("Checking for updates\u2026")
+        Thread({
+            try {
+                updateLogger.info("Manual update check")
+                val item = instance.checkNow().orElse(null)
+                SwingUtilities.invokeLater {
+                    if (item == null) {
+                        updateLogger.info("No update found — already on latest version")
+                        statusBar.setStatus("You are running the latest version.")
+                        JOptionPane.showMessageDialog(this@MainWindow,
+                            "You are running the latest version of Needlecast.",
+                            "Check for Updates", JOptionPane.INFORMATION_MESSAGE)
+                    } else {
+                        updateLogger.info("Update found: {}", item.version())
+                        statusBar.showUpdateAvailable(item.version()) { openReleasesPage() }
+                        openReleasesPage()
+                    }
+                }
+            } catch (e: Exception) {
+                logUpdateCheckFailure("Manual update check", e)
+                SwingUtilities.invokeLater {
+                    JOptionPane.showMessageDialog(this@MainWindow,
+                        "Could not check for updates: ${e.message}",
+                        "Check for Updates", JOptionPane.ERROR_MESSAGE)
+                }
+            }
+        }, "update-check-manual").apply { isDaemon = true; start() }
     }
 
     private fun logUpdateCheckFailure(context: String, error: Throwable) {
