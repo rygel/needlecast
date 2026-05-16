@@ -25,7 +25,7 @@ class ProcessGitService : GitService {
         runGit(dir, "log", "--oneline", "--no-decorate", "-$maxEntries")
 
     override fun show(dir: String, hash: String): String? =
-        runGit(dir, "show", "--stat", "-p", hash)
+        runGit(dir, "show", "--stat", "-p", "--no-color", hash)
 
     override fun changedFiles(dir: String): List<ChangedFile> {
         val raw = runGit(dir, "status", "--porcelain") ?: return emptyList()
