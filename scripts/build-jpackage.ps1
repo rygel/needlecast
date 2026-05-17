@@ -45,7 +45,14 @@ $javaOpts = "-XX:SharedArchiveFile=`$APPDIR\runtime\lib\server\appcds.jsa"
 
 $iconPath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $root "needlecast-desktop") "src") "main") "resources") "icons") "needlecast.ico"
 
-$appVersionClean = $appVersion -replace '-SNAPSHOT$', ''
+$appVersionClean = if ($appVersion -match '^(?<base>\d+\.\d+\.\d+)-(?<pre>\w+)\.?(?<num>\d*)$') {
+    $base = $Matches['base']
+    $num = if ($Matches['num']) { $Matches['num'] } else { '0' }
+    "$base.$num"
+} else {
+    $appVersion -replace '-SNAPSHOT$', ''
+}
+$appVersionForFiles = $appVersion -replace '-SNAPSHOT$', ''
 
 & jpackage `
   --type app-image `
@@ -62,7 +69,7 @@ $appVersionClean = $appVersion -replace '-SNAPSHOT$', ''
 Write-Host "App image created under $buildDir\jpackage"
 
 # ── Portable zip ──────────────────────────────────────────────────────────────
-$portableZip = Join-Path $buildDir "needlecast-$appVersionClean-windows-portable.zip"
+$portableZip = Join-Path $buildDir "needlecast-$appVersionForFiles-windows-portable.zip"
 Compress-Archive -Path (Join-Path $buildDir "jpackage\$appName") -DestinationPath $portableZip
 Write-Host "Portable archive: $portableZip"
 
@@ -75,6 +82,6 @@ if (-not (Test-Path $iscc)) {
     $issScript = Join-Path (Join-Path $root "scripts") "needlecast.iss"
     Write-Host "Building Inno Setup installer (version $appVersionClean)..."
     & $iscc "/DAppVersion=$appVersionClean" $issScript
-    $installer = Join-Path $buildDir "needlecast-$appVersionClean-win64.exe"
+    $installer = Join-Path $buildDir "needlecast-$appVersionForFiles-win64.exe"
     Write-Host "Installer: $installer"
 }
