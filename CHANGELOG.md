@@ -2,6 +2,17 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.8.0-beta.1] — 2026-05-16
+
+### Added
+- **Portable archives in appcast** — Windows .zip, macOS .zip, and Linux .tar.gz portable downloads are now listed as enclosures in appcast.xml alongside installers.
+
+### Fixed
+- **Manual update check no longer freezes the UI** — Help > Check for Updates now runs network I/O on a background thread instead of blocking the EDT. A "Checking for updates…" message appears in the status bar during the check.
+- **Diff viewer not rendering** — replaced alpha=30 background colors (nearly invisible) with fully opaque alternatives.
+
+---
+
 ## [0.7.5] — 2026-05-15
 
 ### Added
