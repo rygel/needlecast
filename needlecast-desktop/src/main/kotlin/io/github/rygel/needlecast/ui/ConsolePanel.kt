@@ -169,6 +169,7 @@ private class ConsoleSearchBar(private val textArea: JTextArea) : JPanel(BorderL
         matches = emptyList()
         currentMatch = -1
         statusLabel.text = " "
+        textArea.toolTipText = null
     }
 
     private fun rebuildMatches() {
@@ -178,6 +179,7 @@ private class ConsoleSearchBar(private val textArea: JTextArea) : JPanel(BorderL
             matches = emptyList()
             currentMatch = -1
             statusLabel.text = " "
+            textArea.toolTipText = null
             return
         }
         val text = textArea.text.lowercase()
@@ -196,6 +198,7 @@ private class ConsoleSearchBar(private val textArea: JTextArea) : JPanel(BorderL
         if (found.isEmpty()) {
             statusLabel.foreground = Color(0xF44336)
             statusLabel.text = "Not found"
+            textArea.toolTipText = null
         } else {
             statusLabel.foreground = Color(0x4CAF50)
             statusLabel.text = "${found.size} match${if (found.size == 1) "" else "es"}"
@@ -206,7 +209,6 @@ private class ConsoleSearchBar(private val textArea: JTextArea) : JPanel(BorderL
     private fun step(direction: Int) {
         if (matches.isEmpty()) return
         currentMatch = Math.floorMod(currentMatch + direction, matches.size)
-        // Re-apply all highlights, then overlay the current match
         textArea.highlighter.removeAllHighlights()
         val q = searchField.text.lowercase()
         matches.forEachIndexed { i, (s, e) ->
@@ -218,5 +220,6 @@ private class ConsoleSearchBar(private val textArea: JTextArea) : JPanel(BorderL
         textArea.scrollRectToVisible(textArea.modelToView2D(start).bounds)
         statusLabel.foreground = Color(0x4CAF50)
         statusLabel.text = "${currentMatch + 1} / ${matches.size}"
+        textArea.toolTipText = "Search match ${currentMatch + 1} of ${matches.size}"
     }
 }

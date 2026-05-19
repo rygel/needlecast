@@ -124,9 +124,11 @@ class DiffSearchBar : JPanel(BorderLayout()) {
         if (totalMatches > 0) {
             currentMatchIndex = 0
             countLabel.text = "1 of $totalMatches"
+            updateTargetPaneTooltips()
         } else {
             currentMatchIndex = -1
             countLabel.text = "No matches"
+            clearTargetPaneTooltips()
         }
     }
 
@@ -135,6 +137,7 @@ class DiffSearchBar : JPanel(BorderLayout()) {
         currentMatchIndex = (currentMatchIndex + 1) % totalMatches
         countLabel.text = "${currentMatchIndex + 1} of $totalMatches"
         scrollToMatch(currentMatchIndex)
+        updateTargetPaneTooltips()
     }
 
     private fun prevMatch() {
@@ -142,6 +145,7 @@ class DiffSearchBar : JPanel(BorderLayout()) {
         currentMatchIndex = if (currentMatchIndex <= 0) totalMatches - 1 else currentMatchIndex - 1
         countLabel.text = "${currentMatchIndex + 1} of $totalMatches"
         scrollToMatch(currentMatchIndex)
+        updateTargetPaneTooltips()
     }
 
     private fun scrollToMatch(matchIndex: Int) {
@@ -166,5 +170,18 @@ class DiffSearchBar : JPanel(BorderLayout()) {
             pane.highlighter.removeAllHighlights()
         }
         highlights.clear()
+        clearTargetPaneTooltips()
+    }
+
+    private fun updateTargetPaneTooltips() {
+        for (pane in targetPanes) {
+            pane.toolTipText = "Search match ${currentMatchIndex + 1} of $totalMatches"
+        }
+    }
+
+    private fun clearTargetPaneTooltips() {
+        for (pane in targetPanes) {
+            pane.toolTipText = null
+        }
     }
 }

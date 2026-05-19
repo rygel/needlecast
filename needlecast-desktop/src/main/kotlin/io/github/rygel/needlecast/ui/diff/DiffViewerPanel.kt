@@ -1,6 +1,8 @@
 package io.github.rygel.needlecast.ui.diff
 
+import io.github.rygel.needlecast.AppContext
 import java.awt.BorderLayout
+import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.event.InputEvent
@@ -9,6 +11,7 @@ import javax.swing.BorderFactory
 import javax.swing.ButtonGroup
 import javax.swing.JButton
 import javax.swing.JComponent
+import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JSplitPane
@@ -17,6 +20,7 @@ import javax.swing.KeyStroke
 
 class DiffViewerPanel(
     val fileOpener: ((String) -> Unit)? = null,
+    private val ctx: AppContext? = null,
 ) : JPanel(BorderLayout()) {
 
     private val fileTree = DiffFileTree()
@@ -73,6 +77,12 @@ class DiffViewerPanel(
             add(unifiedToggle)
             add(prevChangeButton)
             add(nextChangeButton)
+        }
+
+        val legendBar = buildLegend()
+        val northPanel = JPanel(BorderLayout()).apply {
+            add(toolbar, BorderLayout.NORTH)
+            add(legendBar, BorderLayout.SOUTH)
         }
 
         val fileTreeScroll = JScrollPane(fileTree).apply {
@@ -174,5 +184,45 @@ class DiffViewerPanel(
             KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK),
             JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT,
         )
+    }
+
+    private fun buildLegend(): JPanel {
+        val dismissed = ctx?.config?.diffLegendDismissed == true
+        val legend = JPanel(FlowLayout(FlowLayout.LEFT, 8, 2)).apply {
+            isOpaque = false
+            border = BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, Color(0x44, 0x44, 0x44)),
+                BorderFactory.createEmptyBorder(2, 4, 2, 4),
+            )
+            add(legendSwatch(DiffColors.addedBackground, "Added"))
+            add(legendSwatch(DiffColors.removedBackground, "Removed"))
+            add(legendSwatch(DiffColors.searchHighlight, "Search match"))
+            add(JButton("\u00D7").apply {
+                toolTipText = "Dismiss legend"
+                isFocusable = false
+                isContentAreaFilled = false
+                border = BorderFactory.createEmptyBorder(0, 4, 0, 4)
+                margin = java.awt.Insets(0, 0, 0, 0)
+                font = font.deriveFont(12f)
+                addActionListener {
+                    isVisible = false
+                    ctx?.let { c -> c.updateConfig(c.config.copy(diffLegendDismissed = true)) }
+                }
+            })
+        }
+        legend.isVisible = !dismissed
+        return legend
+    }
+
+    private fun legendSwatch(color: Color, label: String): JPanel {
+        return JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+            isOpaque = false
+            add(JPanel().apply {
+                preferredSize = Dimension(12, 12)
+                background = color
+                toolTipText = label
+            })
+            add(JLabel(label).apply { font = font.deriveFont(11f) })
+        }
     }
 }
