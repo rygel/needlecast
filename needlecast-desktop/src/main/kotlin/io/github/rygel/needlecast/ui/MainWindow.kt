@@ -10,7 +10,10 @@ import io.github.andrewauclair.moderndocking.settings.Settings
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.ThemeRegistry
 import io.github.rygel.needlecast.isOsDark
+import io.github.rygel.needlecast.model.ProjectDirectory
+import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.ui.RemixIcons
+import io.github.rygel.needlecast.ui.components.BannerNotification
 import io.github.rygel.needlecast.ui.diff.DiffViewerPanel
 import io.github.rygel.needlecast.ui.explorer.ExplorerPanel
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
@@ -265,6 +268,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         registerKeyboardShortcuts()
         centerOnScreen()
+        detectCwdProject()
 
         UIManager.addPropertyChangeListener { evt ->
             if (evt.propertyName == "lookAndFeel") applyTheme(isOsDark())
@@ -1466,6 +1470,44 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private fun sanitizeLogField(value: String?): String {
         if (value.isNullOrBlank()) return "-"
         return value.replace(Regex("[\\r\\n\\t]+"), " ").trim()
+    }
+
+    private fun detectCwdProject() {
+        val cwd = System.getProperty("user.dir")
+        if (File(cwd, ".git").isDirectory) {
+            val alreadyConfigured = ctx.config.projectTree
+                .filterIsInstance<ProjectTreeEntry.Project>()
+                .any { it.directory.path == cwd }
+            if (!alreadyConfigured) {
+                val dir = ProjectDirectory(cwd)
+                val entry = ProjectTreeEntry.Project(directory = dir)
+                val newTree = ctx.config.projectTree + entry
+                ctx.updateConfig(ctx.config.copy(projectTree = newTree))
+                projectTreePanel.reloadFromConfig()
+            }
+            showCwdBanner(cwd)
+        }
+    }
+
+    private fun showCwdBanner(cwd: String) {
+        if ("cwd-detect" in ctx.config.dismissedHints) return
+        val banner = BannerNotification(
+            text = "Detected project at $cwd",
+            actionLabel = "Select it",
+            onAction = {
+                val dir = ProjectDirectory(cwd)
+                val detected = ctx.scanner.scan(dir)
+                    ?: io.github.rygel.needlecast.model.DetectedProject(dir, emptySet(), emptyList())
+                pendingProjectSelection = detected
+                projectSelectionTimer.restart()
+            },
+            onDismiss = {
+                ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + "cwd-detect"))
+            },
+        )
+        contentPane.add(banner, BorderLayout.NORTH)
+        revalidate()
+        repaint()
     }
 
     companion object {
