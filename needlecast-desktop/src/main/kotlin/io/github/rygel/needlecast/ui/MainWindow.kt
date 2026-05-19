@@ -14,6 +14,8 @@ import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.components.BannerNotification
+import io.github.rygel.needlecast.ui.components.TourOverlay
+import io.github.rygel.needlecast.ui.components.TourStep
 import io.github.rygel.needlecast.ui.diff.DiffViewerPanel
 import io.github.rygel.needlecast.ui.explorer.ExplorerPanel
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
@@ -269,6 +271,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         registerKeyboardShortcuts()
         centerOnScreen()
         detectCwdProject()
+        maybeStartTour()
 
         UIManager.addPropertyChangeListener { evt ->
             if (evt.propertyName == "lookAndFeel") applyTheme(isOsDark())
@@ -1273,6 +1276,42 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private fun clearPanelHighlight() {
         highlightedDockable?.setHoverHighlight(false)
         highlightedDockable = null
+    }
+
+    private val tourSteps = listOf(
+        TourStep("Project Tree", "Your projects appear here. Double-click to open a terminal and file explorer.", "project-tree"),
+        TourStep("Project Switcher", "Quickly switch between projects with Ctrl+P.", "project-tree"),
+        TourStep("Explorer", "Browse and edit files. Syntax highlighting works for 20+ languages.", "explorer"),
+        TourStep("Terminal", "Each project gets its own terminal. Agent status is shown with a pulsing dot.", "terminal"),
+        TourStep("Git", "View commit history, diffs, and sync with remote. Fetches happen automatically.", "git-log"),
+        TourStep("Commands", "Build commands are auto-detected. Click to run.", "commands"),
+    )
+
+    private val tourPanelMap: Map<String, java.awt.Component> by lazy {
+        mapOf(
+            "project-tree" to projectTreeDockable,
+            "terminal"     to terminalDockable,
+            "explorer"     to explorerDockable,
+            "git-log"      to gitLogDockable,
+            "commands"     to commandsDockable,
+        )
+    }
+
+    private fun findDockablePanel(id: String): java.awt.Component? = tourPanelMap[id]
+
+    private fun maybeStartTour() {
+        if (ctx.config.tourCompleted) return
+        javax.swing.Timer(1500) { e ->
+            (e.source as? javax.swing.Timer)?.stop()
+            val overlay = TourOverlay(
+                rootPane = rootPane,
+                steps = tourSteps,
+                findPanel = { id -> findDockablePanel(id) },
+                onComplete = { ctx.updateConfig(ctx.config.copy(tourCompleted = true)) },
+                onSkip = { ctx.updateConfig(ctx.config.copy(tourCompleted = true)) },
+            )
+            overlay.start()
+        }.apply { isRepeats = false; start() }
     }
 
     private val updateLogger = org.slf4j.LoggerFactory.getLogger("needlecast.update")

@@ -92,6 +92,32 @@ class AiToolsSettingsPanel(
             add(editorFgClear)
         }
 
+        val hintsToggle = JCheckBox("Show contextual hints", ctx.config.showContextualHints).apply {
+            toolTipText = "Show helpful hints in empty panels when no project is selected"
+            addActionListener {
+                ctx.updateConfig(ctx.config.copy(showContextualHints = isSelected))
+            }
+        }
+        val popupsToggle = JCheckBox("Show help popups", ctx.config.showHelpPopups).apply {
+            toolTipText = "Show one-time help popups when using features for the first time"
+            addActionListener {
+                ctx.updateConfig(ctx.config.copy(showHelpPopups = isSelected))
+            }
+        }
+        val restartTourBtn = JButton("Restart tour").apply {
+            toolTipText = "Replay the first-run guided tour"
+            addActionListener {
+                ctx.updateConfig(ctx.config.copy(tourCompleted = false, shownHints = emptySet(), dismissedHints = emptySet()))
+            }
+        }
+
+        val uxPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+            add(hintsToggle)
+            add(popupsToggle)
+            add(Box.createHorizontalStrut(8))
+            add(restartTourBtn)
+        }
+
         val enabledMap = ctx.config.aiCliEnabled.toMutableMap()
         val builtIn    = KNOWN_AI_CLIS.map { it to false }
         val customDefs = ctx.config.customAiClis.map { AiCli(it.name, it.command, it.description) to true }
@@ -184,7 +210,8 @@ class AiToolsSettingsPanel(
             }, BorderLayout.NORTH)
             add(JPanel(BorderLayout()).apply {
                 add(quotaToggle, BorderLayout.NORTH)
-                add(editorColorsPanel, BorderLayout.SOUTH)
+                add(editorColorsPanel, BorderLayout.CENTER)
+                add(uxPanel, BorderLayout.SOUTH)
             }, BorderLayout.CENTER)
         }, BorderLayout.NORTH)
         add(JScrollPane(listPanel).apply { border = BorderFactory.createEmptyBorder() }, BorderLayout.CENTER)
