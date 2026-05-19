@@ -4,6 +4,7 @@ import io.github.rygel.needlecast.config.ConfigStore
 import io.github.rygel.needlecast.config.JsonConfigStore
 import io.github.rygel.needlecast.config.PromptLibraryStore
 import io.github.rygel.needlecast.config.SkillLibraryStore
+import io.github.rygel.needlecast.git.GitAutoSync
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
 import io.github.rygel.needlecast.model.AppConfig
@@ -42,6 +43,8 @@ class AppContext(
     init {
         promptLibraryStore.seedDefaults(defaultPromptLibrary(), defaultCommandLibrary())
     }
+
+    val gitAutoSync: GitAutoSync by lazy { GitAutoSync(this, gitService) }
 
     // ── i18n ──────────────────────────────────────────────────────────────
 
