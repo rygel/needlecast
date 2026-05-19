@@ -4,6 +4,7 @@ import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.git.ChangedFile
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
+import io.github.rygel.needlecast.ui.components.DynamicHelpPopup
 import io.github.rygel.needlecast.ui.diff.DiffParser
 import io.github.rygel.needlecast.ui.diff.DiffResult
 import io.github.rygel.needlecast.ui.diff.DiffStats
@@ -93,6 +94,11 @@ class GitLogPanel(
     private var pendingDiffWorker: SwingWorker<*, Void>? = null
     private val maxDiffChars = 400_000
 
+    private val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+        add(logToggle); add(commitToggle)
+        add(fetchButton); add(pushButton); add(pullButton)
+    }
+
     init {
         minimumSize = Dimension(0, 0)
 
@@ -115,11 +121,6 @@ class GitLogPanel(
         fetchButton.addActionListener { runRemoteOp("Fetch") { dir, cb -> gitService.fetchStreaming(dir, cb) } }
         pushButton.addActionListener  { runRemoteOp("Push")  { dir, cb -> gitService.pushStreaming(dir, cb)  } }
         pullButton.addActionListener  { runRemoteOp("Pull")  { dir, cb -> gitService.pullStreaming(dir, cb)  } }
-
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
-            add(logToggle); add(commitToggle)
-            add(fetchButton); add(pushButton); add(pullButton)
-        }
 
         add(toolbar,   BorderLayout.NORTH)
         add(cardPanel, BorderLayout.CENTER)
@@ -155,6 +156,7 @@ class GitLogPanel(
             appCtx.gitAutoSync.fetchIfNeeded(path) { line ->
                 javax.swing.SwingUtilities.invokeLater { outputArea.append("$line\n") }
             }
+            DynamicHelpPopup(appCtx, "git-first-open", "Fetch/Pull/Push sync with remote. Changes are fetched automatically when you select a project.", toolbar).showIfNotSeen()
         }
     }
 

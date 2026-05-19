@@ -1,6 +1,7 @@
 package io.github.rygel.needlecast.ui.diff
 
 import io.github.rygel.needlecast.AppContext
+import io.github.rygel.needlecast.ui.components.DynamicHelpPopup
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -44,6 +45,13 @@ class DiffViewerPanel(
         isFocusable = false
     }
 
+    private val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+        add(sideBySideToggle)
+        add(unifiedToggle)
+        add(prevChangeButton)
+        add(nextChangeButton)
+    }
+
     private var currentResult: DiffResult? = null
     private var currentFileIndex: Int = 0
     private var currentHunkIndex: Int = -1
@@ -71,13 +79,6 @@ class DiffViewerPanel(
         searchBar.onClose = { searchBar.deactivate() }
 
         searchBar.setTargetPanes(listOf(contentPanel.leftPane, contentPanel.rightPane))
-
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
-            add(sideBySideToggle)
-            add(unifiedToggle)
-            add(prevChangeButton)
-            add(nextChangeButton)
-        }
 
         val legendBar = buildLegend()
         val northPanel = JPanel(BorderLayout()).apply {
@@ -125,6 +126,9 @@ class DiffViewerPanel(
             updateOverviewBar()
         } else {
             contentPanel.displayEmpty("No changes")
+        }
+        if (ctx != null) {
+            DynamicHelpPopup(ctx, "diff-first-open", "Green = added, Red = removed. Click a commit to see its diff.", toolbar).showIfNotSeen()
         }
     }
 

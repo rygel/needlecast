@@ -19,8 +19,12 @@ import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
 import javax.swing.text.DefaultHighlighter
 import io.github.rygel.needlecast.ui.RemixIcons
+import io.github.rygel.needlecast.AppContext
+import io.github.rygel.needlecast.ui.components.DynamicHelpPopup
 
-class ConsolePanel : JPanel(BorderLayout()) {
+class ConsolePanel(
+    private val ctx: AppContext? = null,
+) : JPanel(BorderLayout()) {
 
     private val textArea = JTextArea().apply {
         isEditable = false
@@ -49,7 +53,7 @@ class ConsolePanel : JPanel(BorderLayout()) {
         }
     }
 
-    private val searchBar = ConsoleSearchBar(textArea)
+    private val searchBar = ConsoleSearchBar(textArea, ctx)
 
     init {
         minimumSize = java.awt.Dimension(0, 0)
@@ -108,7 +112,7 @@ class ConsolePanel : JPanel(BorderLayout()) {
     }
 }
 
-private class ConsoleSearchBar(private val textArea: JTextArea) : JPanel(BorderLayout()) {
+private class ConsoleSearchBar(private val textArea: JTextArea, private val ctx: AppContext?) : JPanel(BorderLayout()) {
 
     private val searchField = JTextField(20)
     private val statusLabel = JLabel(" ")
@@ -118,6 +122,7 @@ private class ConsoleSearchBar(private val textArea: JTextArea) : JPanel(BorderL
     /** Offsets of all current matches: Pair(start, end) */
     private var matches: List<Pair<Int, Int>> = emptyList()
     private var currentMatch = -1
+    private var searchHelpShown = false
 
     init {
         border = BorderFactory.createCompoundBorder(
@@ -203,6 +208,10 @@ private class ConsoleSearchBar(private val textArea: JTextArea) : JPanel(BorderL
             statusLabel.foreground = Color(0x4CAF50)
             statusLabel.text = "${found.size} match${if (found.size == 1) "" else "es"}"
             step(+1)
+            if (!searchHelpShown && ctx != null) {
+                searchHelpShown = true
+                DynamicHelpPopup(ctx, "search-first-use", "Press Enter or Shift+Enter to navigate matches.", searchField).showIfNotSeen()
+            }
         }
     }
 

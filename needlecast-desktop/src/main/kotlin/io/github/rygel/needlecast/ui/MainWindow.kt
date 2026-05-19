@@ -77,7 +77,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         ?.equals("true", ignoreCase = true) != true
 
     private val statusBar      = StatusBar()
-    private val consolePanel   = ConsolePanel()
+    private val consolePanel   = ConsolePanel(ctx)
     private val claudeHookServer: ClaudeHookServer? =
         if (ctx.config.claudeHooksEnabled) ClaudeHookServer { cwd, status -> terminalPanel.onHookEvent(cwd, status) }
         else null
