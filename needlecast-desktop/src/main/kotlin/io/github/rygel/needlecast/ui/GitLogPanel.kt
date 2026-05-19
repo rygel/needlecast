@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui
 
+import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.git.ChangedFile
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
@@ -40,6 +41,7 @@ private data class GitCommit(val hash: String, val subject: String)
  */
 class GitLogPanel(
     private val gitService: GitService = ProcessGitService(),
+    private val ctx: AppContext? = null,
 ) : JPanel(BorderLayout()) {
 
     // ── Log view ──────────────────────────────────────────────────────────────
@@ -148,6 +150,12 @@ class GitLogPanel(
                 commits.forEach { logModel.addElement(it) }
             }
         }.execute()
+
+        ctx?.let { appCtx ->
+            appCtx.gitAutoSync.fetchIfNeeded(path) { line ->
+                javax.swing.SwingUtilities.invokeLater { outputArea.append("$line\n") }
+            }
+        }
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

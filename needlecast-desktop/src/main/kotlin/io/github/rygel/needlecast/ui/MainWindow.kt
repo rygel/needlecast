@@ -93,7 +93,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         isCommand       = true,
     )
     private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
-    private val gitLogPanel   = GitLogPanel(ctx.gitService)
+    private val gitLogPanel   = GitLogPanel(ctx.gitService, ctx)
     private val diffViewerPanel = DiffViewerPanel(fileOpener = { path ->
         explorerPanel.openFile(java.io.File(path))
     }, ctx = ctx)
@@ -309,6 +309,13 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 }
             }
         })
+
+        addWindowFocusListener(object : WindowAdapter() {
+            override fun windowGainedFocus(e: WindowEvent?) {
+                val activePath = lastSelectedPath ?: return
+                ctx.gitAutoSync.fetchIfNeeded(activePath)
+            }
+        })
     }
 
     override fun dispose() {
@@ -377,6 +384,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             docsPanel.loadProject(path)
             skillsPanel.loadProject(project)
             docViewerPanel.loadProject(project)
+            path?.let { ctx.gitAutoSync.fetchIfNeeded(it) }
         }
 
         if (project != null) {
