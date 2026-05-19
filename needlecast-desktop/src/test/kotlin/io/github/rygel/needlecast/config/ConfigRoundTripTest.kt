@@ -147,4 +147,47 @@ class ConfigRoundTripTest {
         store.save(AppConfig())
         assertTrue(store.load().mediaAutoplay, "mediaAutoplay should default to true")
     }
+
+    @Test
+    fun `editor colors persist across save and load`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        val config = AppConfig(editorBackground = "#1E1E2E", editorForeground = "#D4D4D4")
+        store.save(config)
+        val loaded = store.load()
+        assertEquals("#1E1E2E", loaded.editorBackground)
+        assertEquals("#D4D4D4", loaded.editorForeground)
+    }
+
+    @Test
+    fun `editor colors default to null`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        store.save(AppConfig())
+        val loaded = store.load()
+        assertNull(loaded.editorBackground)
+        assertNull(loaded.editorForeground)
+    }
+
+    @Test
+    fun `git auto fetch settings persist`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        store.save(AppConfig(gitAutoFetch = false, gitAutoFetchIntervalMinutes = 10))
+        val loaded = store.load()
+        assertFalse(loaded.gitAutoFetch)
+        assertEquals(10, loaded.gitAutoFetchIntervalMinutes)
+    }
+
+    @Test
+    fun `tour completed persists`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        store.save(AppConfig(tourCompleted = true))
+        assertTrue(store.load().tourCompleted)
+    }
+
+    @Test
+    fun `dismissed hints persist`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        store.save(AppConfig(dismissedHints = setOf("terminal-hint", "docs-hint")))
+        val loaded = store.load()
+        assertEquals(setOf("terminal-hint", "docs-hint"), loaded.dismissedHints)
+    }
 }

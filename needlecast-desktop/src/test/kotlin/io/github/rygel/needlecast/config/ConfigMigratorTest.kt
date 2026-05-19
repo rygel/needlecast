@@ -35,4 +35,21 @@ class ConfigMigratorTest {
         val twice = ConfigMigrator.migrate(once)
         assertEquals(once.configVersion, twice.configVersion)
     }
+
+    @Test
+    fun `version 5 config migrates to version 6 with new defaults`() {
+        val old = AppConfig(configVersion = 5)
+        val result = ConfigMigrator.migrate(old)
+        assertEquals(6, result.configVersion)
+        assertNull(result.editorBackground)
+        assertNull(result.editorForeground)
+        assertTrue(result.gitAutoFetch)
+        assertEquals(5, result.gitAutoFetchIntervalMinutes)
+        assertTrue(result.showContextualHints)
+        assertTrue(result.showHelpPopups)
+        assertTrue(result.dismissedHints.isEmpty())
+        assertTrue(result.shownHints.isEmpty())
+        assertFalse(result.diffLegendDismissed)
+        assertFalse(result.tourCompleted)
+    }
 }

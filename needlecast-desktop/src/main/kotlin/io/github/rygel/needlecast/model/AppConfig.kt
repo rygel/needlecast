@@ -546,8 +546,8 @@ data class CommandOverride(
 )
 
 data class AppConfig(
-    /** Incremented when a breaking schema change requires migration. Current: 5. */
-    val configVersion: Int = 5,
+    /** Incremented when a breaking schema change requires migration. Current: 6. */
+    val configVersion: Int = 6,
     val groups: List<ProjectGroup> = emptyList(),
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,
@@ -624,6 +624,16 @@ data class AppConfig(
     /** Whether media files start playing automatically when opened in the Explorer. Default true. */
     val mediaAutoplay: Boolean = true,
     val privacyModeEnabled: Boolean = false,
+    val editorBackground: String? = null,
+    val editorForeground: String? = null,
+    val gitAutoFetch: Boolean = true,
+    val gitAutoFetchIntervalMinutes: Int = 5,
+    val showContextualHints: Boolean = true,
+    val showHelpPopups: Boolean = true,
+    val dismissedHints: Set<String> = emptySet(),
+    val shownHints: Set<String> = emptySet(),
+    val diffLegendDismissed: Boolean = false,
+    val tourCompleted: Boolean = false,
 )
 
 data class AiCliDefinition(
