@@ -82,7 +82,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         if (ctx.config.claudeHooksEnabled) ClaudeHookServer { cwd, status -> terminalPanel.onHookEvent(cwd, status) }
         else null
     private var claudeUsageService: ClaudeUsageService? = null
-    private val terminalPanel  = TerminalManager()
+    private val terminalPanel  = TerminalManager(ctx)
     private val explorerPanel  = ExplorerPanel(ctx)
     private val promptInputPanel  = PromptInputPanel(ctx, sendToTerminal = { terminalPanel.sendInput(it) })
     private val commandInputPanel = PromptInputPanel(
@@ -99,8 +99,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
     private val searchPanel   = SearchPanel { file, line, column -> explorerPanel.openFileAt(file, line, column) }
-    private val renovatePanel = RenovatePanel()
-    private val docsPanel     = DocsPanel()
+    private val renovatePanel = RenovatePanel(ctx)
+    private val docsPanel     = DocsPanel(ctx)
     private val skillsPanel   = SkillsPanel(ctx)
 
     private var pendingProjectSelection: io.github.rygel.needlecast.model.DetectedProject? = null
@@ -159,7 +159,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val docsDockable         = DockablePanel(docsPanel,                     "docs",         "Docs")
     private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
-    private val docViewerPanel           = DocViewerPanel()
+    private val docViewerPanel           = DocViewerPanel(ctx)
     private val docViewerDockable        = DockablePanel(docViewerPanel, "doc-viewer", "Doc Viewer")
     private val skillsDockable       = DockablePanel(skillsPanel,               "skills",       "Skills")
 

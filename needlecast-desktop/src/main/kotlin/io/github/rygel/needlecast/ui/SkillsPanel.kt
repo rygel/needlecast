@@ -62,7 +62,7 @@ class SkillsPanel(
         newButton.toolTipText = "Create new skill"
         editButton.toolTipText = "Edit selected skill"
         deleteButton.toolTipText = "Delete selected skill"
-        deployButton.toolTipText = "No project selected"
+            deployButton.toolTipText = "Select a project first to deploy skills to it."
 
         val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 2, 2)).apply {
             add(newButton)
@@ -158,7 +158,7 @@ class SkillsPanel(
         if (project == null) {
             deployButton.text = "Deploy"
             deployButton.isEnabled = false
-            deployButton.toolTipText = "No project selected"
+        deployButton.toolTipText = "Select a project first to deploy skills to it."
             return
         }
         if (project.directory.skillTargetDir == null) {

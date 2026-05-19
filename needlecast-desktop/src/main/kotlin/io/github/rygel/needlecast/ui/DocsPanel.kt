@@ -1,5 +1,7 @@
 package io.github.rygel.needlecast.ui
 
+import io.github.rygel.needlecast.AppContext
+import io.github.rygel.needlecast.ui.components.ContextualHintPanel
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.Theme as RstaTheme
@@ -33,7 +35,7 @@ import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
 
-class DocsPanel : JPanel(BorderLayout()) {
+class DocsPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     // ── UI components ────────────────────────────────────────────────────────
     private val fileListModel = DefaultListModel<String>()
@@ -57,6 +59,7 @@ class DocsPanel : JPanel(BorderLayout()) {
     private val refreshButton  = JButton("⟳ Refresh")
 
     private val placeholder = JLabel("No project selected", JLabel.CENTER)
+    private var hintPanel: ContextualHintPanel? = null
 
     // ── State ────────────────────────────────────────────────────────────────
     private var projectRoot: File? = null
@@ -220,16 +223,37 @@ class DocsPanel : JPanel(BorderLayout()) {
     private fun colorHex(c: Color) = "#%02x%02x%02x".format(c.red, c.green, c.blue)
 
     private fun showPlaceholder(message: String) {
-        placeholder.text = message
-        if (placeholder.parent == null) {
+        hintPanel?.let { remove(it); hintPanel = null }
+        if (message == "No project selected" && ctx.config.showContextualHints && "docs-empty" !in ctx.config.dismissedHints) {
+            val hint = ContextualHintPanel("docs-empty", "No project selected",
+                "Select a project to browse its documentation.", onDismiss = { id ->
+                ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
+                SwingUtilities.invokeLater {
+                    hintPanel = null
+                    placeholder.text = "No project selected"
+                    removeAll()
+                    add(placeholder, BorderLayout.CENTER)
+                    revalidate(); repaint()
+                }
+            })
+            hintPanel = hint
             removeAll()
-            add(placeholder, BorderLayout.CENTER)
+            add(hint, BorderLayout.CENTER)
             revalidate(); repaint()
+        } else {
+            placeholder.text = message
+            if (placeholder.parent == null) {
+                removeAll()
+                add(placeholder, BorderLayout.CENTER)
+                revalidate(); repaint()
+            }
         }
     }
 
     private fun hidePlaceholder() {
-        if (placeholder.parent != null) {
+        val center = (layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
+        if (center !is JSplitPane) {
+            hintPanel = null
             removeAll()
             val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
                 add(refreshButton)
