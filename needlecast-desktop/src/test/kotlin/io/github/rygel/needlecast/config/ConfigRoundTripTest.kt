@@ -190,4 +190,19 @@ class ConfigRoundTripTest {
         val loaded = store.load()
         assertEquals(setOf("terminal-hint", "docs-hint"), loaded.dismissedHints)
     }
+
+    @Test
+    fun `shown hints persist`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        store.save(AppConfig(shownHints = setOf("diff-first-open", "git-first-open")))
+        val loaded = store.load()
+        assertEquals(setOf("diff-first-open", "git-first-open"), loaded.shownHints)
+    }
+
+    @Test
+    fun `show contextual hints persists`(@TempDir dir: Path) {
+        val store = JsonConfigStore(dir.resolve("config.json"))
+        store.save(AppConfig(showContextualHints = false))
+        assertFalse(store.load().showContextualHints)
+    }
 }
