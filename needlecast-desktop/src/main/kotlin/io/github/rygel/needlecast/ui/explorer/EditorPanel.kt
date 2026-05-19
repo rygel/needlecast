@@ -182,6 +182,15 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         gutter.borderColor = bg
         gutter.lineNumberColor = javax.swing.UIManager.getColor("Label.disabledForeground")
             ?: fg.let { java.awt.Color(it.red, it.green, it.blue, 140) }
+
+        ctx.config.editorBackground?.let { hex ->
+            val color = java.awt.Color(hex.substring(1).toInt(16), true)
+            editor.background = color
+            gutter.background = color
+        }
+        ctx.config.editorForeground?.let { hex ->
+            editor.foreground = java.awt.Color(hex.substring(1).toInt(16), true)
+        }
     }
 
     fun checkUnsaved(): Boolean {

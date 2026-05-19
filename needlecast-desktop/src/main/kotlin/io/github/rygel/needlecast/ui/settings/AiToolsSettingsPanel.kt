@@ -12,14 +12,17 @@ import java.awt.Font
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
+import javax.swing.Box
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JCheckBox
+import javax.swing.JColorChooser
 import javax.swing.JLabel
 import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTextField
+import javax.swing.UIManager
 
 class AiToolsSettingsPanel(
     private val ctx: AppContext,
@@ -35,6 +38,57 @@ class AiToolsSettingsPanel(
                 ctx.updateConfig(ctx.config.copy(claudeQuotaEnabled = isSelected))
                 callbacks.onClaudeQuotaToggled(isSelected)
             }
+        }
+
+        val editorBgBtn = JButton("Background").apply {
+            toolTipText = "Custom editor background color"
+            ctx.config.editorBackground?.let { hex ->
+                background = Color(hex.substring(1).toInt(16))
+            }
+            addActionListener {
+                val initial = ctx.config.editorBackground?.let { Color(it.substring(1).toInt(16)) }
+                    ?: UIManager.getColor("TextArea.background") ?: Color(0x1E1E2E)
+                val chosen = JColorChooser.showDialog(this@AiToolsSettingsPanel, "Editor Background", initial)
+                if (chosen != null) {
+                    val hex = "#${String.format("%02X%02X%02X", chosen.red, chosen.green, chosen.blue)}"
+                    ctx.updateConfig(ctx.config.copy(editorBackground = hex))
+                    background = chosen
+                }
+            }
+        }
+        val editorBgClear = JButton("Reset").apply {
+            toolTipText = "Reset to theme default"
+            addActionListener {
+                ctx.updateConfig(ctx.config.copy(editorBackground = null))
+                editorBgBtn.background = UIManager.getColor("TextArea.background") ?: Color(0x1E1E2E)
+            }
+        }
+        val editorFgBtn = JButton("Foreground").apply {
+            toolTipText = "Custom editor foreground color"
+            addActionListener {
+                val initial = ctx.config.editorForeground?.let { Color(it.substring(1).toInt(16)) }
+                    ?: UIManager.getColor("TextArea.foreground") ?: Color(0xD4D4D4)
+                val chosen = JColorChooser.showDialog(this@AiToolsSettingsPanel, "Editor Foreground", initial)
+                if (chosen != null) {
+                    val hex = "#${String.format("%02X%02X%02X", chosen.red, chosen.green, chosen.blue)}"
+                    ctx.updateConfig(ctx.config.copy(editorForeground = hex))
+                }
+            }
+        }
+        val editorFgClear = JButton("Reset").apply {
+            toolTipText = "Reset to theme default"
+            addActionListener {
+                ctx.updateConfig(ctx.config.copy(editorForeground = null))
+            }
+        }
+
+        val editorColorsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+            add(JLabel("Editor Colors:"))
+            add(editorBgBtn)
+            add(editorBgClear)
+            add(Box.createHorizontalStrut(8))
+            add(editorFgBtn)
+            add(editorFgClear)
         }
 
         val enabledMap = ctx.config.aiCliEnabled.toMutableMap()
@@ -127,7 +181,10 @@ class AiToolsSettingsPanel(
                 "Built-in tools are detected automatically; custom tools use PATH lookup.</html>").apply {
                 border = BorderFactory.createEmptyBorder(0, 0, 4, 0)
             }, BorderLayout.NORTH)
-            add(quotaToggle, BorderLayout.SOUTH)
+            add(JPanel(BorderLayout()).apply {
+                add(quotaToggle, BorderLayout.NORTH)
+                add(editorColorsPanel, BorderLayout.SOUTH)
+            }, BorderLayout.CENTER)
         }, BorderLayout.NORTH)
         add(JScrollPane(listPanel).apply { border = BorderFactory.createEmptyBorder() }, BorderLayout.CENTER)
         add(JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply { add(addBtn); add(removeBtn) }, BorderLayout.SOUTH)

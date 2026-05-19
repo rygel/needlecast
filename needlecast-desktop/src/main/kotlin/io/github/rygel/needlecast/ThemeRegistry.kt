@@ -3,6 +3,8 @@ package io.github.rygel.needlecast
 import com.formdev.flatlaf.FlatDarkLaf
 import com.formdev.flatlaf.FlatLightLaf
 import com.formdev.flatlaf.IntelliJTheme
+import java.awt.Color
+import javax.swing.UIManager
 import com.formdev.flatlaf.intellijthemes.FlatArcIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatArcOrangeIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatCarbonIJTheme
@@ -112,15 +114,18 @@ object ThemeRegistry {
         if (id == "system") {
             val dark = isOsDark()
             if (dark) FlatDarkLaf.setup() else FlatLightLaf.setup()
+            if (dark) UIManager.put("TextArea.background", Color(0x1E1E2E))
             return dark
         }
         val entry = themes[id]
         if (entry != null) {
             entry.applyTheme()
+            if (entry.dark) UIManager.put("TextArea.background", Color(0x1E1E2E))
             return entry.dark
         }
         // Unknown theme ID — fall back to dark (safe default)
         FlatDarkLaf.setup()
+        UIManager.put("TextArea.background", Color(0x1E1E2E))
         return true
     }
 
