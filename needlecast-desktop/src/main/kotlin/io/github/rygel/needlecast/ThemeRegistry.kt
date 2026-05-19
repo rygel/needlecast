@@ -50,6 +50,9 @@ data class ThemeEntry(
  */
 object ThemeRegistry {
 
+    const val DEFAULT_DARK_EDITOR_BG_HEX = "#1E1E2E"
+    val DEFAULT_DARK_EDITOR_BG = Color(0x1E1E2E)
+
     const val GROUP_BASE  = "Base"
     const val GROUP_DARK  = "Dark"
     const val GROUP_LIGHT = "Light"
@@ -114,18 +117,18 @@ object ThemeRegistry {
         if (id == "system") {
             val dark = isOsDark()
             if (dark) FlatDarkLaf.setup() else FlatLightLaf.setup()
-            if (dark) UIManager.put("TextArea.background", Color(0x1E1E2E))
+            if (dark) UIManager.put("TextArea.background", DEFAULT_DARK_EDITOR_BG)
             return dark
         }
         val entry = themes[id]
         if (entry != null) {
             entry.applyTheme()
-            if (entry.dark) UIManager.put("TextArea.background", Color(0x1E1E2E))
+            if (entry.dark) UIManager.put("TextArea.background", DEFAULT_DARK_EDITOR_BG)
             return entry.dark
         }
         // Unknown theme ID — fall back to dark (safe default)
         FlatDarkLaf.setup()
-        UIManager.put("TextArea.background", Color(0x1E1E2E))
+        UIManager.put("TextArea.background", DEFAULT_DARK_EDITOR_BG)
         return true
     }
 

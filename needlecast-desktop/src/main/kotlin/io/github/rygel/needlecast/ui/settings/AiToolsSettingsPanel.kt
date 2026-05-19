@@ -1,6 +1,7 @@
 package io.github.rygel.needlecast.ui.settings
 
 import io.github.rygel.needlecast.AppContext
+import io.github.rygel.needlecast.ThemeRegistry
 import io.github.rygel.needlecast.model.AiCliDefinition
 import io.github.rygel.needlecast.ui.AiCli
 import io.github.rygel.needlecast.ui.KNOWN_AI_CLIS
@@ -47,7 +48,7 @@ class AiToolsSettingsPanel(
             }
             addActionListener {
                 val initial = ctx.config.editorBackground?.let { Color(it.substring(1).toInt(16)) }
-                    ?: UIManager.getColor("TextArea.background") ?: Color(0x1E1E2E)
+                    ?: UIManager.getColor("TextArea.background") ?: ThemeRegistry.DEFAULT_DARK_EDITOR_BG
                 val chosen = JColorChooser.showDialog(this@AiToolsSettingsPanel, "Editor Background", initial)
                 if (chosen != null) {
                     val hex = "#${String.format("%02X%02X%02X", chosen.red, chosen.green, chosen.blue)}"
@@ -60,7 +61,7 @@ class AiToolsSettingsPanel(
             toolTipText = "Reset to theme default"
             addActionListener {
                 ctx.updateConfig(ctx.config.copy(editorBackground = null))
-                editorBgBtn.background = UIManager.getColor("TextArea.background") ?: Color(0x1E1E2E)
+                editorBgBtn.background = UIManager.getColor("TextArea.background") ?: ThemeRegistry.DEFAULT_DARK_EDITOR_BG
             }
         }
         val editorFgBtn = JButton("Foreground").apply {
