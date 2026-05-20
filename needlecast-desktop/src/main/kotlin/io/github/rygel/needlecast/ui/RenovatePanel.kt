@@ -3,6 +3,8 @@ package io.github.rygel.needlecast.ui
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.rygel.needlecast.process.ProcessExecutor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
+import io.github.rygel.needlecast.AppContext
+import io.github.rygel.needlecast.ui.components.ContextualHintPanel
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
@@ -19,6 +21,7 @@ import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTable
 import javax.swing.SwingConstants
+import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
 import javax.swing.JTextArea
 import javax.swing.JCheckBox
@@ -31,7 +34,7 @@ import javax.swing.table.DefaultTableCellRenderer
  * Scans for outdated dependencies, shows results in a table with checkboxes,
  * and applies selected updates by replacing version strings in project files.
  */
-class RenovatePanel : JPanel(BorderLayout()) {
+class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     /** One row in the updates table. Carries everything needed to apply the update. */
     private data class DepUpdate(
@@ -104,6 +107,8 @@ class RenovatePanel : JPanel(BorderLayout()) {
         columnModel.getColumn(4).preferredWidth = 110
         columnModel.getColumn(5).preferredWidth = 70
     }
+    private val tableScroll = JScrollPane(table)
+    private var hintPanel: ContextualHintPanel? = null
 
     private val runButton = JButton("Scan for Updates").apply {
         isEnabled = false  // enabled only after checkRenovateStatus() confirms installation
@@ -192,29 +197,51 @@ class RenovatePanel : JPanel(BorderLayout()) {
         }
 
         add(header, BorderLayout.NORTH)
-        add(JScrollPane(table), BorderLayout.CENTER)
+        add(tableScroll, BorderLayout.CENTER)
         add(JPanel(BorderLayout()).apply {
             add(summaryLabel, BorderLayout.NORTH)
             add(logScroll, BorderLayout.CENTER)
         }, BorderLayout.SOUTH)
 
         checkRenovateStatus()
+        loadProject(null)
+    }
+
+    private fun setContent(component: Component) {
+        val center = (layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
+        if (center != null) remove(center)
+        add(component, BorderLayout.CENTER)
     }
 
     /** Called when the active project changes. */
     fun loadProject(path: String?) {
         currentProjectPath = path
-        if (path != null) {
-            projectLabel.text = path
-            projectLabel.font = projectLabel.font.deriveFont(Font.PLAIN)
-        } else {
+        hintPanel?.let { remove(it); hintPanel = null }
+
+        if (path == null) {
             projectLabel.text = "No project selected"
             projectLabel.font = projectLabel.font.deriveFont(Font.ITALIC)
+            if (ctx.config.showContextualHints && "renovate-empty" !in ctx.config.dismissedHints) {
+                val hint = ContextualHintPanel("renovate-empty", "No project selected",
+                    "Select a project to view dependency updates.", onDismiss = { id ->
+                    ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
+                    SwingUtilities.invokeLater { hintPanel = null; setContent(tableScroll); revalidate(); repaint() }
+                })
+                hintPanel = hint
+                setContent(hint)
+            } else {
+                setContent(tableScroll)
+            }
+        } else {
+            projectLabel.text = path
+            projectLabel.font = projectLabel.font.deriveFont(Font.PLAIN)
+            setContent(tableScroll)
         }
         updates.clear()
         tableModel.fireTableDataChanged()
         summaryLabel.text = " "
         updateApplyButton()
+        revalidate(); repaint()
     }
 
     private fun updateApplyButton() {

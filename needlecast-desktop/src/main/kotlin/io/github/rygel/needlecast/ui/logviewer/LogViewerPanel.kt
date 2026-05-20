@@ -399,6 +399,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
             matches = emptyList()
             currentMatch = -1
             searchStatus.text = " "
+            textPane.toolTipText = null
             return
         }
         val text = textPane.text.lowercase()
@@ -417,6 +418,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         if (found.isEmpty()) {
             searchStatus.foreground = Color(0xF44336)
             searchStatus.text = "Not found"
+            textPane.toolTipText = null
         } else {
             searchStatus.foreground = Color(0x4CAF50)
             searchStatus.text = "${found.size} match${if (found.size == 1) "" else "es"}"
@@ -436,6 +438,7 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         textPane.scrollRectToVisible(textPane.modelToView2D(start).bounds)
         searchStatus.foreground = Color(0x4CAF50)
         searchStatus.text = "${currentMatch + 1} / ${matches.size}"
+        textPane.toolTipText = "Search match ${currentMatch + 1} of ${matches.size}"
     }
 
     private fun monoFont(): String {

@@ -1,10 +1,12 @@
 package io.github.rygel.needlecast.ui.terminal
 
+import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.AiCli
 import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.ShellDetector
+import io.github.rygel.needlecast.ui.components.ContextualHintPanel
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -36,7 +38,7 @@ private const val CARD_EMPTY = "__empty__"
  * Right-clicking the placeholder when a project is selected opens a shell picker popup.
  * Wire [onActivateRequested] to handle the activation with the chosen shell.
  */
-class TerminalManager : JPanel(CardLayout()) {
+class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
 
     private val cardLayout = layout as CardLayout
     private val terminals = mutableMapOf<String, ProjectTerminalPane>()
@@ -77,6 +79,8 @@ class TerminalManager : JPanel(CardLayout()) {
             ?: Color(0x6A737D)
         font = Font(Font.MONOSPACED, Font.PLAIN, 12)
     }
+    private var placeholderPanel: JPanel? = null
+    private var placeholderMouseListener: MouseAdapter? = null
 
     init {
         minimumSize = Dimension(0, 0)
@@ -88,10 +92,10 @@ class TerminalManager : JPanel(CardLayout()) {
     fun showProject(path: String, dir: ProjectDirectory? = null) {
         shownKey = path
         shownDir = dir
-        placeholderLabel.text = if (dir != null) MSG_READY else MSG_IDLE
         if (terminals.containsKey(path)) {
             cardLayout.show(this, path)
         } else {
+            updatePlaceholderContent(if (dir != null) MSG_READY else MSG_IDLE)
             cardLayout.show(this, CARD_EMPTY)
         }
     }
@@ -145,7 +149,7 @@ class TerminalManager : JPanel(CardLayout()) {
     fun deactivate() {
         shownKey = null
         shownDir = null
-        placeholderLabel.text = MSG_IDLE
+        updatePlaceholderContent(MSG_IDLE)
         cardLayout.show(this, CARD_EMPTY)
     }
 
@@ -164,14 +168,14 @@ class TerminalManager : JPanel(CardLayout()) {
     fun applyTheme(dark: Boolean) {
         currentDark = dark
         terminals.values.forEach { it.applyTheme(dark) }
-        // Update the placeholder to match the new theme
         val bg = javax.swing.UIManager.getColor("TextArea.background")
             ?: javax.swing.UIManager.getColor("Panel.background")
         if (bg != null) {
-            placeholderLabel.parent?.background = bg
+            placeholderPanel?.background = bg
             placeholderLabel.foreground = javax.swing.UIManager.getColor("Label.disabledForeground")
                 ?: Color(0x6A737D)
         }
+        updatePlaceholderContent(if (shownDir != null) MSG_READY else MSG_IDLE)
     }
 
     private var currentFg: java.awt.Color? = null
@@ -208,12 +212,10 @@ class TerminalManager : JPanel(CardLayout()) {
             background = javax.swing.UIManager.getColor("TextArea.background")
                 ?: javax.swing.UIManager.getColor("Panel.background")
                 ?: Color(0x1E1E1E)
-            add(placeholderLabel, BorderLayout.CENTER)
         }
         val listener = object : MouseAdapter() {
             override fun mousePressed(e: MouseEvent) {
                 if (SwingUtilities.isRightMouseButton(e) && shownDir != null) {
-                    // Convert coordinates to panel-space if event came from the label
                     val pt = SwingUtilities.convertPoint(e.component, e.point, panel)
                     showShellMenu(panel, pt.x, pt.y)
                 }
@@ -221,7 +223,46 @@ class TerminalManager : JPanel(CardLayout()) {
         }
         panel.addMouseListener(listener)
         placeholderLabel.addMouseListener(listener)
+        placeholderMouseListener = listener
+        placeholderPanel = panel
+        updatePlaceholderContent(MSG_IDLE)
         return panel
+    }
+
+    private fun updatePlaceholderContent(msg: String) {
+        val panel = placeholderPanel ?: return
+        val current = (panel.layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
+        if (current != null) panel.remove(current)
+
+        val isIdle = msg == MSG_IDLE
+        val hintId = if (isIdle) "terminal-idle" else "terminal-ready"
+        val headline = if (isIdle) "No project selected" else "Ready"
+        val desc = if (isIdle)
+            "Double-click a project in the tree to open a terminal, or press Ctrl+P to search."
+        else
+            "Right-click to open a terminal with your preferred shell."
+
+        if (ctx.config.showContextualHints && hintId !in ctx.config.dismissedHints) {
+            val hint = ContextualHintPanel(hintId, headline, desc, onDismiss = { id ->
+                ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
+                SwingUtilities.invokeLater {
+                    val p = placeholderPanel ?: return@invokeLater
+                    val c = (p.layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
+                    if (c != null) p.remove(c)
+                    placeholderLabel.text = msg
+                    p.add(placeholderLabel, BorderLayout.CENTER)
+                    p.revalidate()
+                    p.repaint()
+                }
+            })
+            placeholderMouseListener?.let { hint.addMouseListener(it) }
+            panel.add(hint, BorderLayout.CENTER)
+        } else {
+            placeholderLabel.text = msg
+            panel.add(placeholderLabel, BorderLayout.CENTER)
+        }
+        panel.revalidate()
+        panel.repaint()
     }
 
     // ── Shell picker ─────────────────────────────────────────────────────────

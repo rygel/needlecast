@@ -1,6 +1,7 @@
 package io.github.rygel.needlecast.ui.explorer
 
 import io.github.rygel.needlecast.AppContext
+import io.github.rygel.needlecast.ThemeRegistry
 import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.TextChunker
@@ -164,7 +165,7 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         // surrounding application.  UIManager colors update when the L&F changes.
         val bg = javax.swing.UIManager.getColor("TextArea.background")
             ?: javax.swing.UIManager.getColor("Panel.background")
-            ?: if (dark) java.awt.Color(0x1E1E1E) else java.awt.Color.WHITE
+            ?: if (dark) ThemeRegistry.DEFAULT_DARK_EDITOR_BG else java.awt.Color.WHITE
         val fg = javax.swing.UIManager.getColor("TextArea.foreground")
             ?: javax.swing.UIManager.getColor("Panel.foreground")
             ?: if (dark) java.awt.Color(0xD4D4D4) else java.awt.Color(0x1E1E1E)
@@ -182,6 +183,16 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         gutter.borderColor = bg
         gutter.lineNumberColor = javax.swing.UIManager.getColor("Label.disabledForeground")
             ?: fg.let { java.awt.Color(it.red, it.green, it.blue, 140) }
+
+        ctx.config.editorBackground?.let { hex ->
+            val color = java.awt.Color(hex.substring(1).toInt(16))
+            editor.background = color
+            scrollPane.background = color
+            gutter.background = color
+        }
+        ctx.config.editorForeground?.let { hex ->
+            editor.foreground = java.awt.Color(hex.substring(1).toInt(16))
+        }
     }
 
     fun checkUnsaved(): Boolean {

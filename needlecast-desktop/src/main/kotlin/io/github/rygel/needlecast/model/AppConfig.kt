@@ -546,8 +546,8 @@ data class CommandOverride(
 )
 
 data class AppConfig(
-    /** Incremented when a breaking schema change requires migration. Current: 5. */
-    val configVersion: Int = 5,
+    /** Incremented when a breaking schema change requires migration. Current: 6. */
+    val configVersion: Int = 6,
     val groups: List<ProjectGroup> = emptyList(),
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,
@@ -623,7 +623,28 @@ data class AppConfig(
     val commandOverrides: Map<String, List<CommandOverride>> = emptyMap(),
     /** Whether media files start playing automatically when opened in the Explorer. Default true. */
     val mediaAutoplay: Boolean = true,
+    /** Whether to redact project paths and names in the project tree. Default false. */
     val privacyModeEnabled: Boolean = false,
+    /** Custom editor background as hex color (e.g. "#1E1E2E"). Null means use theme default. */
+    val editorBackground: String? = null,
+    /** Custom editor foreground as hex color. Null means use theme default. */
+    val editorForeground: String? = null,
+    /** Whether git fetch runs automatically on project selection and window focus. Default true. */
+    val gitAutoFetch: Boolean = true,
+    /** Minimum minutes between automatic fetches for the same project. Default 5. */
+    val gitAutoFetchIntervalMinutes: Int = 5,
+    /** Show contextual hints in empty panels when no project is selected. Default true. */
+    val showContextualHints: Boolean = true,
+    /** Show one-time help popups when using features for the first time. Default true. */
+    val showHelpPopups: Boolean = true,
+    /** Hint IDs that the user has dismissed via the × button. */
+    val dismissedHints: Set<String> = emptySet(),
+    /** Hint IDs that have already been shown (for one-time popups). */
+    val shownHints: Set<String> = emptySet(),
+    /** Whether the diff viewer color legend has been dismissed. Default false. */
+    val diffLegendDismissed: Boolean = false,
+    /** Whether the first-run guided tour has been completed or skipped. Default false. */
+    val tourCompleted: Boolean = false,
 )
 
 data class AiCliDefinition(

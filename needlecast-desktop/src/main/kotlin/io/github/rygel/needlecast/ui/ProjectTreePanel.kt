@@ -84,8 +84,46 @@ class ProjectTreePanel(
         }
         override fun getToolTipText(e: java.awt.event.MouseEvent): String? {
             val path = getPathForLocation(e.x, e.y) ?: return null
-            val entry = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject
-            return (entry as? ProjectTreeEntry.Project)?.directory?.redactedPath(ctx.config.privacyModeEnabled)
+            val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return null
+            val entry = node.userObject
+
+            if (entry is ProjectTreeEntry.Project) {
+                val projectPath = entry.directory.path
+                val row = getRowForPath(path)
+                val bounds = getPathBounds(path) ?: return projectPath
+                val renderer = cellRenderer.getTreeCellRendererComponent(
+                    this, node, isRowSelected(row), isExpanded(row), model.isLeaf(node), row, leadSelectionRow == row
+                )
+                val rowHeight = maxOf(bounds.height, renderer.preferredSize.height)
+                val relY = e.y - bounds.y
+                if (relY < 0 || relY >= rowHeight) return projectPath
+
+                val isUpperRow = relY < rowHeight / 2
+                if (!isUpperRow) {
+                    val gs = gitStatusCache[projectPath]
+                    val parts = mutableListOf<String>()
+                    if (gs != null) {
+                        if (gs.isDirty) parts += "Uncommitted changes"
+                        if (gs.branch != null) parts += "Branch: ${gs.branch}"
+                    }
+                    if (parts.isNotEmpty()) return parts.joinToString("\n")
+                } else {
+                    val agentStatus = agentStatuses[projectPath]
+                    if (agentStatus == AgentStatus.THINKING) return "Agent processing"
+                    if (agentStatus == AgentStatus.WAITING) return "Agent waiting"
+                    if (projectPath in activePaths) return "Terminal active"
+                    val gs = gitStatusCache[projectPath]
+                    if (gs?.isDirty == true) return "Uncommitted changes"
+                }
+
+                return entry.directory.redactedPath(ctx.config.privacyModeEnabled)
+            }
+
+            if (entry is ProjectTreeEntry.Folder) {
+                return "Folder: ${entry.name}"
+            }
+
+            return null
         }
     }.apply {
         isRootVisible = false

@@ -2,6 +2,24 @@
 
 All notable changes to Needlecast are documented here.
 
+## [0.8.0] — 2026-05-20
+
+### Added
+- **Darker editor background** — all dark themes now use a deeper `#1E1E2E` editor background for stronger contrast. Custom editor background and foreground color pickers in Settings → AI Tools let you override per-theme defaults.
+- **Git auto-fetch** — `git fetch` runs automatically when a project is selected, when the Git panel is opened, and when the app window gains focus (5-minute minimum interval per project). Toggle and interval configurable in Settings.
+- **Contextual empty states** — static "No project selected" labels replaced with actionable hint panels: icon, headline, description, optional action button, and dismiss (×). Panels updated: Terminal, Docs, Renovate, Doc Viewer, Skills. Hints are configurable — toggle globally or dismiss individually.
+- **CWD auto-detect** — when launched from inside a git repo, Needlecast auto-adds it as a project and shows a banner notification: "Detected project at /path. [Select it] [Dismiss]".
+- **Highlight tooltips** — all colored indicators now explain themselves on hover: diff gutter stripes ("Added line" / "Removed line"), search match navigation ("Match 3 of 12"), project tree agent status LEDs ("Agent active" / "Agent waiting"), and dirty dot ("Uncommitted changes").
+- **Diff color legend** — collapsible legend bar in the diff viewer showing green = added, red = removed, yellow = search match. Remembers dismiss state.
+- **Dynamic help popups** — one-time balloon popups appear on first use: diff viewer, git panel, and search. Tracked per-hint, toggleable in Settings.
+- **First-run guided tour** — semi-transparent overlay with step bubbles that walks through Project Tree, Explorer, Terminal, Git, and Commands panels on first launch. Restartable from Settings.
+- **Editor color picker** — Settings → AI Tools now has Background/Foreground color choosers with Reset buttons for per-theme editor color customization.
+- **UX settings toggles** — "Show contextual hints", "Show help popups", and "Restart tour" controls in Settings → AI Tools.
+
+### Changed
+- **Config version bumped to 6** — new fields for editor colors, git auto-fetch, hints, and tour state. Existing configs migrate automatically.
+- **Default dark theme editor background** — darker `#1E1E2E` base for all dark FlatLaf themes.
+
 ## [0.8.0-beta.1] — 2026-05-16
 
 ### Added
