@@ -1,10 +1,12 @@
 package io.github.rygel.needlecast.ui
 
+import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.DocCategory
 import io.github.rygel.needlecast.model.DocTarget
 import io.github.rygel.needlecast.service.DocRegistry
 import io.github.rygel.needlecast.ui.RemixIcons
+import io.github.rygel.needlecast.ui.components.ContextualHintPanel
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
@@ -34,7 +36,7 @@ import javax.swing.SwingUtilities
  *
  * Double-click or "Open in Browser" launches [Desktop.browse].
  */
-class DocViewerPanel : JPanel(BorderLayout()) {
+class DocViewerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     // ── Row model ─────────────────────────────────────────────────────────────
 
@@ -51,6 +53,8 @@ class DocViewerPanel : JPanel(BorderLayout()) {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
         setCellRenderer(DocRowRenderer())
     }
+    private val listScroll    = JScrollPane(list)
+    private var hintPanel: ContextualHintPanel? = null
     private val openButton    = JButton("Open in Browser").apply { isEnabled = false }
     private val refreshButton = JButton(RemixIcons.icon("ri-refresh-line", 16))
 
@@ -74,7 +78,7 @@ class DocViewerPanel : JPanel(BorderLayout()) {
         }
 
         add(toolbar,           BorderLayout.NORTH)
-        add(JScrollPane(list), BorderLayout.CENTER)
+        add(listScroll, BorderLayout.CENTER)
         add(buttonBar,         BorderLayout.SOUTH)
 
         list.addListSelectionListener {
@@ -114,8 +118,39 @@ class DocViewerPanel : JPanel(BorderLayout()) {
         openButton.isEnabled = false
 
         if (project == null) {
-            listModel.addElement(DocRow.Placeholder("No project selected"))
+            hintPanel?.let { remove(it); hintPanel = null }
+            if (ctx.config.showContextualHints && "doc-viewer-empty" !in ctx.config.dismissedHints) {
+                val center = (layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
+                if (center != null) remove(center)
+                val hint = ContextualHintPanel("doc-viewer-empty", "No project selected",
+                    "Select a project to discover generated documentation.", onDismiss = { id ->
+                    ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
+                    SwingUtilities.invokeLater {
+                        hintPanel = null
+                        val c = (layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
+                        if (c != null) remove(c)
+                        add(listScroll, BorderLayout.CENTER)
+                        revalidate(); repaint()
+                    }
+                })
+                hintPanel = hint
+                add(hint, BorderLayout.CENTER)
+            } else {
+                val center = (layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
+                if (center !== listScroll) {
+                    if (center != null) remove(center)
+                    add(listScroll, BorderLayout.CENTER)
+                }
+                listModel.addElement(DocRow.Placeholder("No project selected"))
+            }
+            revalidate(); repaint()
             return
+        }
+
+        val center = (layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
+        if (center !== listScroll) {
+            if (center != null) remove(center)
+            add(listScroll, BorderLayout.CENTER)
         }
 
         val projectDir = File(project.directory.path)

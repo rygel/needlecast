@@ -10,7 +10,12 @@ import io.github.andrewauclair.moderndocking.settings.Settings
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.ThemeRegistry
 import io.github.rygel.needlecast.isOsDark
+import io.github.rygel.needlecast.model.ProjectDirectory
+import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.ui.RemixIcons
+import io.github.rygel.needlecast.ui.components.BannerNotification
+import io.github.rygel.needlecast.ui.components.TourOverlay
+import io.github.rygel.needlecast.ui.components.TourStep
 import io.github.rygel.needlecast.ui.diff.DiffViewerPanel
 import io.github.rygel.needlecast.ui.explorer.ExplorerPanel
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
@@ -77,12 +82,12 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         ?.equals("true", ignoreCase = true) != true
 
     private val statusBar      = StatusBar()
-    private val consolePanel   = ConsolePanel()
+    private val consolePanel   = ConsolePanel(ctx)
     private val claudeHookServer: ClaudeHookServer? =
         if (ctx.config.claudeHooksEnabled) ClaudeHookServer { cwd, status -> terminalPanel.onHookEvent(cwd, status) }
         else null
     private var claudeUsageService: ClaudeUsageService? = null
-    private val terminalPanel  = TerminalManager()
+    private val terminalPanel  = TerminalManager(ctx)
     private val explorerPanel  = ExplorerPanel(ctx)
     private val promptInputPanel  = PromptInputPanel(ctx, sendToTerminal = { terminalPanel.sendInput(it) })
     private val commandInputPanel = PromptInputPanel(
@@ -93,14 +98,14 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         isCommand       = true,
     )
     private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
-    private val gitLogPanel   = GitLogPanel(ctx.gitService)
-    private val diffViewerPanel = DiffViewerPanel { path ->
+    private val gitLogPanel   = GitLogPanel(ctx.gitService, ctx)
+    private val diffViewerPanel = DiffViewerPanel(fileOpener = { path ->
         explorerPanel.openFile(java.io.File(path))
-    }
+    }, ctx = ctx)
     private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
     private val searchPanel   = SearchPanel { file, line, column -> explorerPanel.openFileAt(file, line, column) }
-    private val renovatePanel = RenovatePanel()
-    private val docsPanel     = DocsPanel()
+    private val renovatePanel = RenovatePanel(ctx)
+    private val docsPanel     = DocsPanel(ctx)
     private val skillsPanel   = SkillsPanel(ctx)
 
     private var pendingProjectSelection: io.github.rygel.needlecast.model.DetectedProject? = null
@@ -159,7 +164,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private val docsDockable         = DockablePanel(docsPanel,                     "docs",         "Docs")
     private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
     private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
-    private val docViewerPanel           = DocViewerPanel()
+    private val docViewerPanel           = DocViewerPanel(ctx)
     private val docViewerDockable        = DockablePanel(docViewerPanel, "doc-viewer", "Doc Viewer")
     private val skillsDockable       = DockablePanel(skillsPanel,               "skills",       "Skills")
 
@@ -265,6 +270,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         registerKeyboardShortcuts()
         centerOnScreen()
+        detectCwdProject()
+        maybeStartTour()
 
         UIManager.addPropertyChangeListener { evt ->
             if (evt.propertyName == "lookAndFeel") applyTheme(isOsDark())
@@ -307,6 +314,13 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                 } finally {
                     System.exit(0)
                 }
+            }
+        })
+
+        addWindowFocusListener(object : WindowAdapter() {
+            override fun windowGainedFocus(e: WindowEvent?) {
+                val activePath = lastSelectedPath ?: return
+                ctx.gitAutoSync.fetchIfNeeded(activePath)
             }
         })
     }
@@ -377,6 +391,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             docsPanel.loadProject(path)
             skillsPanel.loadProject(project)
             docViewerPanel.loadProject(project)
+            path?.let { ctx.gitAutoSync.fetchIfNeeded(it) }
         }
 
         if (project != null) {
@@ -1263,6 +1278,42 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         highlightedDockable = null
     }
 
+    private val tourSteps = listOf(
+        TourStep("Project Tree", "Your projects appear here. Double-click to open a terminal and file explorer.", "project-tree"),
+        TourStep("Project Switcher", "Quickly switch between projects with Ctrl+P.", "project-tree"),
+        TourStep("Explorer", "Browse and edit files. Syntax highlighting works for 20+ languages.", "explorer"),
+        TourStep("Terminal", "Each project gets its own terminal. Agent status is shown with a pulsing dot.", "terminal"),
+        TourStep("Git", "View commit history, diffs, and sync with remote. Fetches happen automatically.", "git-log"),
+        TourStep("Commands", "Build commands are auto-detected. Click to run.", "commands"),
+    )
+
+    private val tourPanelMap: Map<String, java.awt.Component> by lazy {
+        mapOf(
+            "project-tree" to projectTreeDockable,
+            "terminal"     to terminalDockable,
+            "explorer"     to explorerDockable,
+            "git-log"      to gitLogDockable,
+            "commands"     to commandsDockable,
+        )
+    }
+
+    private fun findDockablePanel(id: String): java.awt.Component? = tourPanelMap[id]
+
+    private fun maybeStartTour() {
+        if (ctx.config.tourCompleted) return
+        javax.swing.Timer(1500) { e ->
+            (e.source as? javax.swing.Timer)?.stop()
+            val overlay = TourOverlay(
+                rootPane = rootPane,
+                steps = tourSteps,
+                findPanel = { id -> findDockablePanel(id) },
+                onComplete = { ctx.updateConfig(ctx.config.copy(tourCompleted = true)) },
+                onSkip = { ctx.updateConfig(ctx.config.copy(tourCompleted = true)) },
+            )
+            overlay.start()
+        }.apply { isRepeats = false; start() }
+    }
+
     private val updateLogger = org.slf4j.LoggerFactory.getLogger("needlecast.update")
     private val uiLogger = org.slf4j.LoggerFactory.getLogger("needlecast.ui")
 
@@ -1458,6 +1509,44 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     private fun sanitizeLogField(value: String?): String {
         if (value.isNullOrBlank()) return "-"
         return value.replace(Regex("[\\r\\n\\t]+"), " ").trim()
+    }
+
+    private fun detectCwdProject() {
+        val cwd = System.getProperty("user.dir")
+        if (File(cwd, ".git").isDirectory) {
+            val alreadyConfigured = ctx.config.projectTree
+                .filterIsInstance<ProjectTreeEntry.Project>()
+                .any { it.directory.path == cwd }
+            if (!alreadyConfigured) {
+                val dir = ProjectDirectory(cwd)
+                val entry = ProjectTreeEntry.Project(directory = dir)
+                val newTree = ctx.config.projectTree + entry
+                ctx.updateConfig(ctx.config.copy(projectTree = newTree))
+                projectTreePanel.reloadFromConfig()
+            }
+            showCwdBanner(cwd)
+        }
+    }
+
+    private fun showCwdBanner(cwd: String) {
+        if ("cwd-detect" in ctx.config.dismissedHints) return
+        val banner = BannerNotification(
+            text = "Detected project at $cwd",
+            actionLabel = "Select it",
+            onAction = {
+                val dir = ProjectDirectory(cwd)
+                val detected = ctx.scanner.scan(dir)
+                    ?: io.github.rygel.needlecast.model.DetectedProject(dir, emptySet(), emptyList())
+                pendingProjectSelection = detected
+                projectSelectionTimer.restart()
+            },
+            onDismiss = {
+                ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + "cwd-detect"))
+            },
+        )
+        contentPane.add(banner, BorderLayout.NORTH)
+        revalidate()
+        repaint()
     }
 
     companion object {

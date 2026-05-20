@@ -3,6 +3,8 @@ package io.github.rygel.needlecast
 import com.formdev.flatlaf.FlatDarkLaf
 import com.formdev.flatlaf.FlatLightLaf
 import com.formdev.flatlaf.IntelliJTheme
+import java.awt.Color
+import javax.swing.UIManager
 import com.formdev.flatlaf.intellijthemes.FlatArcIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatArcOrangeIJTheme
 import com.formdev.flatlaf.intellijthemes.FlatCarbonIJTheme
@@ -47,6 +49,9 @@ data class ThemeEntry(
  * - Catppuccin flavors (bundled `.theme.json` resources loaded via [IntelliJTheme])
  */
 object ThemeRegistry {
+
+    const val DEFAULT_DARK_EDITOR_BG_HEX = "#1E1E2E"
+    val DEFAULT_DARK_EDITOR_BG = Color(0x1E1E2E)
 
     const val GROUP_BASE  = "Base"
     const val GROUP_DARK  = "Dark"
