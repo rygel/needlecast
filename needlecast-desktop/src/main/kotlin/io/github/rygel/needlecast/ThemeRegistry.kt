@@ -69,7 +69,7 @@ object ThemeRegistry {
         "gruvbox-dark"       to ThemeEntry("Gruvbox Dark",      true, GROUP_DARK) { FlatGruvboxDarkHardIJTheme.setup()    },
         "cobalt2"            to ThemeEntry("Cobalt 2",          true, GROUP_DARK) { FlatCobalt2IJTheme.setup()            },
         "carbon"             to ThemeEntry("Carbon",            true, GROUP_DARK) { FlatCarbonIJTheme.setup()             },
-        "dark-purple"        to ThemeEntry("Dark Purple",       true, GROUP_DARK) { FlatDarkPurpleIJTheme.setup()         },
+        "dark-purple"        to ThemeEntry("Dark Purple",       true, GROUP_DARK) { FlatDarkPurpleIJTheme.setup(); UIManager.put("TextArea.background", Color(0x1E1E2E)) },
         "dark-green"         to ThemeEntry("Dark Green",        true, GROUP_DARK) { applyJson("dark-green")               },
         "dark-orange"        to ThemeEntry("Dark Orange",       true, GROUP_DARK) { applyJson("dark-orange")              },
         "spacegray"          to ThemeEntry("Spacegray",         true, GROUP_DARK) { FlatSpacegrayIJTheme.setup()          },
