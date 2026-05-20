@@ -117,18 +117,15 @@ object ThemeRegistry {
         if (id == "system") {
             val dark = isOsDark()
             if (dark) FlatDarkLaf.setup() else FlatLightLaf.setup()
-            if (dark) UIManager.put("TextArea.background", DEFAULT_DARK_EDITOR_BG)
             return dark
         }
         val entry = themes[id]
         if (entry != null) {
             entry.applyTheme()
-            if (entry.dark) UIManager.put("TextArea.background", DEFAULT_DARK_EDITOR_BG)
             return entry.dark
         }
         // Unknown theme ID — fall back to dark (safe default)
         FlatDarkLaf.setup()
-        UIManager.put("TextArea.background", DEFAULT_DARK_EDITOR_BG)
         return true
     }
 
