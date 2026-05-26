@@ -2,6 +2,7 @@ package io.github.rygel.needlecast.git
 
 import io.github.rygel.needlecast.model.GitStatus
 import io.github.rygel.needlecast.process.ProcessExecutor
+import org.slf4j.LoggerFactory
 import java.util.concurrent.TimeUnit
 
 /**
@@ -19,7 +20,19 @@ internal fun parseChangedFiles(porcelainOutput: String): List<ChangedFile> =
  */
 class ProcessGitService : GitService {
 
-    override fun readStatus(dir: String): GitStatus = GitStatus.read(dir)
+    private val logger = LoggerFactory.getLogger(ProcessGitService::class.java)
+
+    override fun readStatus(dir: String): GitStatus {
+        return try {
+            val branch = runGit(dir, "symbolic-ref", "--short", "HEAD")?.trim()
+                ?: runGit(dir, "rev-parse", "--short", "HEAD")?.trim()?.let { "($it)" }
+            val dirty = runGit(dir, "status", "--porcelain")?.isNotEmpty() ?: false
+            GitStatus(branch, dirty)
+        } catch (e: Exception) {
+            logger.debug("Failed to read git status for {}", dir, e)
+            GitStatus.NotARepo
+        }
+    }
 
     override fun log(dir: String, maxEntries: Int): String? =
         runGit(dir, "log", "--oneline", "--no-decorate", "-$maxEntries")
