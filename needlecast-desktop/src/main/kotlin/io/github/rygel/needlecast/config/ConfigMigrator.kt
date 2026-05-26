@@ -25,7 +25,7 @@ object ConfigMigrator {
 
     private fun runMigrations(config: AppConfig): AppConfig {
         // Prompt and command libraries are no longer persisted (v3+).
-        // They always come from code via defaultPromptLibrary() / defaultCommandLibrary().
+        // They always come from code via PromptDefaults.defaultPromptLibrary() / .defaultCommandLibrary().
         // No per-version migration steps needed at this time.
         return config
     }
