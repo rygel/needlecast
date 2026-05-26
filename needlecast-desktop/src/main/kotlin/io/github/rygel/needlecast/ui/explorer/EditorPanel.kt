@@ -1,7 +1,6 @@
 package io.github.rygel.needlecast.ui.explorer
 
 import io.github.rygel.needlecast.AppContext
-import io.github.rygel.needlecast.ThemeRegistry
 import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.TextChunker
@@ -165,7 +164,7 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         // surrounding application.  UIManager colors update when the L&F changes.
         val bg = javax.swing.UIManager.getColor("TextArea.background")
             ?: javax.swing.UIManager.getColor("Panel.background")
-            ?: if (dark) ThemeRegistry.DEFAULT_DARK_EDITOR_BG else java.awt.Color.WHITE
+            ?: if (dark) java.awt.Color(0x1E1E1E) else java.awt.Color.WHITE
         val fg = javax.swing.UIManager.getColor("TextArea.foreground")
             ?: javax.swing.UIManager.getColor("Panel.foreground")
             ?: if (dark) java.awt.Color(0xD4D4D4) else java.awt.Color(0x1E1E1E)
