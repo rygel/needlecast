@@ -1,52 +1,25 @@
 package io.github.rygel.needlecast.ui
 
-import io.github.andrewauclair.moderndocking.DockableTabPreference
-import io.github.andrewauclair.moderndocking.DockingRegion
 import io.github.andrewauclair.moderndocking.app.AppState
-import io.github.andrewauclair.moderndocking.app.Docking
-import io.github.andrewauclair.moderndocking.app.RootDockingPanel
-import io.github.andrewauclair.moderndocking.ext.ui.DockingUI
-import io.github.andrewauclair.moderndocking.settings.Settings
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.ThemeRegistry
 import io.github.rygel.needlecast.isOsDark
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
-import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.components.BannerNotification
 import io.github.rygel.needlecast.ui.components.TourOverlay
 import io.github.rygel.needlecast.ui.components.TourStep
-import io.github.rygel.needlecast.ui.diff.DiffViewerPanel
-import io.github.rygel.needlecast.ui.explorer.ExplorerPanel
-import io.github.rygel.needlecast.ui.terminal.AgentStatus
-import io.github.rygel.needlecast.ui.terminal.ClaudeHookServer
-import io.github.rygel.needlecast.ui.terminal.ClaudeUsageService
-import io.github.rygel.needlecast.ui.terminal.TerminalManager
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import java.net.URI
-import java.net.UnknownHostException
-import java.awt.AWTEvent
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.Font
 import java.awt.GraphicsEnvironment
-import java.awt.Insets
-import java.awt.Toolkit
-import java.awt.event.AWTEventListener
-import java.awt.event.MouseEvent
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
-import java.nio.file.Path
-import javax.swing.JCheckBoxMenuItem
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JFrame
-import javax.swing.JMenu
-import javax.swing.JMenuBar
-import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.KeyStroke
@@ -56,6 +29,10 @@ import javax.swing.filechooser.FileNameExtensionFilter
 import javax.swing.plaf.FontUIResource
 import javax.net.ssl.SSLException
 import javax.net.ssl.SSLHandshakeException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.URI
+import java.net.UnknownHostException
 
 private const val APPCAST_URL = "https://github.com/rygel/needlecast/releases/latest/download/appcast.xml"
 
@@ -67,8 +44,6 @@ internal fun buildSparkle4jInstance(
     val builder = io.github.rygel.sparkle4j.Sparkle4j.builder()
         .appcastUrl(APPCAST_URL)
         .currentVersion(version)
-        // The current release workflow publishes an unsigned appcast, so opting out of
-        // signature verification is required until signed release assets are wired in.
         .allowUnsignedUpdates()
         .appName("Needlecast")
         .checkIntervalHours(intervalHours)
@@ -78,152 +53,64 @@ internal fun buildSparkle4jInstance(
 
 class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
-    private val dockingEnabled = System.getProperty("needlecast.skipDocking")
-        ?.equals("true", ignoreCase = true) != true
+    private val pendingProjectSelection = java.util.concurrent.atomic.AtomicReference<io.github.rygel.needlecast.model.DetectedProject?>(null)
 
-    private val statusBar      = StatusBar()
-    private val consolePanel   = ConsolePanel(ctx)
-    private val claudeHookServer: ClaudeHookServer? =
-        if (ctx.config.claudeHooksEnabled) ClaudeHookServer { cwd, status -> terminalPanel.onHookEvent(cwd, status) }
-        else null
-    private var claudeUsageService: ClaudeUsageService? = null
-    private val terminalPanel  = TerminalManager(ctx)
-    private val explorerPanel  = ExplorerPanel(ctx)
-    private val promptInputPanel  = PromptInputPanel(ctx, sendToTerminal = { terminalPanel.sendInput(it) })
-    private val commandInputPanel = PromptInputPanel(
-        ctx,
-        sendToTerminal  = { terminalPanel.sendInput(it) },
-        sendButtonLabel = "Run in Terminal",
-        itemLabel       = "Command",
-        isCommand       = true,
-    )
-    private val commandPanel  = CommandPanel(ctx, consolePanel, statusBar, showTitle = false, isWindowFocused = { isFocused })
-    private val gitLogPanel   = GitLogPanel(ctx.gitService, ctx)
-    private val diffViewerPanel = DiffViewerPanel(fileOpener = { path ->
-        explorerPanel.openFile(java.io.File(path))
-    }, ctx = ctx)
-    private val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
-    private val searchPanel   = SearchPanel { file, line, column -> explorerPanel.openFileAt(file, line, column) }
-    private val renovatePanel = RenovatePanel(ctx)
-    private val docsPanel     = DocsPanel(ctx)
-    private val skillsPanel   = SkillsPanel(ctx)
+    private val registry = PanelRegistry(ctx) { isFocused }
+    internal val docking = DockingController(registry, ctx)
+    private val coordinator = PanelCoordinator(registry, docking, ctx)
 
-    private var pendingProjectSelection: io.github.rygel.needlecast.model.DetectedProject? = null
     private val projectSelectionTimer = javax.swing.Timer(75) {
-        applyProjectSelection(pendingProjectSelection)
+        coordinator.propagateProjectSelection(pendingProjectSelection.getAndSet(null))
     }.apply { isRepeats = false }
-    private var lastSelectedPath: String? = null
-    private var lastSelectedCommandsKey: String? = null
+
+    private val statusBar      = registry.statusBar
+    private val terminalPanel  = registry.terminalPanel
+    private val explorerPanel  = registry.explorerPanel
+    private val logViewerPanel = registry.logViewerPanel
+    private val searchPanel   = registry.searchPanel
+    private lateinit var projectTreePanel: ProjectTreePanel
+    private val projectTreePanelAccessor get() = projectTreePanel
+
     private val edtTraceForced = System.getProperty("needlecast.edt.trace")?.equals("true", ignoreCase = true) == true ||
         (System.getenv("NEEDLECAST_EDT_TRACE")?.equals("true", ignoreCase = true) == true) ||
         (System.getenv("NEEDLECAST_EDT_TRACE") == "1")
     @Volatile private var edtMonitorRunning = false
     private var edtMonitorThread: Thread? = null
 
-    private val projectTreePanel: ProjectTreePanel = ProjectTreePanel(
-        ctx = ctx,
-        onProjectSelected = { project ->
-            pendingProjectSelection = project
-            projectSelectionTimer.restart()
-        },
-        onActivate = { project ->
-            // Per-project shell takes priority; fall back to the global default shell.
-            val shell = project.directory.shellExecutable
-                ?.takeIf { it.isNotBlank() }
-                ?: ctx.config.defaultShell
-            terminalPanel.activateProject(
-                project.directory.path,
-                project.directory.env,
-                shell,
-                project.directory.startupCommand,
-            )
-            projectTreePanel.setActivePaths(terminalPanel.activePaths())
-            explorerPanel.setRootDirectory(File(project.directory.path))
-        },
-        onDeactivate = { project ->
-            terminalPanel.deactivateProject(project.directory.path)
-            projectTreePanel.setActivePaths(terminalPanel.activePaths())
-        },
-        onExternalFilesDropped = { files ->
-            files.forEach { explorerPanel.openFile(it) }
-        },
-    )
-
-    // ModernDocking dockable wrappers — one per logical panel
-    private val projectTreeDockable = DockablePanel(projectTreePanel,              "project-tree", "Projects", closable = false)
-    private val terminalDockable    = DockablePanel(terminalPanel,                 "terminal",     "Terminal", closable = false)
-    private val commandsDockable    = DockablePanel(commandPanel,                  "commands",     "Commands")
-    private val gitLogDockable      = DockablePanel(gitLogPanel,                   "git-log",      "Git Log")
-    private val diffDockable        = DockablePanel(diffViewerPanel, "diff-viewer", "Diff")
-    private val explorerDockable    = DockablePanel(explorerPanel,                 "explorer",     "Explorer")
-    private val editorDockable      = DockablePanel(explorerPanel.editorComponent, "editor",       "Editor")
-    private val renovateDockable     = DockablePanel(renovatePanel,                 "renovate",     "Renovate")
-    private val consoleDockable      = DockablePanel(consolePanel,                  "console",      "Output")
-    private val logViewerDockable    = DockablePanel(logViewerPanel,               "log-viewer",   "Log Viewer")
-    private val searchDockable       = DockablePanel(searchPanel,                   "search",       "Search")
-    private val docsDockable         = DockablePanel(docsPanel,                     "docs",         "Docs")
-    private val promptInputDockable   = DockablePanel(promptInputPanel,               "prompt-input",   "Prompt Input")
-    private val commandInputDockable  = DockablePanel(commandInputPanel,              "command-input",  "Command Input")
-    private val docViewerPanel           = DocViewerPanel(ctx)
-    private val docViewerDockable        = DockablePanel(docViewerPanel, "doc-viewer", "Doc Viewer")
-    private val skillsDockable       = DockablePanel(skillsPanel,               "skills",       "Skills")
-
-    private val dockingLayoutFile: File = Path.of(
-        System.getProperty("user.home"), ".needlecast", "docking-layout.xml"
-    ).toFile()
     private val baseUiFont: Font = UIManager.getFont("defaultFont")
         ?: UIManager.getFont("Label.font")
         ?: Font(Font.SANS_SERIF, Font.PLAIN, 12)
 
     init {
-        terminalPanel.onActivateRequested = { dir ->
-            val shell = dir.shellExecutable?.takeIf { it.isNotBlank() } ?: ctx.config.defaultShell
-            terminalPanel.activateProject(dir.path, dir.env, shell, dir.startupCommand)
-            projectTreePanel.setActivePaths(terminalPanel.activePaths())
-        }
+        projectTreePanel = ProjectTreePanel(
+            ctx = ctx,
+            onProjectSelected = { project ->
+                pendingProjectSelection.set(project)
+                projectSelectionTimer.restart()
+            },
+            onActivate = { project ->
+                val dir = project.directory
+                val shell = dir.shellExecutable?.takeIf { it.isNotBlank() } ?: ctx.config.defaultShell
+                terminalPanel.activateProject(dir.path, dir.env, shell, dir.startupCommand)
+                projectTreePanel.setActivePaths(terminalPanel.activePaths())
+                explorerPanel.setRootDirectory(File(dir.path))
+            },
+            onDeactivate = { project ->
+                terminalPanel.deactivateProject(project.directory.path)
+                projectTreePanel.setActivePaths(terminalPanel.activePaths())
+            },
+            onExternalFilesDropped = { files ->
+                files.forEach { explorerPanel.openFile(it) }
+            },
+        )
+        registry.projectTreePanel = projectTreePanel
 
-        terminalPanel.onProjectStatusChanged = { path, status ->
-            projectTreePanel.updateProjectStatus(path, status)
-        }
-
-        gitLogPanel.onCommitSelected = { result ->
-            diffViewerPanel.display(result)
-            if (dockingEnabled && !Docking.isDocked(diffDockable)) {
-                toggleDiff(true)
-            }
-        }
-
-        // Restore persisted terminal colors and font size
-        val initFg = ctx.config.terminalForeground?.let { runCatching { java.awt.Color.decode(it) }.getOrNull() }
-        val initBg = ctx.config.terminalBackground?.let { runCatching { java.awt.Color.decode(it) }.getOrNull() }
-        if (initFg != null || initBg != null) terminalPanel.applyTerminalColors(initFg, initBg)
-        terminalPanel.applyFontSize(ctx.config.terminalFontSize)
-        terminalPanel.applyFontFamily(ctx.config.terminalFontFamily)
-        explorerPanel.applyEditorFont(ctx.config.editorFontFamily, ctx.config.editorFontSize)
-        terminalPanel.onFontSizeChanged = { size ->
-            ctx.updateConfig(ctx.config.copy(terminalFontSize = size))
-        }
+        coordinator.wire()
 
         ctx.addConfigListener { cfg ->
             SwingUtilities.invokeLater { updateDiagnosticSettings(cfg) }
         }
 
-        if (claudeHookServer != null) {
-            claudeHookServer.start()
-            Thread({ ClaudeHookServer.installHooks(claudeHookServer.port) }, "claude-hooks-installer")
-                .apply { isDaemon = true; start() }
-            terminalPanel.setUseHooksForStatus(true)
-        } else {
-            // Clean up hooks from previous runs when hooks are disabled
-            Thread({ ClaudeHookServer.uninstallHooks() }, "claude-hooks-cleanup")
-                .apply { isDaemon = true; start() }
-        }
-
-        if (ctx.config.claudeQuotaEnabled) {
-            startUsageService()
-        }
-
-        // Application icon (taskbar, title bar, Alt+Tab)
         val iconUrl = MainWindow::class.java.getResource("/icons/needlecast.png")
         if (iconUrl != null) {
             iconImage = javax.imageio.ImageIO.read(iconUrl)
@@ -233,39 +120,23 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         defaultCloseOperation = DO_NOTHING_ON_CLOSE
         minimumSize = Dimension(800, 500)
 
-        if (dockingEnabled) {
-            // Initialize ModernDocking before the content pane is built (RootDockingPanel registers itself)
-            Docking.initialize(this)
-            DockingUI.initialize()
-            Settings.setActiveHighlighterEnabled(ctx.config.dockingActiveHighlight)
-            // Suppress the default border/gap FlatLaf draws around tabbed-pane content areas
-            UIManager.getDefaults()["TabbedPane.contentBorderInsets"] = Insets(0, 0, 0, 0)
-            UIManager.getDefaults()["TabbedPane.tabsOverlapBorder"]   = true
-
-            // Register all dockables before any dock() calls
-            Docking.registerDockable(projectTreeDockable)
-            Docking.registerDockable(terminalDockable)
-            Docking.registerDockable(commandsDockable)
-            Docking.registerDockable(gitLogDockable)
-            Docking.registerDockable(diffDockable)
-            Docking.registerDockable(logViewerDockable)
-            Docking.registerDockable(searchDockable)
-            Docking.registerDockable(explorerDockable)
-            Docking.registerDockable(editorDockable)
-            Docking.registerDockable(consoleDockable)
-            Docking.registerDockable(renovateDockable)
-            Docking.registerDockable(promptInputDockable)
-            Docking.registerDockable(commandInputDockable)
-            Docking.registerDockable(docsDockable)
-            Docking.registerDockable(docViewerDockable)
-            Docking.registerDockable(skillsDockable)
-            installPanelHoverHighlighter()
-
-            contentPane = buildLayout()
+        if (docking.isEnabled()) {
+            docking.initialize(this)
+            docking.installHoverHighlighter()
+            contentPane = docking.buildRootPanel(this)
         } else {
-            contentPane = buildSimpleLayout()
+            contentPane = docking.buildSimplePanel()
         }
-        jMenuBar = buildMenuBar()
+        val menuBuilder = MenuBarBuilder(registry, coordinator, docking, ctx, this, MenuBarBuilder.MenuBarCallbacks(
+            reloadShortcuts = { reloadShortcuts() },
+            applyUiFont = { applyUiFontFromConfig() },
+            checkForUpdatesManual = { checkForUpdatesManual() },
+            importConfig = { importConfig() },
+            exportConfig = { exportConfig() },
+            importWorkspace = { importWorkspace() },
+            exportWorkspace = { exportWorkspace() },
+        ))
+        jMenuBar = menuBuilder.build()
         applyUiFontFromConfig()
 
         registerKeyboardShortcuts()
@@ -279,10 +150,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         addWindowListener(object : WindowAdapter() {
             override fun windowOpened(e: WindowEvent) {
-                if (dockingEnabled) {
-                    applyDockingLayout()
-                    // After the window is laid out, force the project tree to
-                    // recalculate cell widths (tree.width is 0 during initial render)
+                if (docking.isEnabled()) {
+                    docking.restoreLayout()
                     SwingUtilities.invokeLater { projectTreePanel.invalidateTreeLayout() }
                 }
                 applyTheme(ThemeRegistry.isDark(ctx.config.theme))
@@ -297,18 +166,13 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
                         windowWidth  = width,
                         windowHeight = height,
                     ))
-                    // Stop ModernDocking's auto-persist timer before disposal.
-                    // AppStatePersister fires componentResized during dispose(), which starts
-                    // a 500ms Swing timer; if it fires against a partially-disposed frame it
-                    // throws. Pausing also stops any already-running timer from executing.
                     AppState.setAutoPersist(false)
                     AppState.setPaused(true)
                     ctx.disposeAll()
                     updateTimer.stop()
                     logViewerPanel.dispose()
                     terminalPanel.dispose()
-                    claudeHookServer?.stop()
-                    claudeUsageService?.stop()
+                    coordinator.dispose()
                     edtMonitorRunning = false
                     dispose()
                 } finally {
@@ -319,563 +183,22 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
         addWindowFocusListener(object : WindowAdapter() {
             override fun windowGainedFocus(e: WindowEvent?) {
-                val activePath = lastSelectedPath ?: return
+                val activePath = coordinator.getLastSelectedPath() ?: return
                 ctx.gitAutoSync.fetchIfNeeded(activePath)
             }
         })
     }
 
     override fun dispose() {
-        if (dockingEnabled) {
-            try {
-                allDockables.forEach { dockable ->
-                    if (Docking.isDockableRegistered(dockable.dockableId)) {
-                        Docking.deregisterDockable(dockable)
-                    }
-                }
-                Docking.deregisterDockingPanel(this)
-                Docking.uninitialize()
-            } catch (_: Exception) {
-                // Defensive: avoid disposal failures when the docking registry is already cleared.
-            }
-        }
+        docking.dispose()
         super.dispose()
     }
 
-    private fun startUsageService() {
-        val svc = ClaudeUsageService { data ->
-            statusBar.updateQuota(data)
-        }
-        claudeUsageService = svc
-        svc.start()
-    }
-
-    private fun stopUsageService() {
-        claudeUsageService?.stop()
-        claudeUsageService = null
-        statusBar.hideQuota()
-    }
-
-    // ── Layout ───────────────────────────────────────────────────────────────
-
-    private fun buildLayout(): java.awt.Container {
-        // RootDockingPanel does not auto-register; we must register it for Docking API lookups.
-        val rootPanel = RootDockingPanel(this)
-        if (!Docking.getRootPanels().containsKey(this)) {
-            Docking.registerDockingPanel(rootPanel, this)
-        }
-
-        val content = JPanel(BorderLayout())
-        content.add(rootPanel, BorderLayout.CENTER)
-        content.add(statusBar, BorderLayout.SOUTH)
-        return content
-    }
-
-    private fun buildSimpleLayout(): java.awt.Container {
-        val content = JPanel(BorderLayout())
-        content.add(statusBar, BorderLayout.SOUTH)
-        return content
-    }
-
-    private fun applyProjectSelection(project: io.github.rygel.needlecast.model.DetectedProject?) {
-        val path = project?.directory?.path
-        val pathChanged = path != lastSelectedPath
-        val commandsKey = project?.let { buildCommandsKey(it) }
-        val commandsChanged = commandsKey != lastSelectedCommandsKey
-
-        if (pathChanged) {
-            gitLogPanel.loadProject(path)
-            logViewerPanel.loadProject(path)
-            searchPanel.loadProject(path)
-            renovatePanel.loadProject(path)
-            docsPanel.loadProject(path)
-            skillsPanel.loadProject(project)
-            docViewerPanel.loadProject(project)
-            path?.let { ctx.gitAutoSync.fetchIfNeeded(it) }
-        }
-
-        if (project != null) {
-            if (pathChanged) {
-                explorerPanel.setRootDirectory(File(project.directory.path))
-                terminalPanel.showProject(project.directory.path, project.directory)
-            }
-        } else if (pathChanged) {
-            terminalPanel.deactivate()
-        }
-
-        if (pathChanged || commandsChanged) {
-            commandPanel.loadProject(project)
-        }
-
-        lastSelectedPath = path
-        lastSelectedCommandsKey = commandsKey
-    }
-
-    private fun buildCommandsKey(project: io.github.rygel.needlecast.model.DetectedProject): String =
-        project.commands.joinToString(separator = "|") { cmd ->
-            val argv = cmd.argv.joinToString(separator = "\u0000")
-            "${cmd.label}\u0000$argv\u0000${cmd.workingDirectory}"
-        }
-
-    /**
-     * Called in windowOpened — restores the saved docking layout from disk, or
-     * falls back to the built-in default arrangement on first run or when the
-     * saved layout is stale (e.g. a new panel was added since the file was written).
-     * Auto-persist is enabled afterwards so every user change is saved immediately.
-     */
-    private fun applyDockingLayout() {
-        AppState.setPersistFile(dockingLayoutFile)
-        applyTabPreference()   // must run before restore so tab orientation is correct when panels appear
-        val restored = try { AppState.restore() } catch (_: Exception) { false }
-
-        // If any required panel is missing from the restored layout, reset everything.
-        // This happens when a new dockable is introduced and the old XML doesn't reference it.
-        val requiredPanels = listOf(terminalDockable, editorDockable, commandsDockable, projectTreeDockable, promptInputDockable, commandInputDockable, skillsDockable)
-        val allPresent = requiredPanels.all { Docking.isDocked(it) }
-
-        if (!restored || !allPresent) {
-            listOf(projectTreeDockable, terminalDockable, commandsDockable,
-                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, commandInputDockable, docsDockable, docViewerDockable, skillsDockable, diffDockable)
-                .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
-            dockingLayoutFile.delete()
-            setupDefaultDockingLayout()
-        }
-
-        AppState.setAutoPersist(true)
-    }
-
-    /**
-     * Default panel arrangement — used on first run or when the saved layout is missing/corrupt.
-     *
-     * Terminal is always the first panel docked to the window root (the stable anchor).
-     * All other panels are docked relative to already-docked panels.
-     *
-     * ┌──────────────────┬──────────────────────┬────────────────┐
-     * │ Projects|Explorer│  Terminal | Editor   │Commands/GitLog │
-     * │   (single rail)  │   (tabbed together)  ├────────────────┤
-     * │                  │                      │    Console     │
-     * └──────────────────┴──────────────────────┴────────────────┘
-     */
-    private fun applyTabPreference() {
-        Settings.setDefaultTabPreference(
-            if (ctx.config.tabsOnTop) DockableTabPreference.TOP_ALWAYS
-            else DockableTabPreference.NONE
-        )
-    }
-
-    private fun setupDefaultDockingLayout() {
-        applyTabPreference()
-        // 1. Terminal docked to window root — the central, dominant panel
-        Docking.dock(terminalDockable,    this,                DockingRegion.CENTER)
-        // 2. Project tree to the left rail (always visible)
-        Docking.dock(projectTreeDockable, terminalDockable,    DockingRegion.WEST,   0.15)
-        // 3. File explorer tabbed with Projects in the same left rail
-        Docking.dock(explorerDockable,    projectTreeDockable, DockingRegion.CENTER)
-        // 4. Commands panel to the right of the terminal
-        Docking.dock(commandsDockable,    terminalDockable,    DockingRegion.EAST,   0.20)
-        // 5. Git Log tabbed alongside Commands
-        Docking.dock(gitLogDockable,      commandsDockable,    DockingRegion.CENTER)
-        // 5b. Log Viewer tabbed alongside Git Log
-        Docking.dock(logViewerDockable,   gitLogDockable,      DockingRegion.CENTER)
-        // 5c. Search tabbed alongside Log Viewer
-        Docking.dock(searchDockable,      logViewerDockable,   DockingRegion.CENTER)
-        // 5d. Docs tabbed alongside Search
-        Docking.dock(docsDockable,        searchDockable,      DockingRegion.CENTER)
-        Docking.dock(skillsDockable,       docsDockable,        DockingRegion.CENTER)
-        // 6. Editor tabbed with the terminal in the centre column
-        Docking.dock(editorDockable,      terminalDockable,    DockingRegion.CENTER)
-        // 7. Diff below Commands (always visible)
-        Docking.dock(diffDockable, commandsDockable, DockingRegion.SOUTH, 0.55)
-        // 8. Console tabbed with Diff
-        if (ctx.config.showConsole) {
-            Docking.dock(consoleDockable, diffDockable, DockingRegion.CENTER)
-        }
-        // 9. Prompt input below the terminal/editor column
-        Docking.dock(promptInputDockable,  terminalDockable,   DockingRegion.SOUTH,  0.90)
-        // 10. Command input tabbed with prompt input
-        Docking.dock(commandInputDockable, promptInputDockable, DockingRegion.CENTER)
-
-        SwingUtilities.invokeLater { selectPrimaryTabs() }
-    }
-
-    /** Undock every panel, delete the saved layout file, re-apply the built-in default. */
     fun resetLayout() {
-        AppState.setAutoPersist(false)
-        listOf(projectTreeDockable, terminalDockable, commandsDockable,
-               gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable, docViewerDockable, skillsDockable, diffDockable)
-            .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
-        dockingLayoutFile.delete()
-        setupDefaultDockingLayout()
-        AppState.setAutoPersist(true)
-        statusBar.setStatus("Layout reset to default")
+        docking.resetLayout { statusBar.setStatus(it) }
     }
 
-    private fun selectPrimaryTabs() {
-        selectDockableTab(projectTreeDockable)
-        selectDockableTab(terminalDockable)
-        selectDockableTab(commandsDockable)
-        selectDockableTab(diffDockable)
-        selectDockableTab(promptInputDockable)
-    }
-
-    private fun selectDockableTab(dockable: DockablePanel) {
-        val tabbed = SwingUtilities.getAncestorOfClass(javax.swing.JTabbedPane::class.java, dockable) as? javax.swing.JTabbedPane
-            ?: return
-        for (i in 0 until tabbed.tabCount) {
-            val comp = tabbed.getComponentAt(i)
-            if (SwingUtilities.isDescendingFrom(dockable, comp)) {
-                tabbed.selectedIndex = i
-                return
-            }
-        }
-    }
-
-    // ── View toggles ─────────────────────────────────────────────────────────
-
-    private fun toggleConsole(show: Boolean) {
-        if (show && !Docking.isDocked(consoleDockable)) {
-            val anchor = when {
-                Docking.isDocked(commandsDockable) -> commandsDockable
-                Docking.isDocked(explorerDockable) -> explorerDockable
-                else                               -> terminalDockable
-            }
-            Docking.dock(consoleDockable, anchor, DockingRegion.SOUTH, 0.65)
-        } else if (!show && Docking.isDocked(consoleDockable)) {
-            Docking.undock(consoleDockable)
-        }
-        ctx.updateConfig(ctx.config.copy(showConsole = show))
-    }
-
-    private fun toggleExplorer(show: Boolean) {
-        if (show && !Docking.isDocked(explorerDockable)) {
-            if (Docking.isDocked(terminalDockable))
-                Docking.dock(explorerDockable, terminalDockable, DockingRegion.EAST, 0.35)
-            else
-                Docking.dock(explorerDockable, this, DockingRegion.EAST, 0.35)
-        } else if (!show && Docking.isDocked(explorerDockable)) {
-            Docking.undock(explorerDockable)
-        }
-        ctx.updateConfig(ctx.config.copy(showExplorer = show))
-    }
-
-    private fun dockTo(
-        dockable: DockablePanel,
-        anchor: DockablePanel?,
-        region: DockingRegion,
-        proportion: Double? = null,
-    ) {
-        if (Docking.isDocked(dockable)) return
-        if (anchor != null && Docking.isDocked(anchor)) {
-            if (proportion != null) Docking.dock(dockable, anchor, region, proportion)
-            else Docking.dock(dockable, anchor, region)
-        } else {
-            Docking.dock(dockable, this, region)
-        }
-    }
-
-    private fun toggleCommands(show: Boolean) {
-        if (show && !Docking.isDocked(commandsDockable)) {
-            dockTo(commandsDockable, terminalDockable, DockingRegion.EAST, 0.28)
-        } else if (!show && Docking.isDocked(commandsDockable)) {
-            Docking.undock(commandsDockable)
-        }
-    }
-
-    private fun toggleGitLog(show: Boolean) {
-        if (show && !Docking.isDocked(gitLogDockable)) {
-            if (Docking.isDocked(commandsDockable)) Docking.dock(gitLogDockable, commandsDockable, DockingRegion.CENTER)
-            else dockTo(gitLogDockable, terminalDockable, DockingRegion.EAST, 0.28)
-        } else if (!show && Docking.isDocked(gitLogDockable)) {
-            Docking.undock(gitLogDockable)
-        }
-    }
-
-    private fun toggleDiff(show: Boolean) {
-        if (show && !Docking.isDocked(diffDockable)) {
-            val anchor = when {
-                Docking.isDocked(consoleDockable) -> consoleDockable
-                Docking.isDocked(commandsDockable) -> commandsDockable
-                else -> terminalDockable
-            }
-            Docking.dock(diffDockable, anchor, DockingRegion.SOUTH, 0.55)
-        } else if (!show && Docking.isDocked(diffDockable)) {
-            Docking.undock(diffDockable)
-        }
-    }
-
-    private fun toggleSearch(show: Boolean) {
-        if (show && !Docking.isDocked(searchDockable)) {
-            if (Docking.isDocked(commandsDockable)) Docking.dock(searchDockable, commandsDockable, DockingRegion.CENTER)
-            else dockTo(searchDockable, terminalDockable, DockingRegion.EAST, 0.28)
-        } else if (!show && Docking.isDocked(searchDockable)) {
-            Docking.undock(searchDockable)
-        }
-    }
-
-    private fun toggleEditor(show: Boolean) {
-        if (show && !Docking.isDocked(editorDockable)) {
-            dockTo(editorDockable, terminalDockable, DockingRegion.CENTER)
-        } else if (!show && Docking.isDocked(editorDockable)) {
-            Docking.undock(editorDockable)
-        }
-    }
-
-    private fun togglePromptInput(show: Boolean) {
-        if (show && !Docking.isDocked(promptInputDockable)) {
-            dockTo(promptInputDockable, terminalDockable, DockingRegion.SOUTH, 0.78)
-        } else if (!show && Docking.isDocked(promptInputDockable)) {
-            Docking.undock(promptInputDockable)
-        }
-    }
-
-    private fun toggleCommandInput(show: Boolean) {
-        if (show && !Docking.isDocked(commandInputDockable)) {
-            val anchor = if (Docking.isDocked(promptInputDockable)) promptInputDockable else terminalDockable
-            dockTo(commandInputDockable, anchor, DockingRegion.SOUTH, 0.78)
-        } else if (!show && Docking.isDocked(commandInputDockable)) {
-            Docking.undock(commandInputDockable)
-        }
-    }
-
-    private fun toggleRenovate(show: Boolean) {
-        if (show && !Docking.isDocked(renovateDockable)) {
-            if (Docking.isDocked(commandsDockable)) Docking.dock(renovateDockable, commandsDockable, DockingRegion.CENTER)
-            else dockTo(renovateDockable, terminalDockable, DockingRegion.EAST, 0.28)
-        } else if (!show && Docking.isDocked(renovateDockable)) {
-            Docking.undock(renovateDockable)
-        }
-    }
-
-    private fun toggleDocViewer(show: Boolean) {
-        if (show && !Docking.isDocked(docViewerDockable)) {
-            if (Docking.isDocked(docsDockable)) Docking.dock(docViewerDockable, docsDockable, DockingRegion.CENTER)
-            else dockTo(docViewerDockable, terminalDockable, DockingRegion.EAST, 0.28)
-        } else if (!show && Docking.isDocked(docViewerDockable)) {
-            Docking.undock(docViewerDockable)
-        }
-    }
-
-    // ── Menu bar ──────────────────────────────────────────────────────────────
-
-    private fun buildMenuBar(): JMenuBar {
-        val i18n = ctx.i18n
-        val settingsItem = JMenuItem(i18n.translate("menu.file.settings")).apply {
-            addActionListener {
-                SettingsDialog(
-                    owner = this@MainWindow,
-                    ctx   = ctx,
-                    sendToTerminal = { cmd -> terminalPanel.sendInput(cmd) },
-                    callbacks = io.github.rygel.needlecast.ui.settings.SettingsCallbacks(
-                        onShortcutsChanged      = { reloadShortcuts() },
-                        onLayoutChanged         = { resetLayout() },
-                        onTerminalColorsChanged = { fg, bg -> terminalPanel.applyTerminalColors(fg, bg) },
-                        onFontSizeChanged       = { size -> terminalPanel.applyFontSize(size) },
-                        onUiFontChanged         = { _, _ -> applyUiFontFromConfig() },
-                        onEditorFontChanged     = { family, size -> explorerPanel.applyEditorFont(family, size) },
-                        onTerminalFontChanged   = { family -> terminalPanel.applyFontFamily(family) },
-                        onSyntaxThemeChanged    = { explorerPanel.applyTheme(ThemeRegistry.isDark(ctx.config.theme)) },
-                        onClaudeQuotaToggled    = { enabled ->
-                            if (enabled) startUsageService() else stopUsageService()
-                        },
-                    ),
-                ).isVisible = true
-            }
-        }
-        val importItem = JMenuItem(i18n.translate("menu.file.import")).apply {
-            addActionListener { importConfig() }
-        }
-        val exportItem = JMenuItem(i18n.translate("menu.file.export")).apply {
-            addActionListener { exportConfig() }
-        }
-        val importWorkspaceItem = JMenuItem("Import Workspace...").apply {
-            addActionListener { importWorkspace() }
-        }
-        val exportWorkspaceItem = JMenuItem("Export Workspace...").apply {
-            addActionListener { exportWorkspace() }
-        }
-        val importLayoutItem = JMenuItem("Import Layout...").apply {
-            addActionListener { importLayout() }
-        }
-        val exportLayoutItem = JMenuItem("Export Layout...").apply {
-            addActionListener { exportLayout() }
-        }
-        val exitItem = JMenuItem(i18n.translate("menu.file.exit")).apply {
-            addActionListener { dispatchEvent(WindowEvent(this@MainWindow, WindowEvent.WINDOW_CLOSING)) }
-        }
-        val fileMenu = JMenu(i18n.translate("menu.file")).apply {
-            add(settingsItem); addSeparator()
-            add(importItem); add(exportItem)
-            addSeparator()
-            add(importWorkspaceItem); add(exportWorkspaceItem)
-            addSeparator()
-            add(importLayoutItem); add(exportLayoutItem); addSeparator()
-            add(exitItem)
-        }
-
-        val viewMenu = buildViewMenu(i18n.translate("menu.view"))
-        val windowsMenu = buildWindowsMenu()
-        val aiMenu   = buildAiMenu()
-
-        val checkUpdateItem = JMenuItem("Check for Updates...").apply {
-            addActionListener { checkForUpdatesManual() }
-        }
-        val aboutItem = JMenuItem(i18n.translate("menu.help.about")).apply {
-            addActionListener { showAbout() }
-        }
-        val helpMenu = JMenu(i18n.translate("menu.help")).apply {
-            add(checkUpdateItem)
-            addSeparator()
-            add(aboutItem)
-        }
-
-        return JMenuBar().apply {
-            add(fileMenu); add(viewMenu); add(windowsMenu); add(aiMenu); add(helpMenu)
-        }
-    }
-
-    private fun showAbout() {
-        val version = currentVersion() ?: "dev"
-        val repoUrl = "https://github.com/rygel/needlecast"
-
-        val icon = javaClass.getResource("/icons/needlecast.png")?.let {
-            javax.swing.ImageIcon(javax.imageio.ImageIO.read(it).getScaledInstance(64, 64, java.awt.Image.SCALE_SMOOTH))
-        }
-
-        val linkLabel = javax.swing.JLabel("<html><a href=''>$repoUrl</a></html>").apply {
-            cursor = java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
-            addMouseListener(object : java.awt.event.MouseAdapter() {
-                override fun mouseClicked(e: java.awt.event.MouseEvent) {
-                    try { java.awt.Desktop.getDesktop().browse(java.net.URI(repoUrl)) } catch (_: Exception) {}
-                }
-            })
-        }
-
-        val content = JPanel(java.awt.GridBagLayout()).apply {
-            val gbc = java.awt.GridBagConstraints().apply {
-                gridx = 0; gridy = 0; insets = java.awt.Insets(0, 0, 12, 0)
-                anchor = java.awt.GridBagConstraints.CENTER
-            }
-            add(javax.swing.JLabel("Needlecast $version", javax.swing.SwingConstants.CENTER).apply {
-                font = font.deriveFont(java.awt.Font.BOLD, 16f)
-            }, gbc)
-            gbc.gridy++; gbc.insets = java.awt.Insets(0, 0, 4, 0)
-            add(javax.swing.JLabel("A project launcher for developers"), gbc)
-            gbc.gridy++; gbc.insets = java.awt.Insets(0, 0, 12, 0)
-            add(javax.swing.JLabel("by Alexander Brandt"), gbc)
-            gbc.gridy++; gbc.insets = java.awt.Insets(0, 0, 4, 0)
-            add(linkLabel, gbc)
-            gbc.gridy++; gbc.insets = java.awt.Insets(8, 0, 0, 0)
-            add(javax.swing.JLabel("<html><center>MIT License<br>Java ${System.getProperty("java.version")}</center></html>",
-                javax.swing.SwingConstants.CENTER).apply {
-                foreground = java.awt.Color.GRAY
-            }, gbc)
-        }
-
-        JOptionPane.showMessageDialog(this, content, "About Needlecast",
-            JOptionPane.PLAIN_MESSAGE, icon)
-    }
-
-    // Both fields are only read/written on the EDT (background thread posts via invokeLater)
-    private var cliCache: List<Pair<AiCli, Boolean>> = emptyList()
-    private var cliCacheReady = false
-
-    private fun buildAiMenu(): JMenu {
-        val menu = JMenu("AI Tools")
-
-        val promptLibraryItem = JMenuItem("Prompt Library...").apply {
-            addActionListener {
-                PromptLibraryDialog(owner = this@MainWindow, ctx = ctx,
-                    sendToTerminal = { text -> terminalPanel.sendInput(text) },
-                ).isVisible = true
-            }
-        }
-        val commandLibraryItem = JMenuItem("Command Library...").apply {
-            addActionListener {
-                PromptLibraryDialog(
-                    owner           = this@MainWindow,
-                    ctx             = ctx,
-                    sendToTerminal  = { cmd -> terminalPanel.sendInput(cmd) },
-                    title           = "Command Library",
-                    sendButtonLabel = "Run in Terminal",
-                    isCommand       = true,
-                ).isVisible = true
-            }
-        }
-
-        refreshCliCache()
-
-        menu.addMenuListener(object : javax.swing.event.MenuListener {
-            override fun menuSelected(e: javax.swing.event.MenuEvent) {
-                menu.removeAll()
-                menu.add(promptLibraryItem)
-                menu.add(commandLibraryItem)
-                menu.addSeparator()
-
-                menu.add(JMenuItem("Rescan").apply {
-                    icon = RemixIcons.icon("ri-refresh-line", 16)
-                    addActionListener { cliCacheReady = false; refreshCliCache(); menu.doClick() }
-                })
-                menu.addSeparator()
-
-                if (!cliCacheReady) {
-                    menu.add(JMenuItem("Detecting AI tools\u2026").apply { isEnabled = false })
-                    return
-                }
-
-                val (found, missing) = cliCache.partition { it.second }
-                if (found.isEmpty()) {
-                    menu.add(JMenuItem("No AI CLIs detected").apply { isEnabled = false })
-                } else {
-                    found.forEach { (cli, _) ->
-                        menu.add(JMenuItem(cli.name).apply {
-                            icon = RemixIcons.icon("ri-play-line", 16)
-                            toolTipText = cli.description
-                            font = font.deriveFont(Font.BOLD)
-                            addActionListener { launchCliInTerminal(cli) }
-                        })
-                    }
-                }
-                if (missing.isNotEmpty()) {
-                    menu.addSeparator()
-                    missing.forEach { (cli, _) ->
-                        menu.add(JMenuItem("${cli.name}  (not found)").apply {
-                            toolTipText = "Install '${cli.command}' to use it here"
-                            isEnabled = false
-                        })
-                    }
-                }
-            }
-            override fun menuDeselected(e: javax.swing.event.MenuEvent) {}
-            override fun menuCanceled(e: javax.swing.event.MenuEvent) {}
-        })
-
-        return menu
-    }
-
-    private fun refreshCliCache() {
-        Thread({
-            val cfg = ctx.config
-            // Detect built-in CLIs, then append user-defined custom CLIs
-            val builtIn = detectAiClis()
-            val custom = cfg.customAiClis.map { d ->
-                AiCli(d.name, d.command, d.description) to
-                    io.github.rygel.needlecast.process.ProcessExecutor.isOnPath(d.command)
-            }
-            val all = (builtIn + custom).filter { (cli, _) ->
-                cfg.aiCliEnabled[cli.command] != false   // absent key → enabled by default
-            }
-            SwingUtilities.invokeLater {
-                cliCache = all
-                cliCacheReady = true
-                terminalPanel.availableCliTools = all.filter { it.second }.map { it.first }
-            }
-        }, "cli-detector").apply { isDaemon = true; start() }
-    }
-
-    private fun launchCliInTerminal(cli: AiCli) {
-        terminalPanel.sendInput("${cli.command}\n")
-        statusBar.setStatus("Launched ${cli.name}")
-    }
+    // ── Import / Export ──────────────────────────────────────────────────────
 
     private fun importConfig() {
         val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
@@ -949,61 +272,18 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             File("${selected.absolutePath}.$WORKSPACE_FILE_EXTENSION")
         }
         try {
-            ctx.configStore.exportWorkspace(ctx.config.copy(lastSelectedProjectPath = lastSelectedPath), target.toPath())
+            ctx.configStore.exportWorkspace(ctx.config.copy(lastSelectedProjectPath = coordinator.getLastSelectedPath()), target.toPath())
             statusBar.setStatus("Workspace exported to ${target.name}")
         } catch (e: Exception) {
             JOptionPane.showMessageDialog(this, "Failed to export workspace: ${e.message}", "Export Error", JOptionPane.ERROR_MESSAGE)
         }
     }
 
-    private fun importLayout() {
-        val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
-            dialogTitle = "Import Layout"
-            fileFilter = FileNameExtensionFilter("Needlecast layout (*.needlecast-layout)", "needlecast-layout")
-        }
-        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return
-        try {
-            java.nio.file.Files.copy(chooser.selectedFile.toPath(), dockingLayoutFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-            AppState.setAutoPersist(false)
-            listOf(projectTreeDockable, terminalDockable, commandsDockable,
-                   gitLogDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable, promptInputDockable, docsDockable, docViewerDockable, skillsDockable, diffDockable)
-                .forEach { if (Docking.isDocked(it)) Docking.undock(it) }
-            setupDefaultDockingLayout()
-            AppState.restore()
-            AppState.setAutoPersist(true)
-            statusBar.setStatus("Layout imported")
-        } catch (e: Exception) {
-            JOptionPane.showMessageDialog(this, "Failed to import layout: ${e.message}", "Import Error", JOptionPane.ERROR_MESSAGE)
-        }
-    }
-
-    private fun exportLayout() {
-        if (!dockingLayoutFile.exists()) {
-            JOptionPane.showMessageDialog(this, "No saved layout found. Arrange your panels first, then export.",
-                "Export Layout", JOptionPane.WARNING_MESSAGE)
-            return
-        }
-        val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
-            dialogTitle = "Export Layout"
-            fileFilter = FileNameExtensionFilter("Needlecast layout (*.needlecast-layout)", "needlecast-layout")
-            selectedFile = File("layout.needlecast-layout")
-        }
-        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return
-        val target = if (chooser.selectedFile.name.endsWith(".needlecast-layout")) chooser.selectedFile else File("${chooser.selectedFile.absolutePath}.needlecast-layout")
-        try {
-            java.nio.file.Files.copy(dockingLayoutFile.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-            statusBar.setStatus("Layout exported to ${target.name}")
-        } catch (e: Exception) {
-            JOptionPane.showMessageDialog(this, "Failed to export layout: ${e.message}", "Export Error", JOptionPane.ERROR_MESSAGE)
-        }
-    }
-
     private fun applyImportedWorkspace(imported: io.github.rygel.needlecast.model.AppConfig) {
-        closeActiveProjectTerminals()
-        pendingProjectSelection = null
-        applyProjectSelection(null)
-        lastSelectedPath = imported.lastSelectedProjectPath
-        lastSelectedCommandsKey = null
+        coordinator.closeActiveProjectTerminals()
+        coordinator.propagateProjectSelection(null)
+        coordinator.setLastSelectedPath(imported.lastSelectedProjectPath)
+        coordinator.resetLastSelectedCommandsKey()
         ctx.updateConfig(imported)
         projectTreePanel.reloadFromConfig()
         projectTreePanel.setActivePaths(terminalPanel.activePaths())
@@ -1011,7 +291,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private fun confirmWorkspaceImportTerminalClosure(): Boolean {
-        val activePaths = terminalPanel.activePaths().sorted()
+        val activePaths = registry.terminalPanel.activePaths().sorted()
         if (activePaths.isEmpty()) return true
         val lines = activePaths.joinToString("<br>") { "&nbsp;&nbsp;&bull; ${escapeHtml(it)}" }
         val message = "<html>Importing a workspace will close these active terminals:<br><br>$lines<br><br>Continue?</html>"
@@ -1024,27 +304,12 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         ) == JOptionPane.YES_OPTION
     }
 
-    private fun closeActiveProjectTerminals() {
-        terminalPanel.activePaths().toList().forEach { path ->
-            terminalPanel.deactivateProject(path)
-        }
-        projectTreePanel.setActivePaths(terminalPanel.activePaths())
-    }
-
     private fun escapeHtml(text: String): String =
         text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
     private fun applyTheme(dark: Boolean) {
         applyUiFontFromConfig()
-        explorerPanel.applyTheme(dark)
-        terminalPanel.applyTheme(dark)
-        docsPanel.applyTheme(dark)
-    }
-
-    private fun setTheme(themeId: String) {
-        val dark = ThemeRegistry.apply(themeId)
-        applyTheme(dark)
-        ctx.updateConfig(ctx.config.copy(theme = themeId))
-        ctx.reloadTheme()
+        coordinator.propagateThemeChange(dark)
     }
 
     private fun applyUiFontFromConfig() {
@@ -1056,143 +321,6 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         UIManager.put("defaultFont", font)
         SwingUtilities.updateComponentTreeUI(this)
         repaint()
-    }
-
-    private fun buildViewMenu(title: String): JMenu {
-        val themeItems = mutableListOf<JCheckBoxMenuItem>()
-        fun themeItem(id: String, name: String) = JCheckBoxMenuItem(name, id == ctx.config.theme).apply {
-            addActionListener {
-                setTheme(id)
-                // Update all checkmarks
-                themeItems.forEach { it.isSelected = false }
-                isSelected = true
-            }
-            themeItems.add(this)
-        }
-        fun groupSubmenu(label: String, baseId: String, baseName: String, group: String): JMenu {
-            return JMenu(label).apply {
-                add(themeItem(baseId, baseName))
-                addSeparator()
-                ThemeRegistry.themes.entries
-                    .filter { it.value.group == group }
-                    .forEach { (id, entry) -> add(themeItem(id, entry.displayName)) }
-            }
-        }
-        fun groupSubmenu(label: String, group: String): JMenu {
-            return JMenu(label).apply {
-                ThemeRegistry.themes.entries
-                    .filter { it.value.group == group }
-                    .forEach { (id, entry) -> add(themeItem(id, entry.displayName)) }
-            }
-        }
-
-        // Panel visibility toggles
-        val showConsoleCb = JCheckBoxMenuItem("Show Console", ctx.config.showConsole).apply {
-            addActionListener { toggleConsole(isSelected) }
-        }
-        val showExplorerCb = JCheckBoxMenuItem("Show Explorer Tab", ctx.config.showExplorer).apply {
-            addActionListener { toggleExplorer(isSelected) }
-        }
-        val resetLayoutItem = JMenuItem("Reset Layout to Default").apply {
-            addActionListener { resetLayout() }
-        }
-
-        return JMenu(title).apply {
-            add(themeItem("system", ctx.i18n.translate("menu.view.systemTheme")))
-            addSeparator()
-            add(groupSubmenu("Dark Themes",  "dark",  ctx.i18n.translate("menu.view.darkTheme"),  ThemeRegistry.GROUP_DARK))
-            add(groupSubmenu("Light Themes", "light", ctx.i18n.translate("menu.view.lightTheme"), ThemeRegistry.GROUP_LIGHT))
-            addSeparator()
-            add(showConsoleCb)
-            add(showExplorerCb)
-            add(JCheckBoxMenuItem("Privacy Mode", ctx.config.privacyModeEnabled).apply {
-                toolTipText = "Hide private project names and paths for screenshots"
-                addActionListener {
-                    ctx.updateConfig(ctx.config.copy(privacyModeEnabled = isSelected))
-                }
-            })
-            addSeparator()
-            add(JCheckBoxMenuItem("Highlight panel on hover  [alpha]", ctx.config.panelHoverHighlight).apply {
-                toolTipText = "Draws a colored border around the panel under the mouse cursor. Experimental."
-                addActionListener {
-                    ctx.updateConfig(ctx.config.copy(panelHoverHighlight = isSelected))
-                    if (!isSelected) clearPanelHighlight()
-                }
-            })
-            addSeparator()
-            add(resetLayoutItem)
-        }
-    }
-
-    private fun buildWindowsMenu(): JMenu {
-        val commandsCb = JCheckBoxMenuItem("Commands").apply {
-            addActionListener { toggleCommands(isSelected) }
-        }
-        val gitLogCb = JCheckBoxMenuItem("Git Log").apply {
-            addActionListener { toggleGitLog(isSelected) }
-        }
-        val diffCb = JCheckBoxMenuItem("Diff").apply {
-            addActionListener { toggleDiff(isSelected) }
-        }
-        val searchCb = JCheckBoxMenuItem("Search").apply {
-            addActionListener { toggleSearch(isSelected) }
-        }
-        val explorerCb = JCheckBoxMenuItem("Explorer").apply {
-            addActionListener { toggleExplorer(isSelected) }
-        }
-        val editorCb = JCheckBoxMenuItem("Editor").apply {
-            addActionListener { toggleEditor(isSelected) }
-        }
-        val consoleCb = JCheckBoxMenuItem("Output").apply {
-            addActionListener { toggleConsole(isSelected) }
-        }
-        val promptInputCb = JCheckBoxMenuItem("Prompt Input").apply {
-            addActionListener { togglePromptInput(isSelected) }
-        }
-        val commandInputCb = JCheckBoxMenuItem("Command Input").apply {
-            addActionListener { toggleCommandInput(isSelected) }
-        }
-        val renovateCb = JCheckBoxMenuItem("Renovate").apply {
-            addActionListener { toggleRenovate(isSelected) }
-        }
-        val docViewerCb = JCheckBoxMenuItem("Doc Viewer").apply {
-            addActionListener { toggleDocViewer(isSelected) }
-        }
-
-        fun syncState() {
-            commandsCb.isSelected = Docking.isDocked(commandsDockable)
-            gitLogCb.isSelected = Docking.isDocked(gitLogDockable)
-            diffCb.isSelected = Docking.isDocked(diffDockable)
-            searchCb.isSelected = Docking.isDocked(searchDockable)
-            explorerCb.isSelected = Docking.isDocked(explorerDockable)
-            editorCb.isSelected = Docking.isDocked(editorDockable)
-            consoleCb.isSelected = Docking.isDocked(consoleDockable)
-            promptInputCb.isSelected = Docking.isDocked(promptInputDockable)
-            commandInputCb.isSelected = Docking.isDocked(commandInputDockable)
-            renovateCb.isSelected = Docking.isDocked(renovateDockable)
-            docViewerCb.isSelected = Docking.isDocked(docViewerDockable)
-        }
-
-        return JMenu("Panels").apply {
-            addMenuListener(object : javax.swing.event.MenuListener {
-                override fun menuSelected(e: javax.swing.event.MenuEvent) = syncState()
-                override fun menuDeselected(e: javax.swing.event.MenuEvent) {}
-                override fun menuCanceled(e: javax.swing.event.MenuEvent) {}
-            })
-            add(commandsCb)
-            add(gitLogCb)
-            add(diffCb)
-            add(searchCb)
-            add(renovateCb)
-            add(docViewerCb)
-            addSeparator()
-            add(explorerCb)
-            add(editorCb)
-            addSeparator()
-            add(consoleCb)
-            add(promptInputCb)
-            add(commandInputCb)
-        }
     }
 
     // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -1229,9 +357,9 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
     }
 
     private fun showSearchPanel() {
-        if (!dockingEnabled) return
-        if (!Docking.isDocked(searchDockable)) toggleSearch(true)
-        selectDockableTab(searchDockable)
+        if (!docking.isEnabled()) return
+        if (!docking.isDocked("search")) docking.toggleSearch(true)
+        docking.selectTab("search")
         searchPanel.requestFocusOnSearch()
     }
 
@@ -1244,39 +372,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         setLocation((screen.width - width) / 2, (screen.height - height) / 2)
     }
 
-    // ── Panel hover highlight ────────────────────────────────────────────────
-
-    private val allDockables get() = listOf(
-        projectTreeDockable, terminalDockable, commandsDockable, gitLogDockable,
-        logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
-        promptInputDockable, commandInputDockable, docsDockable, docViewerDockable, skillsDockable, diffDockable,
-    )
-    private var highlightedDockable: DockablePanel? = null
-
-    private val panelHoverListener = AWTEventListener { event ->
-        if (!ctx.config.panelHoverHighlight) return@AWTEventListener
-        if (event !is MouseEvent) return@AWTEventListener
-        if (event.id != MouseEvent.MOUSE_MOVED && event.id != MouseEvent.MOUSE_ENTERED) return@AWTEventListener
-        val source = event.source as? Component ?: return@AWTEventListener
-        val hovered = SwingUtilities.getAncestorOfClass(DockablePanel::class.java, source) as? DockablePanel
-        if (hovered !== highlightedDockable) {
-            highlightedDockable?.setHoverHighlight(false)
-            hovered?.setHoverHighlight(true)
-            highlightedDockable = hovered
-        }
-    }
-
-    private fun installPanelHoverHighlighter() {
-        Toolkit.getDefaultToolkit().addAWTEventListener(
-            panelHoverListener,
-            AWTEvent.MOUSE_MOTION_EVENT_MASK or AWTEvent.MOUSE_EVENT_MASK,
-        )
-    }
-
-    private fun clearPanelHighlight() {
-        highlightedDockable?.setHoverHighlight(false)
-        highlightedDockable = null
-    }
+    // ── First-run tour ─────────────────────────────────────────────────────────
 
     private val tourSteps = listOf(
         TourStep("Project Tree", "Your projects appear here. Double-click to open a terminal and file explorer.", "project-tree"),
@@ -1289,11 +385,11 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private val tourPanelMap: Map<String, java.awt.Component> by lazy {
         mapOf(
-            "project-tree" to projectTreeDockable,
-            "terminal"     to terminalDockable,
-            "explorer"     to explorerDockable,
-            "git-log"      to gitLogDockable,
-            "commands"     to commandsDockable,
+            "project-tree" to registry.projectTreeDockable,
+            "terminal"     to registry.terminalDockable,
+            "explorer"     to registry.explorerDockable,
+            "git-log"      to registry.gitLogDockable,
+            "commands"     to registry.commandsDockable,
         )
     }
 
@@ -1313,6 +409,48 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
             overlay.start()
         }.apply { isRepeats = false; start() }
     }
+
+    // ── CWD auto-detect ──────────────────────────────────────────────────────
+
+    private fun detectCwdProject() {
+        val cwd = System.getProperty("user.dir")
+        if (File(cwd, ".git").isDirectory) {
+            val alreadyConfigured = ctx.config.projectTree
+                .filterIsInstance<ProjectTreeEntry.Project>()
+                .any { it.directory.path == cwd }
+            if (!alreadyConfigured) {
+                val dir = ProjectDirectory(cwd)
+                val entry = ProjectTreeEntry.Project(directory = dir)
+                val newTree = ctx.config.projectTree + entry
+                ctx.updateConfig(ctx.config.copy(projectTree = newTree))
+                projectTreePanel.reloadFromConfig()
+            }
+            showCwdBanner(cwd)
+        }
+    }
+
+    private fun showCwdBanner(cwd: String) {
+        if ("cwd-detect" in ctx.config.dismissedHints) return
+        val banner = BannerNotification(
+            text = "Detected project at $cwd",
+            actionLabel = "Select it",
+            onAction = {
+                val dir = ProjectDirectory(cwd)
+                val detected = ctx.scanner.scan(dir)
+                    ?: io.github.rygel.needlecast.model.DetectedProject(dir, emptySet(), emptyList())
+                pendingProjectSelection.set(detected)
+                projectSelectionTimer.restart()
+            },
+            onDismiss = {
+                ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + "cwd-detect"))
+            },
+        )
+        contentPane.add(banner, BorderLayout.NORTH)
+        revalidate()
+        repaint()
+    }
+
+    // ── Diagnostics ──────────────────────────────────────────────────────────
 
     private val updateLogger = org.slf4j.LoggerFactory.getLogger("needlecast.update")
     private val uiLogger = org.slf4j.LoggerFactory.getLogger("needlecast.ui")
@@ -1373,6 +511,8 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         edtMonitorThread = null
     }
 
+    // ── Update checker ──────────────────────────────────────────────────────
+
     private fun buildSparkle4j(intervalHours: Int = 24): io.github.rygel.sparkle4j.Sparkle4jInstance? {
         val version = currentVersion() ?: run {
             updateLogger.warn("Cannot determine app version — update check skipped")
@@ -1393,7 +533,7 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
 
     private val updateTimer = javax.swing.Timer(15 * 60 * 1000) { checkForUpdates() }.apply {
         isRepeats = true
-        initialDelay = 30_000 // first check 30s after launch
+        initialDelay = 30_000
     }
 
     private fun checkForUpdates() {
@@ -1511,48 +651,10 @@ class MainWindow(private val ctx: AppContext) : JFrame(buildTitle()) {
         return value.replace(Regex("[\\r\\n\\t]+"), " ").trim()
     }
 
-    private fun detectCwdProject() {
-        val cwd = System.getProperty("user.dir")
-        if (File(cwd, ".git").isDirectory) {
-            val alreadyConfigured = ctx.config.projectTree
-                .filterIsInstance<ProjectTreeEntry.Project>()
-                .any { it.directory.path == cwd }
-            if (!alreadyConfigured) {
-                val dir = ProjectDirectory(cwd)
-                val entry = ProjectTreeEntry.Project(directory = dir)
-                val newTree = ctx.config.projectTree + entry
-                ctx.updateConfig(ctx.config.copy(projectTree = newTree))
-                projectTreePanel.reloadFromConfig()
-            }
-            showCwdBanner(cwd)
-        }
-    }
-
-    private fun showCwdBanner(cwd: String) {
-        if ("cwd-detect" in ctx.config.dismissedHints) return
-        val banner = BannerNotification(
-            text = "Detected project at $cwd",
-            actionLabel = "Select it",
-            onAction = {
-                val dir = ProjectDirectory(cwd)
-                val detected = ctx.scanner.scan(dir)
-                    ?: io.github.rygel.needlecast.model.DetectedProject(dir, emptySet(), emptyList())
-                pendingProjectSelection = detected
-                projectSelectionTimer.restart()
-            },
-            onDismiss = {
-                ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + "cwd-detect"))
-            },
-        )
-        contentPane.add(banner, BorderLayout.NORTH)
-        revalidate()
-        repaint()
-    }
-
     companion object {
         private const val WORKSPACE_FILE_EXTENSION = "needlecast-workspace"
 
-        private fun currentVersion(): String? = try {
+        internal fun currentVersion(): String? = try {
             val props = java.util.Properties()
             props.load(MainWindow::class.java.getResourceAsStream("/version.properties"))
             props.getProperty("app.version")?.takeIf { it.isNotEmpty() && !it.contains("\${") }
