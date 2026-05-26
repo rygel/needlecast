@@ -89,30 +89,11 @@ class PromptLibraryStore(
         val relativePath = baseDir.relativize(file).pathString.replace('\\', '/')
         val id = deterministicId(relativePath)
 
-        val (frontmatter, body) = splitFrontmatter(raw)
+        val (frontmatter, body) = FrontmatterParser.split(raw)
         val name = frontmatter["name"] ?: file.name.removeSuffix(".md")
         val description = frontmatter["description"] ?: ""
 
         return PromptTemplate(id = id, name = name, category = category, description = description, body = body)
-    }
-
-    private fun splitFrontmatter(raw: String): Pair<Map<String, String>, String> {
-        val lines = raw.lines()
-        if (lines.isEmpty() || lines[0].trim() != "---") return emptyMap<String, String>() to raw
-        val end = lines.drop(1).indexOfFirst { it.trim() == "---" }
-        if (end == -1) return emptyMap<String, String>() to raw
-        val yamlLines = lines.subList(1, end + 1)
-        val body = lines.subList(end + 2, lines.size).joinToString("\n").trim()
-        val map = mutableMapOf<String, String>()
-        for (line in yamlLines) {
-            val colon = line.indexOf(':')
-            if (colon > 0) {
-                val key = line.substring(0, colon).trim()
-                val value = line.substring(colon + 1).trim()
-                map[key] = value
-            }
-        }
-        return map to body
     }
 
     private fun findExistingFile(baseDir: Path, id: String): Path? {
