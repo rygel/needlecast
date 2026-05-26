@@ -1,7 +1,6 @@
 package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.AppContext
-import io.github.rygel.needlecast.model.BuildTool
 import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.GitStatus
 import io.github.rygel.needlecast.model.ProjectDirectory
@@ -9,31 +8,22 @@ import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.scanner.BuildFileWatcher
 import io.github.rygel.needlecast.scanner.IS_MAC
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
+import io.github.rygel.needlecast.ui.terminal.AgentStatus
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Color
-import java.awt.Component
 import java.awt.Desktop
-import java.awt.Dimension
-import java.awt.Graphics
 import java.awt.FlowLayout
-import java.awt.Font
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
-import java.awt.Rectangle
-import java.awt.datatransfer.DataFlavor
-import java.awt.datatransfer.Transferable
 import java.io.File
-import java.net.URI
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.DropMode
-import javax.swing.Icon
 import javax.swing.JButton
 import javax.swing.JCheckBoxMenuItem
 import javax.swing.JColorChooser
-import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JLabel
 import javax.swing.JList
@@ -41,24 +31,19 @@ import javax.swing.JMenu
 import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JPanel
-import javax.swing.ListSelectionModel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
-import javax.swing.SwingWorker
 import javax.swing.JTextField
 import javax.swing.JTree
+import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
+import javax.swing.SwingWorker
+import javax.swing.Timer
 import javax.swing.ToolTipManager
-import javax.swing.TransferHandler
-import javax.swing.UIManager
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
-import io.github.rygel.needlecast.ui.terminal.AgentStatus
-import javax.swing.Timer
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
-import javax.swing.tree.TreeCellRenderer
-import javax.swing.tree.TreeNode
 import javax.swing.tree.TreePath
 import javax.swing.tree.TreeSelectionModel
 
@@ -72,6 +57,47 @@ class ProjectTreePanel(
 
     private val rootNode = DefaultMutableTreeNode("root")
     private val treeModel = DefaultTreeModel(rootNode)
+
+    private val scanResults   = mutableMapOf<String, DetectedProject>()
+    private val gitStatusCache = mutableMapOf<String, GitStatus>()
+    private var activePaths: Set<String> = emptySet()
+    private val missingPaths = mutableSetOf<String>()
+    private var pendingSelectPath: String? = null
+    private val agentStatuses = mutableMapOf<String, AgentStatus>()
+    private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
+    private val scanQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<ProjectDirectory, DetectedProject>>()
+    private val scanApplyTimer = Timer(25) { drainScanQueue() }.apply { isRepeats = false }
+    private val scanApplyPending = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val clickTraceForced = System.getProperty("needlecast.tree.clickTrace")?.equals("true", ignoreCase = true) == true ||
+        (System.getenv("NEEDLECAST_TREE_CLICK_TRACE")?.equals("true", ignoreCase = true) == true) ||
+        (System.getenv("NEEDLECAST_TREE_CLICK_TRACE") == "1")
+    private fun isClickTraceEnabled(): Boolean = clickTraceForced || ctx.config.treeClickTraceEnabled
+    private var clickSeq: Long = 0L
+    private var lastClickTimeNs: Long = 0L
+    private var lastClickKey: String? = null
+    private var lastClickRow: Int = -1
+    private val scanExecutor = java.util.concurrent.Executors.newFixedThreadPool(2).also { exec ->
+        ctx.register(object : io.github.rygel.needlecast.Disposable {
+            override fun dispose() {
+                exec.shutdownNow()
+            }
+        })
+    }
+
+    private var blinkOn = false
+    private val blinkTimer = Timer(600) {
+        blinkOn = !blinkOn
+        tree.repaint()
+    }.apply { isRepeats = true }
+
+    private var buildFileWatcher = BuildFileWatcher { path -> rescheduleProjectScan(path) }
+        .also { ctx.register(it) }
+
+    private var dragPressedPath: TreePath? = null
+    private var dragPressPoint: java.awt.Point? = null
+
+    private var dndHandler: ProjectTreeDndHandler? = null
+
     private val tree = object : JTree(treeModel) {
         override fun getScrollableTracksViewportWidth(): Boolean = true
         override fun updateUI() {
@@ -79,7 +105,6 @@ class ProjectTreePanel(
             if (ui !is FullWidthTreeUI) {
                 setUI(FullWidthTreeUI())
             }
-            // Keep variable-height rows even after LAF changes.
             rowHeight = 0
         }
         override fun getToolTipText(e: java.awt.event.MouseEvent): String? {
@@ -130,103 +155,46 @@ class ProjectTreePanel(
         showsRootHandles = true
         selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
         ToolTipManager.sharedInstance().registerComponent(this)
-    }
+        ui = FullWidthTreeUI()
+        cellRenderer = ProjectTreeCellRenderer(
+            tree = this,
+            activePaths = { activePaths },
+            agentStatuses = agentStatuses,
+            blinkOn = { blinkOn },
+            missingPaths = missingPaths,
+            gitStatusCache = gitStatusCache,
+            scanResults = scanResults,
+            isPrivacyModeEnabled = { ctx.config.privacyModeEnabled },
+        )
+        dropMode = DropMode.ON_OR_INSERT
+        dragEnabled = true
+        dndHandler = ProjectTreeDndHandler(
+            tree = this,
+            treeModel = treeModel,
+            rootNode = rootNode,
+            missingPaths = missingPaths,
+            dragPressedPath = { dragPressedPath },
+            parentComponent = this@ProjectTreePanel,
+            persist = { persist() },
+            updateMissingPath = { path -> updateMissingPath(path) },
+            scanProject = { dir -> scanProject(dir) },
+            onProjectSelected = { project -> onProjectSelected(project) },
+            onExternalFilesDropped = { files -> onExternalFilesDropped(files) },
+        )
+        transferHandler = dndHandler!!.transferHandler
 
-    private val scanResults   = mutableMapOf<String, DetectedProject>()
-    private val gitStatusCache = mutableMapOf<String, GitStatus>()
-    private var activePaths: Set<String> = emptySet()
-    private val missingPaths = mutableSetOf<String>()
-    private var pendingSelectPath: String? = null
-    private val agentStatuses = mutableMapOf<String, AgentStatus>()
-    private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
-    private val scanQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<ProjectDirectory, DetectedProject>>()
-    private val scanApplyTimer = Timer(25) { drainScanQueue() }.apply { isRepeats = false }
-    private val scanApplyPending = java.util.concurrent.atomic.AtomicBoolean(false)
-    private val clickTraceForced = System.getProperty("needlecast.tree.clickTrace")?.equals("true", ignoreCase = true) == true ||
-        (System.getenv("NEEDLECAST_TREE_CLICK_TRACE")?.equals("true", ignoreCase = true) == true) ||
-        (System.getenv("NEEDLECAST_TREE_CLICK_TRACE") == "1")
-    private fun isClickTraceEnabled(): Boolean = clickTraceForced || ctx.config.treeClickTraceEnabled
-    private var clickSeq: Long = 0L
-    private var lastClickTimeNs: Long = 0L
-    private var lastClickKey: String? = null
-    private var lastClickRow: Int = -1
-    private val scanExecutor = java.util.concurrent.Executors.newFixedThreadPool(2).also { exec ->
-        ctx.register(object : io.github.rygel.needlecast.Disposable {
-            override fun dispose() {
-                exec.shutdownNow()
-            }
-        })
-    }
-
-    /** Pulses the agent dot while any project is THINKING. */
-    private var blinkOn = false
-    private val blinkTimer = Timer(600) {
-        blinkOn = !blinkOn
-        tree.repaint()
-    }.apply { isRepeats = true }
-
-    private var buildFileWatcher = BuildFileWatcher { path -> rescheduleProjectScan(path) }
-        .also { ctx.register(it) }
-
-    /** Captured in mousePressed so createTransferable can find the node even before selection updates. */
-    private var dragPressedPath: TreePath? = null
-    private var dragPressPoint: java.awt.Point? = null
-
-    companion object {
-        private val logger = LoggerFactory.getLogger(ProjectTreePanel::class.java)
-
-        /** Draws [base] icon with a small green "+" badge in the bottom-right corner. */
-        private fun plusOverlayIcon(base: javax.swing.Icon?): javax.swing.Icon? {
-            if (base == null) return null
-            return object : javax.swing.Icon {
-                override fun getIconWidth() = base.iconWidth
-                override fun getIconHeight() = base.iconHeight
-                override fun paintIcon(c: java.awt.Component?, g: java.awt.Graphics, x: Int, y: Int) {
-                    base.paintIcon(c, g, x, y)
-                    val g2 = g.create() as java.awt.Graphics2D
-                    g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON)
-                    val size = 9
-                    val px = x + base.iconWidth - size
-                    val py = y + base.iconHeight - size
-                    // Green circle background
-                    g2.color = java.awt.Color(0x4CAF50)
-                    g2.fillOval(px, py, size, size)
-                    // White "+" sign
-                    g2.color = java.awt.Color.WHITE
-                    g2.stroke = java.awt.BasicStroke(1.5f)
-                    val cx = px + size / 2
-                    val cy = py + size / 2
-                    g2.drawLine(cx - 2, cy, cx + 2, cy)
-                    g2.drawLine(cx, cy - 2, cx, cy + 2)
-                    g2.dispose()
-                }
-            }
-        }
-    }
-
-    init {
-        tree.ui = FullWidthTreeUI()
-        tree.cellRenderer = ProjectTreeCellRenderer()
-        tree.dropMode = DropMode.ON_OR_INSERT
-        tree.dragEnabled = true
-        tree.transferHandler = TreeTransferHandler()
-        tree.addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
-            override fun mouseDragged(e: java.awt.event.MouseEvent) {
-                if (!SwingUtilities.isLeftMouseButton(e)) return
-                val press = dragPressPoint ?: return
-                val threshold = java.awt.dnd.DragSource.getDragThreshold()
-                if (Math.abs(e.x - press.x) > threshold || Math.abs(e.y - press.y) > threshold) {
-                    dragPressPoint = null  // fire once per press
-                    tree.transferHandler?.exportAsDrag(tree, e, TransferHandler.MOVE)
-                }
-            }
-        })
-        tree.addComponentListener(object : java.awt.event.ComponentAdapter() {
+        addComponentListener(object : java.awt.event.ComponentAdapter() {
             override fun componentResized(e: java.awt.event.ComponentEvent) {
                 invalidateTreeLayout()
             }
         })
+    }
 
+    companion object {
+        private val logger = LoggerFactory.getLogger(ProjectTreePanel::class.java)
+    }
+
+    init {
         fun iconBtn(icon: javax.swing.Icon?, text: String, tip: String) = JButton(icon).apply {
             if (icon == null) this.text = text
             toolTipText = tip
@@ -296,8 +264,6 @@ class ProjectTreePanel(
                 val match = key != null && key == lastClickKey
                 logger.info("tree-select seq={} row={} key={} dtFromClickMs={} match={}", clickSeq, row, key, dtMs, match)
             }
-            // Defer to allow the selection highlight repaint to fire first,
-            // so the click feels instant even if downstream work (dir listing, etc.) is slow.
             SwingUtilities.invokeLater {
                 if (isClickTraceEnabled()) {
                     val delayMs = (System.nanoTime() - selectionTimeNs) / 1_000_000
@@ -310,8 +276,6 @@ class ProjectTreePanel(
         tree.addMouseListener(object : java.awt.event.MouseAdapter() {
             override fun mousePressed(e: java.awt.event.MouseEvent) {
                 if (SwingUtilities.isLeftMouseButton(e)) {
-                    // getPathForLocation misses clicks in the right-side empty row area;
-                    // use the closest path within the row bounds instead.
                     val closest = tree.getClosestPathForLocation(e.x, e.y)
                     val bounds  = if (closest != null) tree.getPathBounds(closest) else null
                     val inRow = if (bounds != null && closest != null) {
@@ -334,8 +298,6 @@ class ProjectTreePanel(
                     } else false
                     dragPressedPath = if (inRow) closest else null
                     dragPressPoint  = if (dragPressedPath != null) java.awt.Point(e.x, e.y) else null
-                    // Ensure a single click anywhere on the row selects immediately
-                    // (including the empty area to the right of the renderer).
                     if (inRow && closest != null) {
                         if (isClickTraceEnabled()) {
                             clickSeq++
@@ -374,6 +336,18 @@ class ProjectTreePanel(
                         }
                         else -> {}
                     }
+                }
+            }
+        })
+
+        tree.addMouseMotionListener(object : java.awt.event.MouseMotionAdapter() {
+            override fun mouseDragged(e: java.awt.event.MouseEvent) {
+                if (!SwingUtilities.isLeftMouseButton(e)) return
+                val press = dragPressPoint ?: return
+                val threshold = java.awt.dnd.DragSource.getDragThreshold()
+                if (Math.abs(e.x - press.x) > threshold || Math.abs(e.y - press.y) > threshold) {
+                    dragPressPoint = null
+                    tree.transferHandler?.exportAsDrag(tree, e, javax.swing.TransferHandler.MOVE)
                 }
             }
         })
@@ -460,7 +434,7 @@ class ProjectTreePanel(
     }
 
     private fun fetchGitStatus(path: String) {
-        object : javax.swing.SwingWorker<GitStatus, Void>() {
+        object : SwingWorker<GitStatus, Void>() {
             override fun doInBackground(): GitStatus = ctx.gitService.readStatus(path)
             override fun done() {
                 val status = try { get() } catch (_: Exception) { return }
@@ -494,7 +468,6 @@ class ProjectTreePanel(
         }
     }
 
-    /** Force the tree to recalculate all cell widths (call after initial layout). */
     fun invalidateTreeLayout() {
         val ui = tree.ui as? javax.swing.plaf.basic.BasicTreeUI ?: return
         try {
@@ -541,9 +514,6 @@ class ProjectTreePanel(
             if (pending == dir.path) {
                 selectByPath(pending)
             } else {
-                // If this project is already selected, push the fresh scan result
-                // to listeners (file explorer, commands panel, etc.) without
-                // changing the selection path.
                 val selNode = tree.lastSelectedPathComponent as? DefaultMutableTreeNode
                 val selEntry = selNode?.userObject as? ProjectTreeEntry.Project
                 if (selEntry?.directory?.path == dir.path) {
@@ -583,6 +553,12 @@ class ProjectTreePanel(
             pendingSelectPath = path
         }
     }
+
+    internal fun simulateExternalDropForTest(items: List<File>, targetFolder: String? = null): Boolean =
+        dndHandler!!.simulateExternalDropForTest(items, targetFolder)
+
+    internal fun findMissingMatch(droppedName: String): DefaultMutableTreeNode? =
+        dndHandler!!.findMissingMatch(droppedName)
 
     // ── Tree helpers ─────────────────────────────────────────────────────────
 
@@ -806,9 +782,8 @@ class ProjectTreePanel(
     }
 
     private fun deleteFolderFromDisk(node: DefaultMutableTreeNode, entry: ProjectTreeEntry.Folder) {
-        // Collect all project directories inside this folder
         val projects = mutableListOf<String>()
-        fun collect(n: TreeNode) {
+        fun collect(n: javax.swing.tree.TreeNode) {
             val obj = (n as? DefaultMutableTreeNode)?.userObject
             if (obj is ProjectTreeEntry.Project) projects.add(obj.directory.path)
             for (i in 0 until n.childCount) collect(n.getChildAt(i))
@@ -816,7 +791,6 @@ class ProjectTreePanel(
         collect(node)
 
         if (projects.isEmpty()) {
-            // Virtual folder with no projects — just remove from list
             removeNode(node)
             return
         }
@@ -877,7 +851,7 @@ class ProjectTreePanel(
             gc.gridx = 0; gc.gridy = 1; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE; add(JLabel("Startup:"), gc)
             gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; add(startupField, gc)
             gc.gridx = 0; gc.gridy = 2; gc.gridwidth = 2; gc.fill = GridBagConstraints.HORIZONTAL
-            add(JLabel("<html><small>Shell: e.g. <tt>zsh</tt>, <tt>pwsh</tt> — blank = <tt>$defaultShell</tt><br>" +
+            add(JLabel("<html><small>Shell: e.g. <tt>zsh</tt>, <tt>pwsh</tt> \u2014 blank = <tt>$defaultShell</tt><br>" +
                 "Startup: sent on open, e.g. <tt>conda activate ml</tt></small></html>"), gc)
         }
         if (JOptionPane.showConfirmDialog(owner, form, "Shell Settings \u2014 ${dir.label(ctx.config.privacyModeEnabled)}",
@@ -948,7 +922,6 @@ class ProjectTreePanel(
         scanProject(updated)
     }
 
-    /** Returns [absolute] as a path relative to [base] when it is a subdirectory, otherwise returns [absolute]. */
     private fun makeRelativeIfPossible(absolute: String, base: String): String {
         val rel = File(base).toPath().relativize(File(absolute).toPath()).toString()
             .replace(File.separatorChar, '/')
@@ -967,7 +940,6 @@ class ProjectTreePanel(
 
     // ── Context menus ────────────────────────────────────────────────────────
 
-    /** Returns the top [count] tags by usage frequency across all projects in the tree. */
     private fun collectTopTags(count: Int): List<String> {
         val freq = mutableMapOf<String, Int>()
         fun walk(node: DefaultMutableTreeNode) {
@@ -982,7 +954,6 @@ class ProjectTreePanel(
             .take(count).map { it.key }
     }
 
-    /** Opens [path] in the system file manager (Explorer / Finder / xdg-open). */
     private fun openInFileManager(path: String) {
         val file = File(path)
         try {
@@ -1000,11 +971,10 @@ class ProjectTreePanel(
         }
     }
 
-    /** Builds a color submenu with [presets] swatches, a "Custom…" picker, and optional "Clear". */
     private fun buildColorMenu(
         title: String,
         currentHex: String?,
-        presets: List<Pair<String, String>>,   // label → #RRGGBB
+        presets: List<Pair<String, String>>,
         onSet: (String?) -> Unit,
     ): JMenu = JMenu(title).apply {
         presets.forEach { (label, hex) ->
@@ -1022,20 +992,6 @@ class ProjectTreePanel(
         })
         if (currentHex != null) {
             add(JMenuItem("Clear").apply { addActionListener { onSet(null) } })
-        }
-    }
-
-    /** A 14×14 filled rounded-square icon in the given hex color. */
-    private fun colorSwatchIcon(hex: String): Icon {
-        val fill = try { Color.decode(hex) } catch (_: Exception) { Color.GRAY }
-        val border = fill.darker()
-        return object : Icon {
-            override fun getIconWidth() = 14
-            override fun getIconHeight() = 14
-            override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int) {
-                g.color = fill;  g.fillRoundRect(x, y, 14, 14, 4, 4)
-                g.color = border; g.drawRoundRect(x, y, 13, 13, 4, 4)
-            }
         }
     }
 
@@ -1086,7 +1042,6 @@ class ProjectTreePanel(
                     })
                 }
                 if (menu.componentCount > 0) menu.addSeparator()
-                // Open in file manager
                 val dir = File(entry.directory.path)
                 if (dir.exists()) {
                     val label = if (IS_MAC) "Open in Finder" else "Open in Explorer"
@@ -1095,7 +1050,6 @@ class ProjectTreePanel(
                     })
                     menu.addSeparator()
                 }
-                // Tags submenu — top 10 most-used tags as toggles + Edit option
                 val topTags = collectTopTags(10)
                 menu.add(JMenu("Tags").apply {
                     topTags.forEach { tag ->
@@ -1123,7 +1077,6 @@ class ProjectTreePanel(
                 menu.add(JMenuItem("Environment\u2026").apply { addActionListener { editEnv(node, entry) } })
                 menu.add(JMenuItem("Script Directories\u2026").apply { addActionListener { editScriptDirs(node, entry) } })
                 menu.addSeparator()
-                // Color submenu — 6 presets + Custom picker + Clear
                 val colorPresets = listOf(
                     "Red"    to "#E53935", "Orange" to "#F57C00",
                     "Blue"   to "#1565C0", "Green"  to "#2E7D32",
@@ -1152,687 +1105,5 @@ class ProjectTreePanel(
         menu.add(JMenuItem("New Folder\u2026").apply { addActionListener { addFolder(null) } })
         menu.add(JMenuItem("Add Project\u2026").apply { addActionListener { addProject(null) } })
         menu.show(tree, x, y)
-    }
-
-    // ── Cell renderer ────────────────────────────────────────────────────────
-
-    private inner class ProjectTreeCellRenderer : TreeCellRenderer {
-
-        private val colorStripe = JPanel().apply { preferredSize = Dimension(4, 0); isOpaque = true }
-        private val nameLabel   = JLabel().apply {
-            font = font.deriveFont(Font.BOLD, 12f)
-            // Allow truncation with ellipsis — don't force the parent wider
-            minimumSize = Dimension(0, 0)
-        }
-        private val missingIcon = JLabel("\u26A0").apply {
-            font = font.deriveFont(Font.BOLD, 12f)
-            foreground = Color(0xE53935)
-            border = BorderFactory.createEmptyBorder(0, 4, 0, 0)
-            toolTipText = "Directory not found"
-            isVisible = false
-        }
-        private val activeDot   = JLabel("\u25CF").apply {
-            font = font.deriveFont(Font.PLAIN, 10f); foreground = Color(0x4CAF50)
-            border = BorderFactory.createEmptyBorder(0, 0, 0, 2)
-        }
-        private val agentLed = LedIndicator()
-        private val lockLabel = JLabel().apply {
-            icon = RemixIcons.icon("ri-lock-line", 12)
-            isVisible = false
-        }
-        private val dotsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 0, 0)).apply {
-            isOpaque = false
-            add(activeDot)
-            add(agentLed)
-            add(lockLabel)
-        }
-        private val branchLabel = JLabel().apply {
-            font = Font(Font.MONOSPACED, Font.PLAIN, 10); foreground = Color(0x888888)
-            // Allow truncation — don't force the parent wider than available space
-            minimumSize = Dimension(0, 0)
-        }
-        private val tagsPanel = object : JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)) {
-            /** Single-row preferred size — never wrap to a second line. */
-            override fun getPreferredSize(): Dimension {
-                var w = 0
-                val h = if (componentCount > 0) components.maxOf { it.preferredSize.height } else 0
-                val gap = (layout as FlowLayout).hgap
-                for (i in 0 until componentCount) {
-                    if (i > 0) w += gap
-                    w += components[i].preferredSize.width
-                }
-                val forced = projectPanel.forcedWidth
-                val width = if (forced > 0) forced else w
-                return Dimension(width, h)
-            }
-            /** Constrain max size to prevent overflow beyond allocated width. */
-            override fun getMaximumSize(): Dimension = Dimension(Short.MAX_VALUE.toInt(), 16)
-            /** Lay out children right-aligned; hide user tags that don't fit, but always show build-tool badges. */
-            override fun doLayout() {
-                val gap = (layout as FlowLayout).hgap
-                var x = width
-                // Build-tool badges are the LAST buildToolBadgeCount components; user tags are first.
-                val buildToolStart = componentCount - buildToolBadgeCount
-                for (i in componentCount - 1 downTo 0) {
-                    val c = components[i]
-                    val pref = c.preferredSize
-                    val nextX = x - pref.width
-                    val isBuildTool = i >= buildToolStart
-                    if (nextX < 0 && !isBuildTool) {
-                        // Hide user tags that don't fit
-                        c.setBounds(0, 0, 0, 0)
-                        c.isVisible = false
-                    } else {
-                        c.isVisible = true
-                        // Clamp to 0 so build-tool badges never render at negative coordinates
-                        val startX = nextX.coerceAtLeast(0)
-                        c.setBounds(startX, 0, pref.width, height.coerceAtLeast(pref.height))
-                        x = startX - gap
-                    }
-                }
-            }
-        }.apply {
-            isOpaque = false
-        }
-        private val nameRow = JPanel(BorderLayout(2, 0)).apply {
-            isOpaque = false
-            add(dotsPanel,  BorderLayout.WEST)
-            add(nameLabel,  BorderLayout.CENTER)
-            add(missingIcon, BorderLayout.EAST)
-        }
-        private val bottomRow = object : JPanel(BorderLayout(4, 0)) {
-            override fun getPreferredSize(): Dimension {
-                val base = super.getPreferredSize()
-                val vp = tree.parent as? javax.swing.JViewport
-                val vpWidth = vp?.width ?: tree.width
-                val width = if (vpWidth > 0) vpWidth else base.width
-                return Dimension(width, base.height)
-            }
-        }.apply {
-            isOpaque = false
-            add(branchLabel, BorderLayout.WEST)
-            add(tagsPanel,   BorderLayout.CENTER)
-        }
-        private val cellPanel = JPanel(BorderLayout(0, 1)).apply {
-            isOpaque = false
-            add(nameRow,   BorderLayout.NORTH)
-            add(bottomRow, BorderLayout.CENTER)
-        }
-        private val innerPanel = JPanel(BorderLayout(4, 0)).apply {
-            border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
-        }
-        private val projectPanel = object : JPanel(BorderLayout()) {
-            var forcedWidth: Int = 0
-            override fun getPreferredSize(): Dimension {
-                val base = super.getPreferredSize()
-                val w = if (forcedWidth > 0) forcedWidth else base.width
-                return Dimension(w, base.height)
-            }
-            override fun getMinimumSize(): Dimension = getPreferredSize()
-            override fun getMaximumSize(): Dimension = getPreferredSize()
-        }.apply { isOpaque = true }
-
-        private val folderLabel = JLabel().apply {
-            border = BorderFactory.createEmptyBorder(3, 6, 3, 6)
-        }
-
-        /** Cache key for the last tags/badges rendered — avoids removeAll()+rebuild on every paint. */
-        private var lastTagsCacheKey: String? = null
-        /** Number of build-tool badge components at the END of tagsPanel's component list. */
-        private var buildToolBadgeCount = 0
-
-        init {
-            innerPanel.add(cellPanel, BorderLayout.CENTER)
-            projectPanel.add(colorStripe, BorderLayout.WEST)
-            projectPanel.add(innerPanel, BorderLayout.CENTER)
-        }
-
-        override fun getTreeCellRendererComponent(
-            t: JTree, value: Any?, selected: Boolean, expanded: Boolean, leaf: Boolean, row: Int, hasFocus: Boolean,
-        ): Component {
-            val node = value as? DefaultMutableTreeNode
-            val bg = if (selected) (UIManager.getColor("Tree.selectionBackground") ?: t.background) else t.background
-            val fg = if (selected) (UIManager.getColor("Tree.selectionForeground") ?: t.foreground) else t.foreground
-
-            return when (val entry = node?.userObject) {
-                is ProjectTreeEntry.Folder -> {
-                    folderLabel.text = entry.name
-                    folderLabel.icon = UIManager.getIcon(if (expanded) "Tree.openIcon" else "Tree.closedIcon")
-                    folderLabel.foreground = fg
-                    folderLabel.background = bg
-                    folderLabel.isOpaque = true
-                    val c = entry.color?.let { try { Color.decode(it) } catch (_: Exception) { null } }
-                    folderLabel.border = if (c != null)
-                        BorderFactory.createCompoundBorder(
-                            BorderFactory.createMatteBorder(0, 4, 0, 0, c),
-                            BorderFactory.createEmptyBorder(3, 4, 3, 6),
-                        )
-                    else BorderFactory.createEmptyBorder(3, 6, 3, 6)
-                    folderLabel
-                }
-                is ProjectTreeEntry.Project -> {
-                    val isActive = entry.directory.path in activePaths
-                    activeDot.isVisible = isActive
-                    val ledStatus = agentStatuses[entry.directory.path] ?: AgentStatus.NONE
-                    agentLed.isVisible = ledStatus != AgentStatus.NONE
-                    agentLed.status    = ledStatus
-                    agentLed.blinkOn   = blinkOn
-                    val isMissing = entry.directory.path in missingPaths
-                    missingIcon.isVisible = isMissing
-                    lockLabel.isVisible = entry.directory.isPrivate
-                    nameLabel.text = entry.directory.label(ctx.config.privacyModeEnabled)
-                    nameLabel.foreground = if (isMissing && !selected) Color(0xE53935) else fg
-
-                    val gs = gitStatusCache[entry.directory.path]
-                    val isPrivateRedacted = entry.directory.isPrivate && ctx.config.privacyModeEnabled
-                    if (gs?.branch != null && !isPrivateRedacted) {
-                        branchLabel.text = "${gs.branch}${if (gs.isDirty) "*" else ""}"
-                        branchLabel.toolTipText = gs.branch
-                        branchLabel.foreground = if (gs.isDirty) Color(0xE6A817) else Color(0x888888)
-                    } else {
-                        branchLabel.text = " "
-                        branchLabel.toolTipText = null
-                    }
-
-                    // Rebuild tags only when scan result / tags actually changed — avoids
-                    // removeAll()+badge allocation on every repaint of every visible row.
-                    val scanned = scanResults[entry.directory.path]
-                    val tagsKey = "${entry.directory.path}|${scanned?.buildTools?.joinToString { it.tagLabel }}|${entry.tags.joinToString()}"
-                    if (tagsKey != lastTagsCacheKey) {
-                        lastTagsCacheKey = tagsKey
-                        tagsPanel.removeAll()
-                        buildToolBadgeCount = 0
-                        when {
-                            scanned == null    -> {}
-                            scanned.scanFailed -> {
-                                tagsPanel.add(badge("⚠", "#B71C1C"))
-                                buildToolBadgeCount = 1
-                            }
-                            else -> {
-                                // User tags first (lower priority — hidden when space is tight),
-                                // build-tool badges last (always visible).
-                                entry.tags.forEach { tag -> tagsPanel.add(badge(tag, "#546E7A")) }
-                                scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
-                                buildToolBadgeCount = scanned.buildTools.size
-                            }
-                        }
-                    }
-
-                    val colorHex = entry.directory.color
-                    colorStripe.isVisible = colorHex != null
-                    if (colorHex != null) colorStripe.background = try { Color.decode(colorHex) } catch (_: Exception) { Color.GRAY }
-
-                    projectPanel.background = bg
-                    innerPanel.background = bg
-
-                    // Set forcedWidth so tagsPanel.getPreferredSize() and bottomRow layout correctly.
-                    // CellRendererPane.paintComponent (called with shouldValidate=true) handles
-                    // setBounds + validate — no need to call them here.
-                    // IMPORTANT: Do NOT call tree.getPathBounds() here — it re-enters the
-                    // layout cache's size calculation and causes a StackOverflowError.
-                    val vp = tree.parent as? javax.swing.JViewport
-                    val vpWidth = vp?.width ?: tree.width
-                    if (vpWidth > 0) {
-                        val insets = tree.insets
-                        val leftInset = insets?.left ?: 0
-                        val rightInset = insets?.right ?: 0
-                        val treeUI = tree.ui as? javax.swing.plaf.basic.BasicTreeUI
-                        val totalIndent = treeUI?.let {
-                            val left = it.leftChildIndent
-                            val right = it.rightChildIndent
-                            val depth = node?.level ?: 0
-                            depth * (left + right)
-                        } ?: 0
-                        val startX = leftInset + totalIndent
-                        projectPanel.forcedWidth = (vpWidth - startX - rightInset).coerceAtLeast(50)
-                    }
-
-                    projectPanel
-                }
-                else -> JLabel(value?.toString() ?: "").apply { foreground = fg; background = bg; isOpaque = true }
-            }
-        }
-
-        private fun badge(text: String, colorHex: String) = JLabel(text).apply {
-            font = font.deriveFont(Font.BOLD, 9f)
-            foreground = Color.WHITE
-            background = try { Color.decode(colorHex) } catch (_: Exception) { Color.GRAY }
-            isOpaque = true
-            border = BorderFactory.createEmptyBorder(1, 4, 1, 4)
-            preferredSize = Dimension(preferredSize.width, 14)
-        }
-    }
-
-    private inner class FullWidthTreeUI : javax.swing.plaf.basic.BasicTreeUI() {
-
-        /** Force variable-height rows so hit-detection matches the two-line cell renderer height.
-         *  FlatLaf sets Tree.rowHeight to a fixed value (e.g. 24 px); our renderer returns ~40 px.
-         *  Without this, clicks on the lower half of each row fall outside BasicTreeUI's hit bounds
-         *  and are silently dropped. rowHeight = 0 tells VariableHeightLayoutCache to ask the
-         *  renderer for the actual height of each row. */
-        override fun installDefaults() {
-            super.installDefaults()
-            tree.rowHeight = 0
-        }
-
-        override fun paintRow(
-            g: java.awt.Graphics,
-            clipBounds: Rectangle?,
-            insets: Insets?,
-            bounds: Rectangle?,
-            path: TreePath?,
-            row: Int,
-            isExpanded: Boolean,
-            hasBeenExpanded: Boolean,
-            isLeaf: Boolean,
-        ) {
-            val t = tree ?: return
-            if (bounds == null || path == null) return
-            if (t.isEditing && editingRow == row) return
-            val vp = t.parent as? javax.swing.JViewport
-            val vpWidth = vp?.width ?: t.width
-            val rightInset = t.insets?.right ?: 0
-            val fullWidth = (vpWidth - bounds.x - rightInset).coerceAtLeast(1)
-            val fullBounds = Rectangle(bounds.x, bounds.y, fullWidth, bounds.height)
-            val leadIndex = t.leadSelectionRow
-            val selected = t.isRowSelected(row)
-            val renderer = currentCellRenderer?.getTreeCellRendererComponent(
-                t,
-                path.lastPathComponent,
-                selected,
-                isExpanded,
-                isLeaf,
-                row,
-                leadIndex == row,
-            )
-            if (renderer != null) {
-                rendererPane.paintComponent(g, renderer, t, fullBounds.x, fullBounds.y, fullBounds.width, fullBounds.height, true)
-            }
-        }
-    }
-
-    // ── Drag and drop ────────────────────────────────────────────────────────
-
-    /**
-     * Pure insertion logic for an external (Finder/Explorer/file manager) drop.
-     * Inserts [dirs] as project nodes under [newParent] starting at [startIndex],
-     * skipping paths already present in the tree, and forwards [files] to
-     * [onExternalFilesDropped]. Returns true if anything changed.
-     *
-     * Extracted from the TransferHandler so it can be exercised in unit tests
-     * without synthesising a `TransferSupport` drop event.
-     */
-    private fun doImportExternal(
-        dirs: List<File>,
-        files: List<File>,
-        newParent: DefaultMutableTreeNode,
-        startIndex: Int,
-    ): Boolean {
-        val existingPaths = collectAllPaths(rootNode)
-        var insertIdx = startIndex.coerceAtMost(newParent.childCount)
-        var lastNode: DefaultMutableTreeNode? = null
-
-        for (dir in dirs) {
-            val absPath = dir.absolutePath
-            if (absPath in existingPaths) continue
-            val directory = ProjectDirectory(path = absPath)
-            val node = DefaultMutableTreeNode(ProjectTreeEntry.Project(directory = directory))
-            treeModel.insertNodeInto(node, newParent, insertIdx)
-            existingPaths += absPath
-            insertIdx++
-            lastNode = node
-            val missing = updateMissingPath(directory.path)
-            if (!missing) scanProject(directory)
-        }
-
-        if (files.isNotEmpty()) {
-            onExternalFilesDropped(files)
-        }
-
-        if (lastNode != null) {
-            if (newParent !== rootNode) tree.expandPath(TreePath(newParent.path))
-            val tp = treePath(lastNode)
-            tree.selectionPath = tp
-            tree.scrollPathToVisible(tp)
-            persist()
-        }
-        return lastNode != null || files.isNotEmpty()
-    }
-
-    /** Walks the tree and returns all project paths currently registered. */
-    private fun collectAllPaths(root: DefaultMutableTreeNode): MutableSet<String> {
-        val set = mutableSetOf<String>()
-        fun walk(n: DefaultMutableTreeNode) {
-            val e = n.userObject
-            if (e is ProjectTreeEntry.Project) set += e.directory.path
-            for (i in 0 until n.childCount) walk(n.getChildAt(i) as DefaultMutableTreeNode)
-        }
-        walk(root)
-        return set
-    }
-
-    /**
-     * Test hook — simulates an OS file-manager drop of [items] onto the tree.
-     * When [targetFolder] is null the drop lands at the tree root; otherwise it
-     * lands at the end of the folder with that name (searched depth-first).
-     *
-     * Exists because a real Finder→JVM drag cannot be automated in-process:
-     * Swing's drop `TransferSupport` can only be constructed from a real
-     * `DropTargetDropEvent`. This hook covers everything downstream of flavor
-     * parsing and drop-target resolution.
-     */
-    internal fun simulateExternalDropForTest(items: List<File>, targetFolder: String? = null): Boolean {
-        val dirs = items.filter { it.isDirectory }
-        val files = items.filter { it.isFile }
-        val (parent, idx) = if (targetFolder == null) {
-            rootNode to rootNode.childCount
-        } else {
-            val node = findFolderNodeByName(rootNode, targetFolder)
-                ?: error("Folder '$targetFolder' not found in tree")
-            node to node.childCount
-        }
-        return doImportExternal(dirs, files, parent, idx)
-    }
-
-    /**
-     * Depth-first walk: returns the first tree node whose project path is in
-     * [missingPaths] and whose final directory segment matches [droppedName].
-     * Returns null if no such node exists.
-     */
-    internal fun findMissingMatch(droppedName: String): DefaultMutableTreeNode? {
-        fun walk(node: DefaultMutableTreeNode): DefaultMutableTreeNode? {
-            val e = node.userObject
-            if (e is ProjectTreeEntry.Project && e.directory.path in missingPaths) {
-                if (namesMatch(File(e.directory.path).name, droppedName)) return node
-            }
-            for (i in 0 until node.childCount) {
-                walk(node.getChildAt(i) as DefaultMutableTreeNode)?.let { return it }
-            }
-            return null
-        }
-        return walk(rootNode)
-    }
-
-    private fun namesMatch(a: String, b: String): Boolean =
-        if (IS_WINDOWS) a.equals(b, ignoreCase = true) else a == b
-
-    /**
-     * Called on the EDT. Shows a modal dialog asking the user whether to repair
-     * the missing project path or add the dropped directory as a new entry.
-     *
-     * Returns `true` if the user chose Replace (the dropped dir is consumed and
-     * should NOT be inserted as a new project). Returns `false` if the user
-     * chose "Add as new project" or dismissed the dialog.
-     */
-    private fun confirmRepairPath(missingNode: DefaultMutableTreeNode, newPath: String): Boolean {
-        val entry = missingNode.userObject as ProjectTreeEntry.Project
-        val oldPath = entry.directory.path
-        val projectName = File(oldPath).name
-        val choice = JOptionPane.showOptionDialog(
-            this,
-            "<html>Project:&nbsp;&nbsp;${projectName.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
-                "Old path: ${oldPath.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
-                "New path: ${newPath.replace("&", "&amp;").replace("<", "&lt;")}</html>",
-            "Replace missing project path?",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.QUESTION_MESSAGE,
-            null,
-            arrayOf("Replace", "Add as new project"),
-            "Replace",
-        )
-        if (choice != 0) return false   // "Add as new project" or dialog closed
-
-        val updatedDirectory = entry.directory.copy(path = newPath)
-        missingNode.userObject = entry.copy(directory = updatedDirectory)
-        missingPaths.remove(oldPath)
-        val nowMissing = updateMissingPath(newPath)
-        treeModel.nodeChanged(missingNode)
-        persist()
-        if (!nowMissing) scanProject(updatedDirectory)
-        return true
-    }
-
-    private fun findFolderNodeByName(n: DefaultMutableTreeNode, name: String): DefaultMutableTreeNode? {
-        for (i in 0 until n.childCount) {
-            val c = n.getChildAt(i) as DefaultMutableTreeNode
-            if ((c.userObject as? ProjectTreeEntry.Folder)?.name == name) return c
-            findFolderNodeByName(c, name)?.let { return it }
-        }
-        return null
-    }
-
-    private inner class TreeTransferHandler : TransferHandler() {
-
-        private val flavor: DataFlavor = run {
-            val mime = DataFlavor.javaJVMLocalObjectMimeType + ";class=" + DefaultMutableTreeNode::class.java.name
-            try {
-                DataFlavor(mime)
-            } catch (_: ClassNotFoundException) {
-                DataFlavor(DefaultMutableTreeNode::class.java, "TreeNode")
-            }
-        }
-
-        /** Fallback flavor for Linux file managers that advertise folders via text/uri-list. */
-        private val uriListFlavor: DataFlavor? = try {
-            DataFlavor("text/uri-list;class=java.lang.String")
-        } catch (_: Exception) { null }
-        private val uriListReaderFlavor: DataFlavor? = try {
-            DataFlavor("text/uri-list;class=java.io.Reader")
-        } catch (_: Exception) { null }
-        private val uriListInputFlavor: DataFlavor? = try {
-            DataFlavor("text/uri-list;class=java.io.InputStream")
-        } catch (_: Exception) { null }
-        private val urlFlavor: DataFlavor? = try {
-            DataFlavor("application/x-java-url;class=java.net.URL")
-        } catch (_: Exception) { null }
-
-        override fun getSourceActions(c: JComponent) = MOVE
-
-        override fun createTransferable(c: JComponent): Transferable? {
-            val path = dragPressedPath ?: (c as? JTree)?.selectionPath ?: return null
-            val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return null
-            return object : Transferable {
-                override fun getTransferDataFlavors() = arrayOf(flavor)
-                override fun isDataFlavorSupported(f: DataFlavor) = f == flavor
-                override fun getTransferData(f: DataFlavor): Any = node
-            }
-        }
-
-        private fun nodeFrom(support: TransferSupport): DefaultMutableTreeNode? =
-            try { support.transferable.getTransferData(flavor) as? DefaultMutableTreeNode }
-            catch (_: Exception) { null }
-
-        private fun isExternalDrop(support: TransferSupport): Boolean =
-            support.isDataFlavorSupported(DataFlavor.javaFileListFlavor) ||
-                    (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) ||
-                    (uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor)) ||
-                    (uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor)) ||
-                    (uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor))
-
-        /**
-         * JTree sometimes reports an INSERT drop even when the cursor is centered on a folder row.
-         * If the cursor is in the middle of a folder row, treat it as an ON drop.
-         */
-        private fun centeredFolderDrop(dl: JTree.DropLocation): DefaultMutableTreeNode? {
-            val p = dl.dropPoint ?: return null
-            val rowPath = tree.getClosestPathForLocation(p.x, p.y) ?: return null
-            val rowNode = rowPath.lastPathComponent as? DefaultMutableTreeNode ?: return null
-            if (rowNode.userObject !is ProjectTreeEntry.Folder) return null
-            val bounds = tree.getPathBounds(rowPath) ?: return null
-            val top = bounds.y + (bounds.height * 0.25).toInt()
-            val bottom = bounds.y + (bounds.height * 0.75).toInt()
-            return if (p.y in top..bottom) rowNode else null
-        }
-
-        /**
-         * Resolves the drop target (parent node + insertion index) from a [JTree.DropLocation].
-         * Shared by internal reorder and external folder drop.
-         */
-        private fun resolveDropTarget(
-            dl: JTree.DropLocation,
-            overrideFolder: DefaultMutableTreeNode?,
-        ): Pair<DefaultMutableTreeNode, Int>? {
-            if (overrideFolder != null) return Pair(overrideFolder, overrideFolder.childCount)
-            if (dl.path == null) return Pair(rootNode, rootNode.childCount)
-            val targetNode = dl.path.lastPathComponent as? DefaultMutableTreeNode ?: return null
-            return if (dl.childIndex == -1) {
-                when (targetNode.userObject) {
-                    is ProjectTreeEntry.Folder -> Pair(targetNode, targetNode.childCount)
-                    else -> {
-                        val parent = targetNode.parent as? DefaultMutableTreeNode ?: rootNode
-                        Pair(parent, parent.getIndex(targetNode) + 1)
-                    }
-                }
-            } else {
-                val parent = when (targetNode.userObject) {
-                    is ProjectTreeEntry.Folder -> targetNode
-                    else -> targetNode.parent as? DefaultMutableTreeNode ?: rootNode
-                }
-                val idx = if (parent === targetNode) dl.childIndex else parent.getIndex(targetNode).coerceAtLeast(0)
-                Pair(parent, idx)
-            }
-        }
-
-        override fun canImport(support: TransferSupport): Boolean {
-            if (!support.isDrop) return false
-            return when {
-                support.isDataFlavorSupported(flavor) -> {
-                    try {
-                        support.dropAction = MOVE
-                        support.setShowDropLocation(true)
-                    } catch (_: Exception) {}
-                    val dl = support.dropLocation as? JTree.DropLocation ?: return false
-                    val overrideTarget = centeredFolderDrop(dl)
-                    val targetPath = overrideTarget?.let { TreePath(it.path) } ?: dl.path
-                        ?: return true  // dropping at root level → OK
-                    val targetNode = targetPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
-                    val src = nodeFrom(support) ?: return false
-                    // Reject dropping onto itself or any of its descendants
-                    var n: TreeNode? = targetNode
-                    while (n != null) {
-                        if (n === src) return false
-                        n = n.parent
-                    }
-                    true
-                }
-                isExternalDrop(support) -> {
-                    support.setShowDropLocation(true)
-                    true
-                }
-                else -> false
-            }
-        }
-
-        override fun importData(support: TransferSupport): Boolean {
-            if (!canImport(support)) return false
-            return if (isExternalDrop(support)) importExternal(support) else importInternal(support)
-        }
-
-        private fun importInternal(support: TransferSupport): Boolean {
-            val node = nodeFrom(support) ?: return false
-            val dl = support.dropLocation as? JTree.DropLocation ?: return false
-            val (newParent, rawIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
-
-            val oldParent = node.parent as? DefaultMutableTreeNode ?: return false
-            val oldIndex  = oldParent.getIndex(node)
-            treeModel.removeNodeFromParent(node)
-
-            // Adjust index when dragging forward within the same parent
-            val insertIndex = if (newParent === oldParent && rawIndex > oldIndex)
-                (rawIndex - 1).coerceAtMost(newParent.childCount)
-            else
-                rawIndex.coerceAtMost(newParent.childCount)
-
-            treeModel.insertNodeInto(node, newParent, insertIndex)
-            if (newParent !== rootNode) tree.expandPath(TreePath(newParent.path))
-            val tp = treePath(node)
-            tree.selectionPath = tp
-            tree.scrollPathToVisible(tp)
-            persist()
-            return true
-        }
-
-        /** Handles a drop of one or more folders dragged from the OS file manager. */
-        private fun importExternal(support: TransferSupport): Boolean {
-            val (dirs, files) = entriesFromExternal(support)
-            if (dirs.isEmpty() && files.isEmpty()) return false
-            val dl = support.dropLocation as? JTree.DropLocation ?: return false
-            val (newParent, startIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
-
-            var anyRepaired = false
-            val remainingDirs = mutableListOf<File>()
-            for (dir in dirs) {
-                val match = findMissingMatch(dir.name)
-                if (match != null) {
-                    val consumed = confirmRepairPath(match, dir.absolutePath)
-                    if (consumed) anyRepaired = true else remainingDirs += dir
-                } else {
-                    remainingDirs += dir
-                }
-            }
-            return doImportExternal(remainingDirs, files, newParent, startIndex) || anyRepaired
-        }
-
-        /**
-         * Extracts directories from an OS drag.
-         * - Windows / macOS: [DataFlavor.javaFileListFlavor]
-         * - Linux (GTK file managers): same flavor via AWT, with [uriListFlavor] as fallback
-         */
-        @Suppress("UNCHECKED_CAST")
-        private fun entriesFromExternal(support: TransferSupport): Pair<List<File>, List<File>> {
-            if (support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-                val items = try {
-                    (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
-                        ?.filterIsInstance<File>()
-                        ?: emptyList()
-                } catch (_: Exception) { emptyList() }
-                val dirs = items.filter { it.isDirectory }
-                val files = items.filter { it.isFile }
-                return dirs to files
-            }
-            if (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) {
-                return try {
-                    val url = support.transferable.getTransferData(urlFlavor) as? java.net.URL
-                    val file = url?.toURI()?.let { File(it) }
-                    val dirs = if (file != null && file.isDirectory) listOf(file) else emptyList()
-                    val files = if (file != null && file.isFile) listOf(file) else emptyList()
-                    dirs to files
-                } catch (_: Exception) { emptyList<File>() to emptyList() }
-            }
-            val text = readUriListText(support) ?: return emptyList<File>() to emptyList()
-            val items = parseUriList(text)
-            val dirs = items.filter { it.isDirectory }
-            val files = items.filter { it.isFile }
-            return dirs to files
-        }
-
-        private fun readUriListText(support: TransferSupport): String? {
-            return try {
-                when {
-                    uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor) ->
-                        support.transferable.getTransferData(uriListFlavor) as? String
-                    uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor) -> {
-                        val reader = support.transferable.getTransferData(uriListReaderFlavor) as? java.io.Reader
-                        reader?.readText()
-                    }
-                    uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor) -> {
-                        val stream = support.transferable.getTransferData(uriListInputFlavor) as? java.io.InputStream
-                        stream?.bufferedReader()?.readText()
-                    }
-                    else -> null
-                }
-            } catch (_: Exception) { null }
-        }
-
-        private fun parseUriList(text: String): List<File> =
-            text.lineSequence()
-                .map { it.trim() }
-                .filter { it.isNotEmpty() && !it.startsWith("#") }
-                .mapNotNull { line ->
-                    if (!line.startsWith("file:/")) return@mapNotNull null
-                    runCatching { File(URI(line)) }.getOrNull()
-                }
-                .toList()
-
     }
 }
