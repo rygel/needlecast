@@ -19,7 +19,16 @@ internal fun parseChangedFiles(porcelainOutput: String): List<ChangedFile> =
  */
 class ProcessGitService : GitService {
 
-    override fun readStatus(dir: String): GitStatus = GitStatus.read(dir)
+    override fun readStatus(dir: String): GitStatus {
+        return try {
+            val branch = runGit(dir, "symbolic-ref", "--short", "HEAD")?.trim()
+                ?: runGit(dir, "rev-parse", "--short", "HEAD")?.trim()?.let { "($it)" }
+            val dirty = runGit(dir, "status", "--porcelain")?.isNotEmpty() ?: false
+            GitStatus(branch, dirty)
+        } catch (_: Exception) {
+            GitStatus.NotARepo
+        }
+    }
 
     override fun log(dir: String, maxEntries: Int): String? =
         runGit(dir, "log", "--oneline", "--no-decorate", "-$maxEntries")
