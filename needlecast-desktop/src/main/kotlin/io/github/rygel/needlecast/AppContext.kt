@@ -8,8 +8,8 @@ import io.github.rygel.needlecast.git.GitAutoSync
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
 import io.github.rygel.needlecast.model.AppConfig
-import io.github.rygel.needlecast.model.defaultCommandLibrary
-import io.github.rygel.needlecast.model.defaultPromptLibrary
+import io.github.rygel.needlecast.config.defaultCommandLibrary
+import io.github.rygel.needlecast.config.defaultPromptLibrary
 import io.github.rygel.needlecast.process.CommandRunner
 import io.github.rygel.needlecast.process.ProcessCommandRunner
 import io.github.rygel.needlecast.scanner.CompositeProjectScanner
