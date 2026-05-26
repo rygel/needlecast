@@ -17,18 +17,18 @@
 
     <properties>
         <kotlin.version>2.2.0</kotlin.version>
-        <jackson.version>2.21.2</jackson.version>
+        <jackson.version>2.21.3</jackson.version>
         <flatlaf.version>3.7.1</flatlaf.version>
         <rsyntaxtextarea.version>3.6.2</rsyntaxtextarea.version>
         <jediterm.version>2.69</jediterm.version>
         <pty4j.version>0.13.12</pty4j.version>
         <slf4j.version>2.0.16</slf4j.version>
-        <junit.version>6.0.3</junit.version>
+        <junit.version>6.1.0</junit.version>
         <mockk.version>1.14.9</mockk.version>
-        <javalin.version>7.1.0</javalin.version>
+        <javalin.version>7.2.2</javalin.version>
         <twelvemonkeys.version>3.13.1</twelvemonkeys.version>
-        <jsvg.version>2.0.0</jsvg.version>
-        <commonmark.version>0.22.0</commonmark.version>
+        <jsvg.version>2.1.0</jsvg.version>
+        <commonmark.version>0.28.0</commonmark.version>
 
         <maven.compiler.plugin.version>3.15.0</maven.compiler.plugin.version>
         <maven.surefire.plugin.version>3.5.5</maven.surefire.plugin.version>
@@ -37,7 +37,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <sonar.plugin.version>5.5.0.6356</sonar.plugin.version>
+        <sonar.plugin.version>5.6.0.6792</sonar.plugin.version>
     </properties>
 
     <repositories>
@@ -107,7 +107,7 @@
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>33.5.0-jre</version>
+                <version>33.6.0-jre</version>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
@@ -192,7 +192,7 @@
             <dependency>
                 <groupId>io.github.rygel</groupId>
                 <artifactId>sparkle4j</artifactId>
-                <version>0.5.5</version>
+                <version>0.5.6</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
