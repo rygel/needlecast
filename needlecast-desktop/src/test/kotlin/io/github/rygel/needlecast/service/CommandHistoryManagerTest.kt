@@ -79,4 +79,55 @@ class CommandHistoryManagerTest {
         assertEquals("build-a", mgr.getHistory("/project/a")[0].label)
         assertEquals("build-b", mgr.getHistory("/project/b")[0].label)
     }
+
+    @Test
+    fun `history survives config reload from disk`(@TempDir dir: Path) {
+        val configPath = dir.resolve("config.json")
+        val store = JsonConfigStore(configPath)
+        val ctx = AppContext(configStore = store)
+        ctx.updateConfig(AppConfig())
+
+        val mgr = CommandHistoryManager(ctx)
+        mgr.record("/project", entry("deploy"))
+
+        val ctx2 = AppContext(configStore = JsonConfigStore(configPath))
+        val mgr2 = CommandHistoryManager(ctx2)
+        val reloaded = mgr2.getHistory("/project")
+        assertEquals(1, reloaded.size)
+        assertEquals("deploy", reloaded[0].label)
+    }
+
+    @Test
+    fun `entry fields are preserved after round-trip`(@TempDir dir: Path) {
+        val ctx = makeCtx(dir)
+        val mgr = CommandHistoryManager(ctx)
+        val original = CommandHistoryEntry(
+            label = "test",
+            argv = listOf("npm", "run", "build"),
+            workingDirectory = "/workspace",
+            exitCode = 1,
+        )
+
+        mgr.record("/project", original)
+        val stored = mgr.getHistory("/project")[0]
+
+        assertEquals("test", stored.label)
+        assertEquals(listOf("npm", "run", "build"), stored.argv)
+        assertEquals("/workspace", stored.workingDirectory)
+        assertEquals(1, stored.exitCode)
+        assertTrue(stored.ranAt > 0)
+    }
+
+    @Test
+    fun `record discards oldest entries beyond MAX`(@TempDir dir: Path) {
+        val ctx = makeCtx(dir)
+        val mgr = CommandHistoryManager(ctx)
+
+        repeat(CommandHistoryManager.MAX + 3) { i -> mgr.record("/project", entry("cmd-$i")) }
+        val history = mgr.getHistory("/project")
+
+        assertEquals(CommandHistoryManager.MAX, history.size)
+        assertEquals("cmd-${CommandHistoryManager.MAX + 2}", history[0].label)
+        assertEquals("cmd-3", history.last().label)
+    }
 }
