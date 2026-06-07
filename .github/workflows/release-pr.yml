@@ -1,11 +1,16 @@
 name: "Release: Open PR (develop → main)"
 
-# Opens (or updates the body of) a develop → main PR whenever develop is pushed.
+# Opens (or updates the body of) a develop → main PR when develop is pushed.
 # The PR is the gate before a release: ci.yml + native-check.yml must pass on it.
+# Skips runs triggered by docs-only changes to reduce CI minutes.
 
 on:
   push:
     branches: [develop]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "LICENSE"
   workflow_dispatch:
 
 permissions: {}
@@ -14,27 +19,12 @@ jobs:
   open-release-pr:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Sync main into develop (pre-resolve binary conflicts)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-          git checkout develop
-          # Only merge if main has commits not yet in develop
-          if git merge-base --is-ancestor origin/main origin/develop; then
-            echo "main is already fully merged into develop — no sync needed"
-            exit 0
-          fi
-          git merge origin/main --no-edit -X ours
-          git push origin develop
 
       - name: Build commit summary (develop commits not yet in main)
         id: summary
@@ -43,7 +33,6 @@ jobs:
           if [[ -z "$COMMITS" ]]; then
             COMMITS="(develop is already up to date with main)"
           fi
-          # Write to a file to avoid shell quoting issues
           {
             echo "## What's in this release"
             echo ""
@@ -68,7 +57,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check if a develop→main PR already exists
           EXISTING=$(gh pr list --base main --head develop --state open --json number --jq '.[0].number')
 
           if [[ -n "$EXISTING" ]]; then
