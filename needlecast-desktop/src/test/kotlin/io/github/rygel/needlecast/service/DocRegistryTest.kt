@@ -96,4 +96,31 @@ class DocRegistryTest {
         val both   = DocRegistry.targetsFor(setOf(BuildTool.MAVEN, BuildTool.GRADLE)).size
         assertEquals(maven + gradle, both)
     }
+
+    @Test
+    fun `npm returns TypeDoc JSDoc and alt entries`() {
+        val result = DocRegistry.targetsFor(setOf(BuildTool.NPM))
+        assertEquals(4, result.size)
+        assertTrue(result.all { it.buildTool == BuildTool.NPM })
+        assertTrue(result.any { it.label == "TypeDoc" })
+        assertTrue(result.any { it.label == "JSDoc" })
+    }
+
+    @Test
+    fun `every target has a non-blank hint`() {
+        val allTools = BuildTool.entries.toSet()
+        val targets = DocRegistry.targetsFor(allTools)
+        for (target in targets) {
+            assertTrue(target.hint.isNotBlank(),
+                "${target.label} (${target.buildTool}) should have a hint")
+        }
+    }
+
+    @Test
+    fun `sbt returns scaladoc entries for 2x and 3x`() {
+        val result = DocRegistry.targetsFor(setOf(BuildTool.SBT))
+        assertEquals(2, result.size)
+        assertTrue(result.any { it.label == "Scaladoc (2.x)" })
+        assertTrue(result.any { it.label == "Scaladoc (3.x)" })
+    }
 }

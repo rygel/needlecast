@@ -1,14 +1,24 @@
 package io.github.rygel.needlecast.ui.explorer
 
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.awt.image.BufferedImage
 import java.io.File
+import java.nio.file.Files
 import java.nio.file.Path
 import javax.imageio.ImageIO
 
 class ImageViewerPanelTest {
+
+    companion object {
+        @BeforeAll
+        @JvmStatic
+        fun disableImageIOCache() {
+            ImageIO.setUseCache(false)
+        }
+    }
 
     // ── isImageFile routing ───────────────────────────────────────────────────
 
@@ -55,6 +65,19 @@ class ImageViewerPanelTest {
         val missing = dir.resolve("nonexistent.png").toFile()
         val panel = ImageViewerPanel(missing)
         assertNotNull(panel)  // error is handled gracefully, not thrown
+    }
+
+    @Test
+    fun `ImageIO reads image without disk cache`(@TempDir dir: Path) {
+        val img = BufferedImage(32, 32, BufferedImage.TYPE_INT_RGB)
+        val file = dir.resolve("cache-test.png").toFile()
+        ImageIO.write(img, "png", file)
+
+        assertFalse(ImageIO.getUseCache())
+        val read = ImageIO.read(file)
+        assertNotNull(read, "ImageIO.read must succeed with disk cache disabled")
+        assertEquals(32, read.width)
+        assertEquals(32, read.height)
     }
 
     // ── Helper mirroring the private ExplorerPanel.isImageFile logic ─────────

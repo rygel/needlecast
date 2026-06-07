@@ -1,10 +1,14 @@
 package io.github.rygel.needlecast
 
 import io.github.rygel.needlecast.ui.MainWindow
+import javax.imageio.ImageIO
 import javax.swing.SwingUtilities
 
 fun main() {
-    // Set application name before AWT initialises — required for macOS Dock and some Linux desktops.
+    // Disable ImageIO disk cache — we read local files already on disk so caching is redundant.
+    // Avoids AccessDeniedException on Windows where TwelveMonkeys' FileCacheImageInputStream
+    // fails to create temp files in java.io.tmpdir due to stale locks.
+    ImageIO.setUseCache(false)
     System.setProperty("apple.awt.application.name", "Needlecast")
     System.setProperty("apple.laf.useScreenMenuBar", "true")
 
