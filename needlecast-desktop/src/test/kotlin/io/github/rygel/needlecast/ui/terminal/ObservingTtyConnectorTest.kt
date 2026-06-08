@@ -7,17 +7,19 @@ import org.junit.jupiter.api.Test
 import java.awt.Dimension
 
 class ObservingTtyConnectorTest {
-
     private class FakeTtyConnector(
         private val chunks: List<String>,
         private val eofAtIndex: Int = chunks.size,
     ) : TtyConnector {
-
         private var callIndex = 0
         var resizeCalled = false
             private set
 
-        override fun read(buf: CharArray, offset: Int, length: Int): Int {
+        override fun read(
+            buf: CharArray,
+            offset: Int,
+            length: Int,
+        ): Int {
             if (callIndex >= eofAtIndex) return -1
             val chunk = chunks[callIndex]
             chunk.toCharArray().copyInto(buf, offset)
@@ -30,12 +32,19 @@ class ObservingTtyConnectorTest {
         }
 
         override fun write(buffer: ByteArray?) {}
+
         override fun write(string: String?) {}
+
         override fun close() {}
+
         override fun isConnected(): Boolean = callIndex < eofAtIndex
+
         override fun getName(): String = "FakeTty"
+
         override fun init(questioner: Questioner?): Boolean = true
+
         override fun waitFor(): Int = 0
+
         override fun ready(): Boolean = callIndex < eofAtIndex
     }
 
@@ -56,11 +65,12 @@ class ObservingTtyConnectorTest {
     fun `onEof called when read returns negative`() {
         var eofCalled = false
         val fake = FakeTtyConnector(listOf("data"), eofAtIndex = 1)
-        val connector = ObservingTtyConnector(
-            fake,
-            onOutput = {},
-            onEof = { eofCalled = true },
-        )
+        val connector =
+            ObservingTtyConnector(
+                fake,
+                onOutput = {},
+                onEof = { eofCalled = true },
+            )
 
         val buf = CharArray(256)
         connector.read(buf, 0, buf.size)

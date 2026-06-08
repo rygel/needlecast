@@ -316,18 +316,19 @@ class TerminalPanel(
                             rawConnector.resize(d)
                         }
                     }
-                val observed = ObservingTtyConnector(
-                    connector,
-                    onOutput = { chunk -> handleOutput(chunk) },
-                    onEof = {
-                        logger.info("Terminal process exited (EOF), restarting shell")
-                        SwingUtilities.invokeLater {
-                            silenceTimer.stop()
-                            transitionTo(AgentStatus.NONE)
-                            startShell()
-                        }
-                    },
-                )
+                val observed =
+                    ObservingTtyConnector(
+                        connector,
+                        onOutput = { chunk -> handleOutput(chunk) },
+                        onEof = {
+                            logger.info("Terminal process exited (EOF), restarting shell")
+                            SwingUtilities.invokeLater {
+                                silenceTimer.stop()
+                                transitionTo(AgentStatus.NONE)
+                                startShell()
+                            }
+                        },
+                    )
                 currentSession?.close()
                 val session = termWidget.createTerminalSession(observed)
                 currentSession = session
