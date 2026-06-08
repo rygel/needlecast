@@ -1,16 +1,10 @@
 name: "Release: Open PR (develop → main)"
 
-# Opens (or updates the body of) a develop → main PR when develop is pushed.
+# Opens (or updates the body of) a develop → main PR on demand.
 # The PR is the gate before a release: ci.yml + native-check.yml must pass on it.
-# Skips runs triggered by docs-only changes to reduce CI minutes.
+# Run manually via workflow_dispatch when ready to review the release PR.
 
 on:
-  push:
-    branches: [develop]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "LICENSE"
   workflow_dispatch:
 
 permissions: {}
