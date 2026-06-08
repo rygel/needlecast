@@ -69,6 +69,10 @@ class ProjectTreePanel(
     private val scanApplyPending =
         java.util.concurrent.atomic
             .AtomicBoolean(false)
+
+    private var lastFilter = ""
+    private var pendingFilterText = ""
+    private val filterDebounceTimer = Timer(100) { doApplyFilter() }.apply { isRepeats = false }
     private val clickTraceForced =
         System.getProperty("needlecast.tree.clickTrace")?.equals("true", ignoreCase = true) == true ||
             (System.getenv("NEEDLECAST_TREE_CLICK_TRACE")?.equals("true", ignoreCase = true) == true) ||
@@ -268,9 +272,15 @@ class ProjectTreePanel(
                 putClientProperty("JTextField.placeholderText", "Filter\u2026")
                 document.addDocumentListener(
                     object : DocumentListener {
-                        override fun insertUpdate(e: DocumentEvent) = applyFilter(text)
+                        override fun insertUpdate(e: DocumentEvent) {
+                            pendingFilterText = text
+                            filterDebounceTimer.restart()
+                        }
 
-                        override fun removeUpdate(e: DocumentEvent) = applyFilter(text)
+                        override fun removeUpdate(e: DocumentEvent) {
+                            pendingFilterText = text
+                            filterDebounceTimer.restart()
+                        }
 
                         override fun changedUpdate(e: DocumentEvent) {}
                     },
@@ -723,18 +733,22 @@ class ProjectTreePanel(
 
     // ── Filter ───────────────────────────────────────────────────────────────
 
-    private fun applyFilter(text: String) {
-        val filter = text.trim().lowercase()
+    private fun doApplyFilter() {
+        val filter = pendingFilterText.trim()
+        if (filter == lastFilter) return
+        lastFilter = filter
         rootNode.removeAllChildren()
         if (filter.isEmpty()) {
-            val entries = migrateOrLoad()
-            entries.forEach { addEntryNode(rootNode, it, scan = false) }
-            ensureScans(entries)
+            val all = migrateOrLoad()
+            all.forEach { addEntryNode(rootNode, it, scan = false) }
+            ensureScans(all)
         } else {
-            ctx.config.projectTree.forEach { addFilteredEntry(rootNode, it, filter) }
+            ProjectTreeFilter
+                .filterTree(ctx.config.projectTree, filter)
+                .forEach { addEntryNode(rootNode, it, scan = false) }
         }
         treeModel.reload()
-        expandAll()
+        if (filter.isEmpty()) expandAll()
     }
 
     private fun ensureScans(entries: List<ProjectTreeEntry>) {
@@ -753,32 +767,6 @@ class ProjectTreePanel(
         }
         entries.forEach { walk(it) }
     }
-
-    private fun addFilteredEntry(
-        parent: DefaultMutableTreeNode,
-        entry: ProjectTreeEntry,
-        filter: String,
-    ): Boolean =
-        when (entry) {
-            is ProjectTreeEntry.Project -> {
-                val matches =
-                    entry.directory
-                        .label()
-                        .lowercase()
-                        .contains(filter) ||
-                        entry.tags.any { it.lowercase().contains(filter) }
-                if (matches) parent.add(DefaultMutableTreeNode(entry))
-                matches
-            }
-
-            is ProjectTreeEntry.Folder -> {
-                val folderNode = DefaultMutableTreeNode(entry)
-                var anyMatch = false
-                entry.children.forEach { child -> if (addFilteredEntry(folderNode, child, filter)) anyMatch = true }
-                if (anyMatch) parent.add(folderNode)
-                anyMatch
-            }
-        }
 
     // ── Rescan ───────────────────────────────────────────────────────────────
 
