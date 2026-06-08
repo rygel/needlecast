@@ -319,8 +319,8 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
 }
 
 /**
- * A tabbed container for one or more [TerminalPanel] instances belonging to a single project.
- * A "+" toolbar button adds a new terminal tab. Tabs can be closed (except the last one).
+ * A container for one or more [TerminalPanel] instances belonging to a single project.
+ * A "+" button at the end of the tab row adds new terminal tabs. Tabs can be closed (except the last one).
  */
 private class ProjectTerminalPane(
     private val path: String,
@@ -344,27 +344,29 @@ private class ProjectTerminalPane(
     fun applyTerminalColors(fg: java.awt.Color?, bg: java.awt.Color?) {
         customFg = fg
         customBg = bg
-        for (i in 0 until tabs.tabCount) {
+        for (i in 0 until realTabCount) {
             (tabs.getComponentAt(i) as? TerminalPanel)?.applyColors(fg, bg)
         }
     }
 
     fun applyFontSize(size: Int) {
         currentFontSize = size
-        for (i in 0 until tabs.tabCount) {
+        for (i in 0 until realTabCount) {
             (tabs.getComponentAt(i) as? TerminalPanel)?.applyFontSize(size)
         }
     }
 
     fun applyFontFamily(name: String?) {
         currentFontFamily = name
-        for (i in 0 until tabs.tabCount) {
+        for (i in 0 until realTabCount) {
             (tabs.getComponentAt(i) as? TerminalPanel)?.applyFontFamily(name)
         }
     }
 
     private val tabs = JTabbedPane()
     private var tabCounter = 0
+    private var addingTab = false
+    private val realTabCount: Int get() = tabs.tabCount - 1 // last tab is the "+" button
 
     /** Aggregated status across all tabs: THINKING if any tab is THINKING, else WAITING if any is WAITING, else NONE. */
     var onStatusChanged: ((AgentStatus) -> Unit)? = null
@@ -382,25 +384,13 @@ private class ProjectTerminalPane(
     init {
         minimumSize = Dimension(0, 0)
         tabs.minimumSize = Dimension(0, 0)
-        val addButton = JButton("+").apply {
-            toolTipText = "New terminal tab"
-            isFocusable = false
-            addActionListener { addTerminalTab() }
-        }
-        val toolbar = JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
-            isOpaque = false
-            add(addButton)
-        }
-        val topBar = JPanel(BorderLayout()).apply {
-            add(JLabel(), BorderLayout.CENTER) // spacer
-            add(toolbar, BorderLayout.EAST)
-        }
-        add(topBar, BorderLayout.NORTH)
         add(tabs, BorderLayout.CENTER)
+        tabs.addChangeListener { if (!addingTab && tabs.selectedIndex == realTabCount) addTerminalTab() }
         addTerminalTab()
     }
 
     private fun addTerminalTab() {
+        addingTab = true
         tabCounter++
         val terminal = TerminalPanel(
             initialDir = path, dark = isDark, extraEnv = extraEnv,
@@ -415,63 +405,83 @@ private class ProjectTerminalPane(
         }
         terminal.onFontSizeChanged = { size ->
             currentFontSize = size
-            for (i in 0 until tabs.tabCount) {
+            for (i in 0 until realTabCount) {
                 val t = tabs.getComponentAt(i) as? TerminalPanel ?: continue
                 if (t !== terminal) t.applyFontSize(size)
             }
             onFontSizeChanged?.invoke(size)
         }
+        removePlusTab()
         val title = "Terminal $tabCounter"
-        val idx = tabs.tabCount
         tabs.addTab(title, terminal)
-        tabs.setTabComponentAt(idx, TerminalTabHeader(title, canClose = { tabs.tabCount > 1 }) {
+        val idx = tabs.tabCount - 1
+        tabs.setTabComponentAt(idx, TerminalTabHeader(title, canClose = { realTabCount > 1 }) {
             closeTab(terminal)
         })
         tabs.selectedIndex = idx
+        addPlusTab()
+        addingTab = false
         terminal.requestFocusInWindow()
     }
 
     private fun closeTab(terminal: TerminalPanel) {
         val idx = tabs.indexOfComponent(terminal)
-        if (idx < 0 || tabs.tabCount <= 1) return
+        if (idx < 0 || realTabCount <= 1) return
         tabs.removeTabAt(idx)
         tabStatuses.remove(terminal)
         recomputeStatus()
         terminal.dispose()
     }
 
+    private fun removePlusTab() {
+        if (tabs.tabCount > 0 && (tabs.getTabComponentAt(tabs.tabCount - 1) as? JLabel)?.text == "+") {
+            tabs.removeTabAt(tabs.tabCount - 1)
+        }
+    }
+
+    private fun addPlusTab() {
+        val plusLabel = JLabel("+", SwingConstants.CENTER).apply {
+            preferredSize = Dimension(20, 20)
+            isFocusable = false
+        }
+        tabs.addTab("+", JPanel())
+        tabs.setTabComponentAt(tabs.tabCount - 1, plusLabel)
+    }
+
     /** Pushes a hook-derived status to all Claude-session tabs (non-Claude tabs use PTY heuristics). */
     fun forceStatusOnClaudeTabs(status: AgentStatus) {
-        for (i in 0 until tabs.tabCount) {
+        for (i in 0 until realTabCount) {
             val t = tabs.getComponentAt(i) as? TerminalPanel ?: continue
             if (t.isClaudeSession) t.forceStatus(status)
         }
     }
 
     fun setUseHooksForStatus(enabled: Boolean) {
-        for (i in 0 until tabs.tabCount) {
+        for (i in 0 until realTabCount) {
             (tabs.getComponentAt(i) as? TerminalPanel)?.useHooksForStatus = enabled
         }
     }
 
     fun requestFocusOnActive() {
-        (tabs.selectedComponent as? TerminalPanel)?.requestFocusInWindow()
+        if (tabs.selectedIndex < realTabCount)
+            (tabs.selectedComponent as? TerminalPanel)?.requestFocusInWindow()
     }
 
     fun sendInputToActive(text: String) {
-        (tabs.selectedComponent as? TerminalPanel)?.sendInput(text)
+        if (tabs.selectedIndex < realTabCount)
+            (tabs.selectedComponent as? TerminalPanel)?.sendInput(text)
     }
 
     fun applyTheme(dark: Boolean) {
         isDark = dark
-        for (i in 0 until tabs.tabCount) {
+        for (i in 0 until realTabCount) {
             (tabs.getComponentAt(i) as? TerminalPanel)?.applyTheme(dark)
         }
     }
 
     fun dispose() {
         tabStatuses.clear()
-        for (i in 0 until tabs.tabCount) {
+        for (i in 0 until realTabCount) {
             (tabs.getComponentAt(i) as? TerminalPanel)?.dispose()
         }
     }

@@ -277,6 +277,7 @@ class ProjectTreePanel(
             isOpaque = false
             addActionListener {
                 activeOnly = isSelected
+                icon = if (isSelected) RemixIcons.icon("ri-checkbox-circle-fill", 16) else RemixIcons.icon("ri-play-circle-line", 16)
                 toolTipText = if (isSelected) "Showing active projects only" else "Show active projects only"
                 applyFilter(filterField.text)
             }
