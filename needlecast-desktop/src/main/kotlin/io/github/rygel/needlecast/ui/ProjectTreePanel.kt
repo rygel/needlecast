@@ -26,6 +26,7 @@ import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.DropMode
 import javax.swing.JButton
+import javax.swing.JToggleButton
 import javax.swing.JCheckBoxMenuItem
 import javax.swing.JColorChooser
 import javax.swing.JFileChooser
@@ -64,10 +65,12 @@ class ProjectTreePanel(
     private val scanResults = mutableMapOf<String, DetectedProject>()
     private val gitStatusCache = mutableMapOf<String, GitStatus>()
     private var activePaths: Set<String> = emptySet()
+    private var activeOnly = false
     private val missingPaths = mutableSetOf<String>()
     private var pendingSelectPath: String? = null
     private val agentStatuses = mutableMapOf<String, AgentStatus>()
     private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
+    private var filterTimer: Timer? = null
     private val scanQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<ProjectDirectory, DetectedProject>>()
     private val scanApplyTimer = Timer(25) { drainScanQueue() }.apply { isRepeats = false }
     private val scanApplyPending =
