@@ -36,15 +36,12 @@ internal class ProjectTreeCellRenderer(
         font = font.deriveFont(Font.BOLD, 12f)
         minimumSize = Dimension(0, 0)
     }
-    private val missingIcon = JLabel("\u26A0").apply {
-        font = font.deriveFont(Font.BOLD, 12f)
-        foreground = Color(0xE53935)
+    private val missingIcon = JLabel(RemixIcons.icon("ri-error-warning-line", 12, Color(0xE53935))).apply {
         border = BorderFactory.createEmptyBorder(0, 4, 0, 0)
         toolTipText = "Directory not found"
         isVisible = false
     }
-    private val activeDot = JLabel("\u25CF").apply {
-        font = font.deriveFont(Font.PLAIN, 10f); foreground = Color(0x4CAF50)
+    private val activeDot = JLabel(RemixIcons.icon("ri-play-circle-line", 10, Color(0x4CAF50))).apply {
         border = BorderFactory.createEmptyBorder(0, 0, 0, 2)
     }
     private val agentLed = LedIndicator()
@@ -206,7 +203,7 @@ internal class ProjectTreeCellRenderer(
                     when {
                         scanned == null -> {}
                         scanned.scanFailed -> {
-                            tagsPanel.add(badge("\u26A0", "#B71C1C"))
+                            tagsPanel.add(JLabel(RemixIcons.icon("ri-error-warning-line", 12, Color(0xB71C1C))))
                             buildToolBadgeCount = 1
                         }
                         else -> {

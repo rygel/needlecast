@@ -103,17 +103,12 @@ class SettingsDialog(
             horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
         }
 
-        val closeButton = JButton("Close").apply {
-            addActionListener { dispose() }
-        }
-        // Settings are applied live on every change, so Apply is equivalent to Close.
-        val applyButton = JButton("Apply").apply {
+        val closeButton = JButton("Done").apply {
             addActionListener { dispose() }
         }
         val buttonBar = JPanel(FlowLayout(FlowLayout.RIGHT, 8, 8)).apply {
             border = BorderFactory.createMatteBorder(1, 0, 0, 0,
                 UIManager.getColor("Separator.foreground") ?: Color.GRAY)
-            add(applyButton)
             add(closeButton)
         }
         getRootPane().defaultButton = closeButton

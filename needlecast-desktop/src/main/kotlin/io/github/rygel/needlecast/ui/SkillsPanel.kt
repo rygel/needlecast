@@ -57,6 +57,7 @@ class SkillsPanel(
     private var currentProject: DetectedProject? = null
     private var deployedNames: Set<String> = emptySet()
     private var allSkills: List<SkillEntry> = emptyList()
+    private val searchTimer = javax.swing.Timer(150) { applyFilter() }.apply { isRepeats = false }
 
     init {
         newButton.toolTipText = "Create new skill"
@@ -100,9 +101,9 @@ class SkillsPanel(
         deployButton.addActionListener { toggleDeploy() }
 
         searchField.document.addDocumentListener(object : DocumentListener {
-            override fun insertUpdate(e: DocumentEvent?) = applyFilter()
-            override fun removeUpdate(e: DocumentEvent?) = applyFilter()
-            override fun changedUpdate(e: DocumentEvent?) = applyFilter()
+            override fun insertUpdate(e: DocumentEvent?) = searchTimer.restart()
+            override fun removeUpdate(e: DocumentEvent?) = searchTimer.restart()
+            override fun changedUpdate(e: DocumentEvent?) = searchTimer.restart()
         })
 
         refreshList()
