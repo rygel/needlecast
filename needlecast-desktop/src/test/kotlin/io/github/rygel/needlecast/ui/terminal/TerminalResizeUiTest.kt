@@ -136,7 +136,7 @@ class TerminalResizeUiTest {
         val innerCount = AtomicInteger(0)
         val innerDims = AtomicReference<Dimension>()
         val inner = ResizeTrackingConnector(innerCount, innerDims)
-        val observing = ObservingTtyConnector(inner) {}
+        val observing = ObservingTtyConnector(inner, onOutput = {})
         val dims = Dimension(100, 40)
 
         observing.resize(dims)
