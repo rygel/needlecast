@@ -467,6 +467,7 @@ private class ProjectTerminalPane(
         removePlusTab()
         val title = "Terminal $tabCounter"
         tabs.addTab(title, terminal)
+        val idx = tabs.tabCount - 1
         tabs.setTabComponentAt(
             idx,
             TerminalTabHeader(title, canClose = { tabs.tabCount > 1 }) {

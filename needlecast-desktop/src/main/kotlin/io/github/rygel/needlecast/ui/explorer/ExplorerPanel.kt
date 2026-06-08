@@ -202,7 +202,6 @@ class ExplorerPanel(
         // The editor tabs are exposed via [editorComponent] so MainWindow can dock them separately.
         add(JPanel(BorderLayout()).apply {
             add(addressBar, BorderLayout.NORTH)
-            add(filterRow, BorderLayout.SOUTH)
         }, BorderLayout.NORTH)
         add(JScrollPane(table).apply { minimumSize = java.awt.Dimension(0, 0) }, BorderLayout.CENTER)
         minimumSize = java.awt.Dimension(0, 0)

@@ -294,6 +294,21 @@ class ProjectTreePanel(
                 }
             }
 
+        val activeOnlyBtn =
+            JToggleButton(RemixIcons.icon("ri-play-circle-line", 16)).apply {
+                toolTipText = "Show active projects only"
+                isFocusPainted = false
+                isContentAreaFilled = false
+                border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
+                isOpaque = false
+                addActionListener {
+                    activeOnly = isSelected
+                    icon = if (isSelected) RemixIcons.icon("ri-stop-line", 16) else RemixIcons.icon("ri-play-circle-line", 16)
+                    toolTipText = if (isSelected) "Showing active projects only" else "Show active projects only"
+                    doApplyFilter()
+                }
+            }
+
         val filterField =
             JTextField().apply {
                 toolTipText = "Filter projects"
@@ -322,6 +337,7 @@ class ProjectTreePanel(
                     JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
                         isOpaque = false
                         add(privacyBtn)
+                        add(activeOnlyBtn)
                         add(addFolderBtn)
                         add(addProjectBtn)
                         add(rescanBtn)
@@ -770,20 +786,40 @@ class ProjectTreePanel(
 
     private fun doApplyFilter() {
         val filter = pendingFilterText.trim()
-        if (filter == lastFilter) return
+        if (filter == lastFilter && !activeOnly) return
         lastFilter = filter
         rootNode.removeAllChildren()
-        if (filter.isEmpty()) {
+        if (filter.isEmpty() && !activeOnly) {
             val all = migrateOrLoad()
             all.forEach { addEntryNode(rootNode, it, scan = false) }
             ensureScans(all)
         } else {
-            ProjectTreeFilter
-                .filterTree(ctx.config.projectTree, filter)
-                .forEach { addEntryNode(rootNode, it, scan = false) }
+            val source = if (filter.isEmpty()) migrateOrLoad() else ctx.config.projectTree
+            val filtered = mutableListOf<ProjectTreeEntry>()
+            for (entry in source) {
+                val result = filterEntry(entry, filter)
+                if (result != null) filtered.add(result)
+            }
+            filtered.forEach { addEntryNode(rootNode, it, scan = false) }
         }
         treeModel.reload()
-        if (filter.isEmpty()) expandAll()
+        if (filter.isEmpty() && !activeOnly) expandAll()
+    }
+
+    private fun filterEntry(entry: ProjectTreeEntry, textFilter: String): ProjectTreeEntry? {
+        return when (entry) {
+            is ProjectTreeEntry.Project -> {
+                val matchesText = textFilter.isEmpty() ||
+                    entry.directory.label().lowercase().contains(textFilter) ||
+                    entry.tags.any { it.lowercase().contains(textFilter) }
+                val matchesActive = !activeOnly || entry.directory.path in activePaths
+                if (matchesText && matchesActive) entry else null
+            }
+            is ProjectTreeEntry.Folder -> {
+                val filteredChildren = entry.children.mapNotNull { filterEntry(it, textFilter) }
+                if (filteredChildren.isNotEmpty()) entry.copy(children = filteredChildren) else null
+            }
+        }
     }
 
     private fun ensureScans(entries: List<ProjectTreeEntry>) {
@@ -1338,7 +1374,7 @@ class ProjectTreePanel(
                 val isActive = entry.directory.path in activePaths
                 if (detected != null && !isActive) {
                     menu.add(
-                        JMenuItem("\u25B6 Activate Terminal").apply {
+                        JMenuItem("Activate Terminal", RemixIcons.icon("ri-play-circle-line", 12)).apply {
                             addActionListener {
                                 onActivate(detected)
                                 activePaths = activePaths + entry.directory.path
@@ -1349,7 +1385,7 @@ class ProjectTreePanel(
                 }
                 if (isActive) {
                     menu.add(
-                        JMenuItem("\u23F9 Deactivate Terminal").apply {
+                        JMenuItem("Deactivate Terminal", RemixIcons.icon("ri-stop-line", 12)).apply {
                             addActionListener {
                                 if (detected != null) onDeactivate(detected)
                                 activePaths = activePaths - entry.directory.path
