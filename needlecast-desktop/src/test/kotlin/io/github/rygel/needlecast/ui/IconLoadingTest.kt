@@ -4,6 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.awt.Color
 import java.awt.image.BufferedImage
+import java.io.File
 import javax.imageio.ImageIO
 import javax.swing.Icon
 import javax.swing.ImageIcon
@@ -12,9 +13,8 @@ import javax.swing.ImageIcon
  * Verifies that every icon referenced from production code actually exists in the
  * resources directory and that RemixIcons returns a non-empty image for each.
  *
- * If a referenced icon is missing, RemixIcons silently returns a gray fallback
- * rectangle (see [RemixIcons.fallbackIcon]). This test fails fast on that
- * regression rather than letting "broken" icons ship to users.
+ * Icon references are automatically extracted from main source files by scanning
+ * for [RemixIcons.icon] calls, so adding a new icon requires no test changes.
  */
 class IconLoadingTest {
     private data class IconRef(
@@ -22,42 +22,28 @@ class IconLoadingTest {
         val size: Int,
     )
 
-    private val ICON_REFS =
-        listOf(
-            IconRef("ri-add-line", 16),
-            IconRef("ri-arrow-down-line", 16),
-            IconRef("ri-arrow-down-s-line", 12),
-            IconRef("ri-arrow-up-circle-fill", 12),
-            IconRef("ri-arrow-up-line", 16),
-            IconRef("ri-arrow-up-s-line", 12),
-            IconRef("ri-checkbox-blank-circle-fill", 10),
-            IconRef("ri-checkbox-circle-fill", 12),
-            IconRef("ri-checkbox-circle-fill", 16),
-            IconRef("ri-close-circle-line", 16),
-            IconRef("ri-close-line", 12),
-            IconRef("ri-delete-bin-line", 16),
-            IconRef("ri-edit-line", 16),
-            IconRef("ri-error-warning-line", 10),
-            IconRef("ri-external-link-line", 16),
-            IconRef("ri-eye-line", 16),
-            IconRef("ri-eye-off-line", 16),
-            IconRef("ri-file-add-line", 16),
-            IconRef("ri-folder-add-line", 16),
-            IconRef("ri-history-line", 16),
-            IconRef("ri-lock-line", 12),
-            IconRef("ri-play-circle-line", 12),
-            IconRef("ri-play-circle-line", 16),
-            IconRef("ri-play-line", 12),
-            IconRef("ri-play-line", 16),
-            IconRef("ri-refresh-line", 16),
-            IconRef("ri-stop-line", 16),
-            IconRef("ri-subtract-line", 16),
-        )
+    private fun scanIconRefs(): Set<IconRef> {
+        val refs = mutableSetOf<IconRef>()
+        val srcDir = File("src/main/kotlin")
+        if (!srcDir.isDirectory) return refs
+        srcDir.walkTopDown()
+            .filter { it.extension == "kt" }
+            .forEach { file ->
+                val text = file.readText()
+                val pattern = Regex("""\.icon\("([^"]+)"(?:\s*,\s*(\d+))?""")
+                pattern.findAll(text).forEach { match ->
+                    val name = match.groupValues[1]
+                    val size = match.groupValues[2].toIntOrNull() ?: 16
+                    refs.add(IconRef(name, size))
+                }
+            }
+        return refs
+    }
 
     @Test
     fun `all icon resource files exist on classpath`() {
         val missing =
-            ICON_REFS.filter { ref ->
+            scanIconRefs().filter { ref ->
                 RemixIcons::class.java.getResource("/icons/${ref.name}-${ref.size}.png") == null
             }
         assertThat(missing)
@@ -70,7 +56,7 @@ class IconLoadingTest {
     @Test
     fun `every icon resource loads as a valid image`() {
         val broken = mutableListOf<String>()
-        ICON_REFS.forEach { ref ->
+        scanIconRefs().forEach { ref ->
             val url =
                 RemixIcons::class.java.getResource("/icons/${ref.name}-${ref.size}.png")
                     ?: return@forEach
@@ -86,11 +72,9 @@ class IconLoadingTest {
 
     @Test
     fun `RemixIcons returns non-empty icon for every reference`() {
-        // Build a new RemixIcons cache state by using a fresh invocation per call.
-        // We can't reset the global cache, but every call returns a cached Icon,
-        // so we just verify the icons are valid ImageIcons with the expected size.
+        val refs = scanIconRefs()
         val invalid =
-            ICON_REFS.mapNotNull { ref ->
+            refs.mapNotNull { ref ->
                 val icon: Icon = RemixIcons.icon(ref.name, ref.size)
                 val w = icon.iconWidth
                 val h = icon.iconHeight
@@ -107,9 +91,6 @@ class IconLoadingTest {
 
     @Test
     fun `RemixIcons tints icon when color is provided`() {
-        // Paint the icon into a fresh BufferedImage and count non-transparent pixels.
-        // We can't read ImageIcon's internal `image` field (java.desktop module restriction),
-        // so we paint it onto our own canvas and inspect the result.
         val tinted = RemixIcons.icon("ri-play-line", 16, Color.RED)
         val canvas = BufferedImage(tinted.iconWidth, tinted.iconHeight, BufferedImage.TYPE_INT_ARGB)
         val g = canvas.createGraphics()
@@ -129,8 +110,9 @@ class IconLoadingTest {
 
     @Test
     fun `icon dimensions match requested size for all references`() {
+        val refs = scanIconRefs()
         val wrongSize =
-            ICON_REFS.mapNotNull { ref ->
+            refs.mapNotNull { ref ->
                 val icon = RemixIcons.icon(ref.name, ref.size)
                 if (icon.iconWidth != ref.size || icon.iconHeight != ref.size) {
                     "${ref.name}-${ref.size}: got ${icon.iconWidth}x${icon.iconHeight}"
