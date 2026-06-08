@@ -11,6 +11,7 @@ import java.awt.Desktop
 import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.Font
+import java.awt.GridBagLayout
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.KeyAdapter
@@ -46,7 +47,13 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private var currentDir: File = File(System.getProperty("user.home"))
     private var showHidden = false
+    private var fullEntries: List<FileEntry> = emptyList()
     private val addressField = JTextField()
+    private val filterField = JTextField().apply {
+        toolTipText = "Filter files"
+        putClientProperty("JTextField.placeholderText", "Filter\u2026")
+    }
+    private val filterTimer = javax.swing.Timer(150) { applyFileFilter() }.apply { isRepeats = false }
     private val tableModel = FileTableModel()
     private val table = JTable(tableModel).apply {
         selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
@@ -107,14 +114,35 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             add(refreshButton)
         }
 
+        filterField.addActionListener { applyFileFilter() }
+
         val addressBar = JPanel(BorderLayout(4, 0)).apply {
-            border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
+            border = BorderFactory.createEmptyBorder(4, 4, 0, 4)
             add(upButton, BorderLayout.WEST)
             add(addressField, BorderLayout.CENTER)
             add(rightButtons, BorderLayout.EAST)
         }
+        val filterRow = JPanel(BorderLayout()).apply {
+            border = BorderFactory.createEmptyBorder(2, 4, 4, 4)
+            add(filterField, BorderLayout.CENTER)
+        }
 
         addressField.addActionListener { navigateTo(File(addressField.text)) }
+
+        // Filter field — debounced, Escape clears
+        filterField.document.addDocumentListener(object : javax.swing.event.DocumentListener {
+            override fun insertUpdate(e: javax.swing.event.DocumentEvent?) = filterTimer.restart()
+            override fun removeUpdate(e: javax.swing.event.DocumentEvent?) = filterTimer.restart()
+            override fun changedUpdate(e: javax.swing.event.DocumentEvent?) = filterTimer.restart()
+        })
+        filterField.addKeyListener(object : KeyAdapter() {
+            override fun keyPressed(e: KeyEvent) {
+                if (e.keyCode == KeyEvent.VK_ESCAPE) {
+                    filterField.text = ""
+                    applyFileFilter()
+                }
+            }
+        })
 
         // Keyboard shortcuts on the table
         table.addKeyListener(object : KeyAdapter() {
@@ -157,7 +185,10 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
         // File browser — address bar + table only.
         // The editor tabs are exposed via [editorComponent] so MainWindow can dock them separately.
-        add(addressBar, BorderLayout.NORTH)
+        add(JPanel(BorderLayout()).apply {
+            add(addressBar, BorderLayout.NORTH)
+            add(filterRow, BorderLayout.SOUTH)
+        }, BorderLayout.NORTH)
         add(JScrollPane(table).apply { minimumSize = java.awt.Dimension(0, 0) }, BorderLayout.CENTER)
         minimumSize = java.awt.Dimension(0, 0)
         navigateTo(currentDir)
@@ -309,12 +340,25 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                 return entries
             }
             override fun done() {
-                // Only apply if the user hasn't navigated away while we were loading
                 if (currentDir != dir) return
                 val entries = try { get() } catch (_: Exception) { return }
-                tableModel.setEntries(entries)
+                fullEntries = entries
+                applyFileFilter()
             }
         }.execute()
+    }
+
+    private fun applyFileFilter() {
+        val query = filterField.text.trim().lowercase()
+        val filtered = if (query.isEmpty()) fullEntries
+            else fullEntries.filter { entry ->
+                when (entry) {
+                    is FileEntry.ParentDir -> true
+                    is FileEntry.Dir -> entry.file.name.lowercase().contains(query)
+                    is FileEntry.RegularFile -> entry.file.name.lowercase().contains(query)
+                }
+            }
+        tableModel.setEntries(filtered)
     }
 
     private fun handleActivate(entry: FileEntry) {
