@@ -239,6 +239,8 @@ class TerminalPanel(
         silenceTimer.stop()
         transitionTo(AgentStatus.NONE)
         embeddedTerminalPanel.removeMouseWheelListener(remoteMouseWheelConsumer)
+        currentSession?.close()
+        currentSession = null
         termWidget.close()
     }
 
