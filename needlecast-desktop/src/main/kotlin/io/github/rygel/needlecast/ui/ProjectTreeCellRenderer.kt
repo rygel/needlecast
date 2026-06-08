@@ -245,7 +245,7 @@ internal class ProjectTreeCellRenderer(
                         scanned == null -> {}
 
                         scanned.scanFailed -> {
-                            tagsPanel.add(badge("\u26A0", "#B71C1C"))
+                            tagsPanel.add(JLabel(RemixIcons.icon("ri-error-warning-line", 12, Color(0xB71C1C))))
                             buildToolBadgeCount = 1
                         }
 

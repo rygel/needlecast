@@ -26,7 +26,7 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
-import javax.swing.JTextField
+import javax.swing.KeyStroke
 import javax.swing.JToggleButton
 import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
@@ -158,6 +158,8 @@ class GitLogPanel(
         if (path == null) {
             return
         }
+
+        logModel.addElement(GitCommit("", "Loading commits\u2026"))
 
         object : SwingWorker<List<GitCommit>, Void>() {
             override fun doInBackground(): List<GitCommit> =

@@ -11,12 +11,16 @@ import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
+import java.awt.CardLayout
 import java.awt.Color
+import java.awt.Component
 import java.awt.Desktop
 import java.awt.FlowLayout
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
+import javax.swing.Box
+import javax.swing.BoxLayout
 import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
@@ -216,6 +220,27 @@ class ProjectTreePanel(
                 },
             )
         }
+
+    private val treeScroll = JScrollPane(tree).apply {
+        horizontalScrollBarPolicy = javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+    }
+    private val emptyPlaceholder = JPanel(GridBagLayout()).apply {
+        val label = JLabel("<html><div style='text-align:center;font-size:14px;color:#888;'>Add a project to get started</div></html>")
+        val button = JButton("Add Project").apply { addActionListener { addProject(null) } }
+        val inner = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            add(label)
+            add(Box.createVerticalStrut(12))
+            add(button)
+            button.alignmentX = Component.CENTER_ALIGNMENT
+            label.alignmentX = Component.CENTER_ALIGNMENT
+        }
+        add(inner, GridBagConstraints())
+    }
+    private val centerPanel = JPanel(CardLayout()).apply {
+        add(treeScroll, "tree")
+        add(emptyPlaceholder, "empty")
+    }
 
     companion object {
         private val logger = LoggerFactory.getLogger(ProjectTreePanel::class.java)
@@ -429,6 +454,7 @@ class ProjectTreePanel(
         )
 
         loadFromConfig()
+        updateEmptyState()
     }
 
     // ── Loading ─────────────────────────────────────────────────────────────
@@ -439,6 +465,12 @@ class ProjectTreePanel(
         migrateOrLoad().forEach { addEntryNode(rootNode, it) }
         treeModel.reload()
         expandAll()
+        updateEmptyState()
+    }
+
+    private fun updateEmptyState() {
+        val hasEntries = rootNode.childCount > 0
+        (centerPanel.layout as CardLayout).show(centerPanel, if (hasEntries) "tree" else "empty")
     }
 
     private fun migrateOrLoad(): List<ProjectTreeEntry> {
@@ -809,6 +841,7 @@ class ProjectTreePanel(
         tree.expandPath(treePath(parent))
         tree.selectionPath = treePath(node)
         persist()
+        updateEmptyState()
     }
 
     private fun addProject(parentNode: DefaultMutableTreeNode?) {
@@ -829,6 +862,7 @@ class ProjectTreePanel(
         tree.expandPath(treePath(parent))
         tree.selectionPath = treePath(node)
         persist()
+        updateEmptyState()
         val missing = updateMissingPath(dir.path)
         if (!missing) scanProject(dir)
         tree.repaint()
@@ -908,6 +942,7 @@ class ProjectTreePanel(
                             treeModel.removeNodeFromParent(node)
                             onProjectSelected(null)
                             persist()
+                            updateEmptyState()
                         } else {
                             JOptionPane.showMessageDialog(
                                 this@ProjectTreePanel,
@@ -960,6 +995,7 @@ class ProjectTreePanel(
                     treeModel.removeNodeFromParent(node)
                     onProjectSelected(null)
                     persist()
+                    updateEmptyState()
                 } else {
                     JOptionPane.showMessageDialog(
                         this@ProjectTreePanel,
@@ -970,6 +1006,7 @@ class ProjectTreePanel(
                     treeModel.removeNodeFromParent(node)
                     onProjectSelected(null)
                     persist()
+                    updateEmptyState()
                 }
             }
         }.start()

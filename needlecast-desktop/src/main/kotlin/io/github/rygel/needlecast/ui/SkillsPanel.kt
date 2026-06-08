@@ -59,6 +59,7 @@ class SkillsPanel(
     private var currentProject: DetectedProject? = null
     private var deployedNames: Set<String> = emptySet()
     private var allSkills: List<SkillEntry> = emptyList()
+    private val searchTimer = javax.swing.Timer(150) { applyFilter() }.apply { isRepeats = false }
 
     init {
         newButton.toolTipText = "Create new skill"
