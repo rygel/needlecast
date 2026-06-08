@@ -26,6 +26,7 @@ import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.DropMode
 import javax.swing.JButton
+import javax.swing.JToggleButton
 import javax.swing.JCheckBoxMenuItem
 import javax.swing.JColorChooser
 import javax.swing.JFileChooser
@@ -65,10 +66,12 @@ class ProjectTreePanel(
     private val scanResults   = mutableMapOf<String, DetectedProject>()
     private val gitStatusCache = mutableMapOf<String, GitStatus>()
     private var activePaths: Set<String> = emptySet()
+    private var activeOnly = false
     private val missingPaths = mutableSetOf<String>()
     private var pendingSelectPath: String? = null
     private val agentStatuses = mutableMapOf<String, AgentStatus>()
     private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
+    private var filterTimer: Timer? = null
     private val scanQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<ProjectDirectory, DetectedProject>>()
     private val scanApplyTimer = Timer(25) { drainScanQueue() }.apply { isRepeats = false }
     private val scanApplyPending = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -259,17 +262,31 @@ class ProjectTreePanel(
             toolTipText = "Filter projects"
             putClientProperty("JTextField.placeholderText", "Filter\u2026")
             document.addDocumentListener(object : DocumentListener {
-                override fun insertUpdate(e: DocumentEvent) = applyFilter(text)
-                override fun removeUpdate(e: DocumentEvent) = applyFilter(text)
+                override fun insertUpdate(e: DocumentEvent) { filterTimer?.restart() }
+                override fun removeUpdate(e: DocumentEvent) { filterTimer?.restart() }
                 override fun changedUpdate(e: DocumentEvent) {}
             })
+        }
+        filterTimer = Timer(150) { applyFilter(filterField.text) }.apply { isRepeats = false }
+
+        val activeOnlyBtn = JToggleButton(RemixIcons.icon("ri-play-circle-line", 16)).apply {
+            toolTipText = "Show active projects only"
+            isFocusPainted = false
+            isContentAreaFilled = false
+            border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
+            isOpaque = false
+            addActionListener {
+                activeOnly = isSelected
+                toolTipText = if (isSelected) "Showing active projects only" else "Show active projects only"
+                applyFilter(filterField.text)
+            }
         }
 
         val northPanel = JPanel(BorderLayout(4, 2)).apply {
             border = BorderFactory.createEmptyBorder(2, 2, 2, 2)
             val btnPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
                 isOpaque = false
-                add(privacyBtn); add(addFolderBtn); add(addProjectBtn); add(rescanBtn)
+                add(privacyBtn); add(activeOnlyBtn); add(addFolderBtn); add(addProjectBtn); add(rescanBtn)
             }
             add(filterField, BorderLayout.CENTER)
             add(btnPanel,    BorderLayout.EAST)
@@ -652,12 +669,13 @@ class ProjectTreePanel(
     private fun applyFilter(text: String) {
         val filter = text.trim().lowercase()
         rootNode.removeAllChildren()
-        if (filter.isEmpty()) {
+        if (filter.isEmpty() && !activeOnly) {
             val entries = migrateOrLoad()
             entries.forEach { addEntryNode(rootNode, it, scan = false) }
             ensureScans(entries)
         } else {
-            ctx.config.projectTree.forEach { addFilteredEntry(rootNode, it, filter) }
+            val entries = if (filter.isEmpty()) migrateOrLoad() else ctx.config.projectTree
+            entries.forEach { addFilteredEntry(rootNode, it, filter) }
         }
         treeModel.reload()
         expandAll()
@@ -681,8 +699,10 @@ class ProjectTreePanel(
     private fun addFilteredEntry(parent: DefaultMutableTreeNode, entry: ProjectTreeEntry, filter: String): Boolean {
         return when (entry) {
             is ProjectTreeEntry.Project -> {
-                val matches = entry.directory.label().lowercase().contains(filter) ||
+                val matchesFilter = entry.directory.label().lowercase().contains(filter) ||
                     entry.tags.any { it.lowercase().contains(filter) }
+                val matchesActive = !activeOnly || entry.directory.path in activePaths
+                val matches = matchesFilter && matchesActive
                 if (matches) parent.add(DefaultMutableTreeNode(entry))
                 matches
             }
