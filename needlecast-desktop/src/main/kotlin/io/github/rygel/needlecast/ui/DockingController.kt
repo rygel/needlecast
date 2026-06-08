@@ -31,29 +31,35 @@ class DockingController(
     private val registry: PanelRegistry,
     private val ctx: AppContext,
 ) {
-
-    private val layoutFile: File = Path.of(
-        System.getProperty("user.home"), ".needlecast", "docking-layout.xml"
-    ).toFile()
+    private val layoutFile: File =
+        Path
+            .of(
+                System.getProperty("user.home"),
+                ".needlecast",
+                "docking-layout.xml",
+            ).toFile()
 
     private var frame: JFrame? = null
     private var highlightedDockable: DockablePanel? = null
 
-    private val panelHoverListener = AWTEventListener { event ->
-        if (!ctx.config.panelHoverHighlight) return@AWTEventListener
-        if (event !is MouseEvent) return@AWTEventListener
-        if (event.id != MouseEvent.MOUSE_MOVED && event.id != MouseEvent.MOUSE_ENTERED) return@AWTEventListener
-        val source = event.source as? Component ?: return@AWTEventListener
-        val hovered = SwingUtilities.getAncestorOfClass(DockablePanel::class.java, source) as? DockablePanel
-        if (hovered !== highlightedDockable) {
-            highlightedDockable?.setHoverHighlight(false)
-            hovered?.setHoverHighlight(true)
-            highlightedDockable = hovered
+    private val panelHoverListener =
+        AWTEventListener { event ->
+            if (!ctx.config.panelHoverHighlight) return@AWTEventListener
+            if (event !is MouseEvent) return@AWTEventListener
+            if (event.id != MouseEvent.MOUSE_MOVED && event.id != MouseEvent.MOUSE_ENTERED) return@AWTEventListener
+            val source = event.source as? Component ?: return@AWTEventListener
+            val hovered = SwingUtilities.getAncestorOfClass(DockablePanel::class.java, source) as? DockablePanel
+            if (hovered !== highlightedDockable) {
+                highlightedDockable?.setHoverHighlight(false)
+                hovered?.setHoverHighlight(true)
+                highlightedDockable = hovered
+            }
         }
-    }
 
-    fun isEnabled(): Boolean = System.getProperty("needlecast.skipDocking")
-        ?.equals("true", ignoreCase = true) != true
+    fun isEnabled(): Boolean =
+        System
+            .getProperty("needlecast.skipDocking")
+            ?.equals("true", ignoreCase = true) != true
 
     fun initialize(frame: JFrame) {
         this.frame = frame
@@ -87,13 +93,23 @@ class DockingController(
     fun restoreLayout() {
         AppState.setPersistFile(layoutFile)
         applyTabPreference()
-        val restored = try { AppState.restore() } catch (_: Exception) { false }
+        val restored =
+            try {
+                AppState.restore()
+            } catch (_: Exception) {
+                false
+            }
 
-        val requiredPanels = listOf(
-            registry.terminalDockable, registry.editorDockable, registry.commandsDockable,
-            registry.projectTreeDockable, registry.promptInputDockable, registry.commandInputDockable,
-            registry.skillsDockable,
-        )
+        val requiredPanels =
+            listOf(
+                registry.terminalDockable,
+                registry.editorDockable,
+                registry.commandsDockable,
+                registry.projectTreeDockable,
+                registry.promptInputDockable,
+                registry.commandInputDockable,
+                registry.skillsDockable,
+            )
         val allPresent = requiredPanels.all { Docking.isDocked(it) }
 
         if (!restored || !allPresent) {
@@ -108,30 +124,33 @@ class DockingController(
 
     private fun applyTabPreference() {
         Settings.setDefaultTabPreference(
-            if (ctx.config.tabsOnTop) DockableTabPreference.TOP_ALWAYS
-            else DockableTabPreference.NONE
+            if (ctx.config.tabsOnTop) {
+                DockableTabPreference.TOP_ALWAYS
+            } else {
+                DockableTabPreference.NONE
+            },
         )
     }
 
     fun applyDefaultLayout() {
         applyTabPreference()
         val f = frame ?: return
-        Docking.dock(registry.terminalDockable,    f,                          DockingRegion.CENTER)
-        Docking.dock(registry.projectTreeDockable,  registry.terminalDockable,  DockingRegion.WEST,   0.15)
-        Docking.dock(registry.explorerDockable,     registry.projectTreeDockable, DockingRegion.CENTER)
-        Docking.dock(registry.commandsDockable,     registry.terminalDockable,   DockingRegion.EAST,   0.20)
-        Docking.dock(registry.gitLogDockable,       registry.commandsDockable,   DockingRegion.CENTER)
-        Docking.dock(registry.logViewerDockable,    registry.gitLogDockable,     DockingRegion.CENTER)
-        Docking.dock(registry.searchDockable,       registry.logViewerDockable,  DockingRegion.CENTER)
-        Docking.dock(registry.docsDockable,         registry.searchDockable,     DockingRegion.CENTER)
-        Docking.dock(registry.skillsDockable,       registry.docsDockable,       DockingRegion.CENTER)
-        Docking.dock(registry.editorDockable,       registry.terminalDockable,   DockingRegion.CENTER)
-        Docking.dock(registry.diffDockable,         registry.commandsDockable,   DockingRegion.SOUTH,  0.55)
+        Docking.dock(registry.terminalDockable, f, DockingRegion.CENTER)
+        Docking.dock(registry.projectTreeDockable, registry.terminalDockable, DockingRegion.WEST, 0.15)
+        Docking.dock(registry.explorerDockable, registry.projectTreeDockable, DockingRegion.CENTER)
+        Docking.dock(registry.commandsDockable, registry.terminalDockable, DockingRegion.EAST, 0.20)
+        Docking.dock(registry.gitLogDockable, registry.commandsDockable, DockingRegion.CENTER)
+        Docking.dock(registry.logViewerDockable, registry.gitLogDockable, DockingRegion.CENTER)
+        Docking.dock(registry.searchDockable, registry.logViewerDockable, DockingRegion.CENTER)
+        Docking.dock(registry.docsDockable, registry.searchDockable, DockingRegion.CENTER)
+        Docking.dock(registry.skillsDockable, registry.docsDockable, DockingRegion.CENTER)
+        Docking.dock(registry.editorDockable, registry.terminalDockable, DockingRegion.CENTER)
+        Docking.dock(registry.diffDockable, registry.commandsDockable, DockingRegion.SOUTH, 0.55)
         if (ctx.config.showConsole) {
-            Docking.dock(registry.consoleDockable,  registry.diffDockable,       DockingRegion.CENTER)
+            Docking.dock(registry.consoleDockable, registry.diffDockable, DockingRegion.CENTER)
         }
-        Docking.dock(registry.promptInputDockable,  registry.terminalDockable,   DockingRegion.SOUTH,  0.90)
-        Docking.dock(registry.commandInputDockable,  registry.promptInputDockable, DockingRegion.CENTER)
+        Docking.dock(registry.promptInputDockable, registry.terminalDockable, DockingRegion.SOUTH, 0.90)
+        Docking.dock(registry.commandInputDockable, registry.promptInputDockable, DockingRegion.CENTER)
 
         SwingUtilities.invokeLater { selectPrimaryTabs() }
     }
@@ -155,8 +174,9 @@ class DockingController(
     }
 
     private fun selectDockableTab(dockable: DockablePanel) {
-        val tabbed = SwingUtilities.getAncestorOfClass(javax.swing.JTabbedPane::class.java, dockable) as? javax.swing.JTabbedPane
-            ?: return
+        val tabbed =
+            SwingUtilities.getAncestorOfClass(javax.swing.JTabbedPane::class.java, dockable) as? javax.swing.JTabbedPane
+                ?: return
         for (i in 0 until tabbed.tabCount) {
             val comp = tabbed.getComponentAt(i)
             if (SwingUtilities.isDescendingFrom(dockable, comp)) {
@@ -187,8 +207,11 @@ class DockingController(
         if (Docking.isDocked(dockable)) return
         val f = frame ?: return
         if (anchor != null && Docking.isDocked(anchor)) {
-            if (proportion != null) Docking.dock(dockable, anchor, region, proportion)
-            else Docking.dock(dockable, anchor, region)
+            if (proportion != null) {
+                Docking.dock(dockable, anchor, region, proportion)
+            } else {
+                Docking.dock(dockable, anchor, region)
+            }
         } else {
             Docking.dock(dockable, f, region)
         }
@@ -196,11 +219,12 @@ class DockingController(
 
     fun toggleConsole(show: Boolean) {
         if (show && !Docking.isDocked(registry.consoleDockable)) {
-            val anchor = when {
-                Docking.isDocked(registry.commandsDockable) -> registry.commandsDockable
-                Docking.isDocked(registry.explorerDockable) -> registry.explorerDockable
-                else                                        -> registry.terminalDockable
-            }
+            val anchor =
+                when {
+                    Docking.isDocked(registry.commandsDockable) -> registry.commandsDockable
+                    Docking.isDocked(registry.explorerDockable) -> registry.explorerDockable
+                    else -> registry.terminalDockable
+                }
             Docking.dock(registry.consoleDockable, anchor, DockingRegion.SOUTH, 0.65)
         } else if (!show && Docking.isDocked(registry.consoleDockable)) {
             Docking.undock(registry.consoleDockable)
@@ -211,10 +235,11 @@ class DockingController(
     fun toggleExplorer(show: Boolean) {
         if (show && !Docking.isDocked(registry.explorerDockable)) {
             val f = frame
-            if (Docking.isDocked(registry.terminalDockable))
+            if (Docking.isDocked(registry.terminalDockable)) {
                 Docking.dock(registry.explorerDockable, registry.terminalDockable, DockingRegion.EAST, 0.35)
-            else if (f != null)
+            } else if (f != null) {
                 Docking.dock(registry.explorerDockable, f, DockingRegion.EAST, 0.35)
+            }
         } else if (!show && Docking.isDocked(registry.explorerDockable)) {
             Docking.undock(registry.explorerDockable)
         }
@@ -231,8 +256,11 @@ class DockingController(
 
     fun toggleGitLog(show: Boolean) {
         if (show && !Docking.isDocked(registry.gitLogDockable)) {
-            if (Docking.isDocked(registry.commandsDockable)) Docking.dock(registry.gitLogDockable, registry.commandsDockable, DockingRegion.CENTER)
-            else dockTo(registry.gitLogDockable, registry.terminalDockable, DockingRegion.EAST, 0.28)
+            if (Docking.isDocked(registry.commandsDockable)) {
+                Docking.dock(registry.gitLogDockable, registry.commandsDockable, DockingRegion.CENTER)
+            } else {
+                dockTo(registry.gitLogDockable, registry.terminalDockable, DockingRegion.EAST, 0.28)
+            }
         } else if (!show && Docking.isDocked(registry.gitLogDockable)) {
             Docking.undock(registry.gitLogDockable)
         }
@@ -240,11 +268,12 @@ class DockingController(
 
     fun toggleDiff(show: Boolean) {
         if (show && !Docking.isDocked(registry.diffDockable)) {
-            val anchor = when {
-                Docking.isDocked(registry.consoleDockable) -> registry.consoleDockable
-                Docking.isDocked(registry.commandsDockable) -> registry.commandsDockable
-                else -> registry.terminalDockable
-            }
+            val anchor =
+                when {
+                    Docking.isDocked(registry.consoleDockable) -> registry.consoleDockable
+                    Docking.isDocked(registry.commandsDockable) -> registry.commandsDockable
+                    else -> registry.terminalDockable
+                }
             Docking.dock(registry.diffDockable, anchor, DockingRegion.SOUTH, 0.55)
         } else if (!show && Docking.isDocked(registry.diffDockable)) {
             Docking.undock(registry.diffDockable)
@@ -253,8 +282,11 @@ class DockingController(
 
     fun toggleSearch(show: Boolean) {
         if (show && !Docking.isDocked(registry.searchDockable)) {
-            if (Docking.isDocked(registry.commandsDockable)) Docking.dock(registry.searchDockable, registry.commandsDockable, DockingRegion.CENTER)
-            else dockTo(registry.searchDockable, registry.terminalDockable, DockingRegion.EAST, 0.28)
+            if (Docking.isDocked(registry.commandsDockable)) {
+                Docking.dock(registry.searchDockable, registry.commandsDockable, DockingRegion.CENTER)
+            } else {
+                dockTo(registry.searchDockable, registry.terminalDockable, DockingRegion.EAST, 0.28)
+            }
         } else if (!show && Docking.isDocked(registry.searchDockable)) {
             Docking.undock(registry.searchDockable)
         }
@@ -287,8 +319,11 @@ class DockingController(
 
     fun toggleRenovate(show: Boolean) {
         if (show && !Docking.isDocked(registry.renovateDockable)) {
-            if (Docking.isDocked(registry.commandsDockable)) Docking.dock(registry.renovateDockable, registry.commandsDockable, DockingRegion.CENTER)
-            else dockTo(registry.renovateDockable, registry.terminalDockable, DockingRegion.EAST, 0.28)
+            if (Docking.isDocked(registry.commandsDockable)) {
+                Docking.dock(registry.renovateDockable, registry.commandsDockable, DockingRegion.CENTER)
+            } else {
+                dockTo(registry.renovateDockable, registry.terminalDockable, DockingRegion.EAST, 0.28)
+            }
         } else if (!show && Docking.isDocked(registry.renovateDockable)) {
             Docking.undock(registry.renovateDockable)
         }
@@ -296,8 +331,11 @@ class DockingController(
 
     fun toggleDocViewer(show: Boolean) {
         if (show && !Docking.isDocked(registry.docViewerDockable)) {
-            if (Docking.isDocked(registry.docsDockable)) Docking.dock(registry.docViewerDockable, registry.docsDockable, DockingRegion.CENTER)
-            else dockTo(registry.docViewerDockable, registry.terminalDockable, DockingRegion.EAST, 0.28)
+            if (Docking.isDocked(registry.docsDockable)) {
+                Docking.dock(registry.docViewerDockable, registry.docsDockable, DockingRegion.CENTER)
+            } else {
+                dockTo(registry.docViewerDockable, registry.terminalDockable, DockingRegion.EAST, 0.28)
+            }
         } else if (!show && Docking.isDocked(registry.docViewerDockable)) {
             Docking.undock(registry.docViewerDockable)
         }
@@ -305,11 +343,15 @@ class DockingController(
 
     // ── Layout import/export ─────────────────────────────────────────────────
 
-    fun importLayout(onStatus: (String) -> Unit, onError: (String) -> Unit) {
-        val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
-            dialogTitle = "Import Layout"
-            fileFilter = FileNameExtensionFilter("Needlecast layout (*.needlecast-layout)", "needlecast-layout")
-        }
+    fun importLayout(
+        onStatus: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
+        val chooser =
+            JFileChooser(File(System.getProperty("user.home"))).apply {
+                dialogTitle = "Import Layout"
+                fileFilter = FileNameExtensionFilter("Needlecast layout (*.needlecast-layout)", "needlecast-layout")
+            }
         val f = frame
         if (f == null || chooser.showOpenDialog(f) != JFileChooser.APPROVE_OPTION) return
         try {
@@ -325,16 +367,20 @@ class DockingController(
         }
     }
 
-    fun exportLayout(onStatus: (String) -> Unit, onError: (String) -> Unit) {
+    fun exportLayout(
+        onStatus: (String) -> Unit,
+        onError: (String) -> Unit,
+    ) {
         if (!layoutFile.exists()) {
             onError("No saved layout found. Arrange your panels first, then export.")
             return
         }
-        val chooser = JFileChooser(File(System.getProperty("user.home"))).apply {
-            dialogTitle = "Export Layout"
-            fileFilter = FileNameExtensionFilter("Needlecast layout (*.needlecast-layout)", "needlecast-layout")
-            selectedFile = File("layout.needlecast-layout")
-        }
+        val chooser =
+            JFileChooser(File(System.getProperty("user.home"))).apply {
+                dialogTitle = "Export Layout"
+                fileFilter = FileNameExtensionFilter("Needlecast layout (*.needlecast-layout)", "needlecast-layout")
+                selectedFile = File("layout.needlecast-layout")
+            }
         val f = frame
         if (f == null || chooser.showSaveDialog(f) != JFileChooser.APPROVE_OPTION) return
         val selected = chooser.selectedFile

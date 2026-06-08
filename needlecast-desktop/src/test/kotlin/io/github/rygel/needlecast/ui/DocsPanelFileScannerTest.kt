@@ -7,15 +7,18 @@ import java.io.File
 import java.nio.file.Path
 
 class DocsPanelFileScannerTest {
-
     @Test
-    fun `returns empty list when directory has no md files`(@TempDir dir: Path) {
+    fun `returns empty list when directory has no md files`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "build.gradle").writeText("// nothing")
         assertEquals(emptyList<String>(), DocsPanel.collectMarkdownFiles(dir.toFile()))
     }
 
     @Test
-    fun `README md is pinned first regardless of case`(@TempDir dir: Path) {
+    fun `README md is pinned first regardless of case`(
+        @TempDir dir: Path,
+    ) {
         val root = dir.toFile()
         File(root, "CHANGELOG.md").writeText("")
         File(root, "readme.md").writeText("")
@@ -25,7 +28,9 @@ class DocsPanelFileScannerTest {
     }
 
     @Test
-    fun `remaining files are sorted alphabetically by relative path`(@TempDir dir: Path) {
+    fun `remaining files are sorted alphabetically by relative path`(
+        @TempDir dir: Path,
+    ) {
         val root = dir.toFile()
         File(root, "docs").mkdirs()
         File(root, "docs/GUIDE.md").writeText("")
@@ -36,7 +41,9 @@ class DocsPanelFileScannerTest {
     }
 
     @Test
-    fun `skips dot-git and build directories`(@TempDir dir: Path) {
+    fun `skips dot-git and build directories`(
+        @TempDir dir: Path,
+    ) {
         val root = dir.toFile()
         File(root, ".git/objects").mkdirs()
         File(root, ".git/objects/packed.md").writeText("")

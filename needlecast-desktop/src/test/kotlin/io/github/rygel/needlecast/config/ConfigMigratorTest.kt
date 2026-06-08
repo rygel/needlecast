@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class ConfigMigratorTest {
-
     @Test
     fun `config at current version is returned unchanged`() {
         val config = AppConfig(configVersion = ConfigMigrator.CURRENT_VERSION)
@@ -31,7 +30,7 @@ class ConfigMigratorTest {
     @Test
     fun `migrate is idempotent`() {
         val config = AppConfig(configVersion = 0)
-        val once  = ConfigMigrator.migrate(config)
+        val once = ConfigMigrator.migrate(config)
         val twice = ConfigMigrator.migrate(once)
         assertEquals(once.configVersion, twice.configVersion)
     }

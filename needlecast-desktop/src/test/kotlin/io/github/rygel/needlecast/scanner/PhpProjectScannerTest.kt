@@ -9,16 +9,19 @@ import java.io.File
 import java.nio.file.Path
 
 class PhpProjectScannerTest {
-
     private val scanner = PhpProjectScanner()
 
     @Test
-    fun `returns null when no composer_json`(@TempDir dir: Path) {
+    fun `returns null when no composer_json`(
+        @TempDir dir: Path,
+    ) {
         assertNull(scanner.scan(ProjectDirectory(dir.toString())))
     }
 
     @Test
-    fun `detects php project`(@TempDir dir: Path) {
+    fun `detects php project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "composer.json").writeText("""{"name":"test/app"}""")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(setOf(BuildTool.COMPOSER), result.buildTools)
@@ -26,7 +29,9 @@ class PhpProjectScannerTest {
     }
 
     @Test
-    fun `extracts scripts from composer_json`(@TempDir dir: Path) {
+    fun `extracts scripts from composer_json`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "composer.json").writeText("""{"scripts":{"test":"phpunit","lint":"phpstan"}}""")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertTrue(result.commands.any { it.label == "composer run test" })
@@ -34,7 +39,9 @@ class PhpProjectScannerTest {
     }
 
     @Test
-    fun `detects laravel project`(@TempDir dir: Path) {
+    fun `detects laravel project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "composer.json").writeText("""{"name":"test/app"}""")
         File(dir.toFile(), "artisan").writeText("#!/usr/bin/env php")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!

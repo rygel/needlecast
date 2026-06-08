@@ -21,43 +21,46 @@ class RenovateSettingsPanel(
     private val ctx: AppContext,
     @Suppress("UNUSED_PARAMETER") sendToTerminal: (String) -> Unit = {},
 ) : JPanel(BorderLayout(0, 8)) {
-
-    private val statusLabel  = JLabel("Checking…", SwingConstants.CENTER).apply { font = font.deriveFont(Font.BOLD) }
+    private val statusLabel = JLabel("Checking…", SwingConstants.CENTER).apply { font = font.deriveFont(Font.BOLD) }
     private val versionLabel = JLabel("", SwingConstants.CENTER)
 
     init {
         border = BorderFactory.createEmptyBorder(12, 14, 12, 14)
 
-        val infoLabel = JLabel(
-            "<html>Renovate keeps your dependencies up to date by opening automated PRs.<br>" +
-            "Install it globally, then use the <b>Renovate</b> panel (Panels menu) to run it.</html>"
-        ).apply { border = BorderFactory.createEmptyBorder(0, 0, 8, 0) }
+        val infoLabel =
+            JLabel(
+                "<html>Renovate keeps your dependencies up to date by opening automated PRs.<br>" +
+                    "Install it globally, then use the <b>Renovate</b> panel (Panels menu) to run it.</html>",
+            ).apply { border = BorderFactory.createEmptyBorder(0, 0, 8, 0) }
 
-        val statusPanel = JPanel(BorderLayout(0, 2)).apply {
-            border = BorderFactory.createTitledBorder("Installation status")
-            add(statusLabel,  BorderLayout.CENTER)
-            add(versionLabel, BorderLayout.SOUTH)
-        }
+        val statusPanel =
+            JPanel(BorderLayout(0, 2)).apply {
+                border = BorderFactory.createTitledBorder("Installation status")
+                add(statusLabel, BorderLayout.CENTER)
+                add(versionLabel, BorderLayout.SOUTH)
+            }
 
         val outputArea = buildOutputArea()
 
-        val installPanel = JPanel(BorderLayout(0, 4)).apply {
-            border = BorderFactory.createTitledBorder("Install via package manager")
-        }
-        val buttonsPanel   = JPanel(FlowLayout(FlowLayout.CENTER, 8, 4))
+        val installPanel =
+            JPanel(BorderLayout(0, 4)).apply {
+                border = BorderFactory.createTitledBorder("Install via package manager")
+            }
+        val buttonsPanel = JPanel(FlowLayout(FlowLayout.CENTER, 8, 4))
         val installButtons = mutableListOf<JButton>()
 
         buildInstallOptions().forEach { (label, cmd) ->
-            val btn = JButton(label).apply {
-                toolTipText = cmd
-                addActionListener {
-                    installButtons.forEach { it.isEnabled = false }
-                    runCommandStreaming(cmd, outputArea) {
-                        installButtons.forEach { it.isEnabled = true }
-                        checkRenovate()
+            val btn =
+                JButton(label).apply {
+                    toolTipText = cmd
+                    addActionListener {
+                        installButtons.forEach { it.isEnabled = false }
+                        runCommandStreaming(cmd, outputArea) {
+                            installButtons.forEach { it.isEnabled = true }
+                            checkRenovate()
+                        }
                     }
                 }
-            }
             installButtons.add(btn)
             buttonsPanel.add(btn)
         }
@@ -65,20 +68,27 @@ class RenovateSettingsPanel(
 
         val recheckButton = JButton(RemixIcons.icon("ri-refresh-line", 16)).apply { addActionListener { checkRenovate() } }
 
-        val topSection = JPanel(BorderLayout(0, 8)).apply {
-            add(infoLabel, BorderLayout.NORTH)
-            add(JPanel(BorderLayout(0, 8)).apply {
-                add(statusPanel, BorderLayout.NORTH)
-                add(installPanel, BorderLayout.CENTER)
-                add(JPanel(FlowLayout(FlowLayout.CENTER)).apply { add(recheckButton) }, BorderLayout.SOUTH)
-            }, BorderLayout.CENTER)
-        }
+        val topSection =
+            JPanel(BorderLayout(0, 8)).apply {
+                add(infoLabel, BorderLayout.NORTH)
+                add(
+                    JPanel(BorderLayout(0, 8)).apply {
+                        add(statusPanel, BorderLayout.NORTH)
+                        add(installPanel, BorderLayout.CENTER)
+                        add(JPanel(FlowLayout(FlowLayout.CENTER)).apply { add(recheckButton) }, BorderLayout.SOUTH)
+                    },
+                    BorderLayout.CENTER,
+                )
+            }
 
         add(topSection, BorderLayout.NORTH)
-        add(JScrollPane(outputArea).apply {
-            border = BorderFactory.createTitledBorder("Output")
-            preferredSize = Dimension(0, 160)
-        }, BorderLayout.CENTER)
+        add(
+            JScrollPane(outputArea).apply {
+                border = BorderFactory.createTitledBorder("Output")
+                preferredSize = Dimension(0, 160)
+            },
+            BorderLayout.CENTER,
+        )
 
         checkRenovate()
     }
@@ -90,10 +100,16 @@ class RenovateSettingsPanel(
             override fun doInBackground(): Pair<Boolean, String> {
                 val found = ProcessExecutor.isOnPath("renovate")
                 if (!found) return false to ""
-                val version = ProcessExecutor.run(listOf("renovate", "--version"), timeoutMs = 5_000L)
-                    ?.output?.lines()?.firstOrNull()?.trim() ?: ""
+                val version =
+                    ProcessExecutor
+                        .run(listOf("renovate", "--version"), timeoutMs = 5_000L)
+                        ?.output
+                        ?.lines()
+                        ?.firstOrNull()
+                        ?.trim() ?: ""
                 return true to version
             }
+
             override fun done() {
                 val (found, version) = get()
                 if (found) {
@@ -111,11 +127,12 @@ class RenovateSettingsPanel(
         }.execute()
     }
 
-    private fun buildInstallOptions(): List<Pair<String, String>> = buildList {
-        val npm = if (ProcessExecutor.isOnPath("pnpm")) "pnpm" else "npm"
-        add(npm to "$npm add -g renovate")
-        if (!IS_WINDOWS) add("Homebrew" to "brew install renovate")
-        if (IS_WINDOWS)  add("Scoop"    to "scoop install renovate")
-        if (IS_WINDOWS)  add("Chocolatey" to "choco install renovate")
-    }
+    private fun buildInstallOptions(): List<Pair<String, String>> =
+        buildList {
+            val npm = if (ProcessExecutor.isOnPath("pnpm")) "pnpm" else "npm"
+            add(npm to "$npm add -g renovate")
+            if (!IS_WINDOWS) add("Homebrew" to "brew install renovate")
+            if (IS_WINDOWS) add("Scoop" to "scoop install renovate")
+            if (IS_WINDOWS) add("Chocolatey" to "choco install renovate")
+        }
 }

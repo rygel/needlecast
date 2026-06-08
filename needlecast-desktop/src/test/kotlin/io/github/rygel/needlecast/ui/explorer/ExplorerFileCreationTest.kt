@@ -7,7 +7,6 @@ import java.io.File
 import java.nio.file.Path
 
 class ExplorerFileCreationTest {
-
     @TempDir
     lateinit var tempDir: Path
 
@@ -54,15 +53,16 @@ class ExplorerFileCreationTest {
     @Test
     fun `createNewFile works with various special names`() {
         val parentDir = tempDir.toFile()
-        val specialNames = listOf(
-            ".env",
-            ".env.local",
-            ".gitignore",
-            ".bashrc",
-            ".profile",
-            "Dockerfile",
-            ".env.development"
-        )
+        val specialNames =
+            listOf(
+                ".env",
+                ".env.local",
+                ".gitignore",
+                ".bashrc",
+                ".profile",
+                "Dockerfile",
+                ".env.development",
+            )
         for (name in specialNames) {
             val file = File(parentDir, name)
             val result = file.createNewFile()

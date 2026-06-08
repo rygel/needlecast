@@ -27,7 +27,6 @@ import javax.swing.UIManager
  * Never run locally without a virtual display.
  */
 class EditorThemeUiTest {
-
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
     private lateinit var editorPanel: EditorPanel
@@ -46,8 +45,8 @@ class EditorThemeUiTest {
         robot.cleanUp()
     }
 
-    private fun buildFrame(themeId: String): JFrame {
-        return GuiActionRunner.execute<JFrame> {
+    private fun buildFrame(themeId: String): JFrame =
+        GuiActionRunner.execute<JFrame> {
             ThemeRegistry.apply(themeId)
             val store = JsonConfigStore(tempDir.resolve("config.json"))
             val ctx = AppContext(configStore = store)
@@ -59,7 +58,6 @@ class EditorThemeUiTest {
                 setSize(800, 600)
             }
         }
-    }
 
     @Test
     fun `editor background matches UIManager TextArea background in dark theme`() {
@@ -67,16 +65,20 @@ class EditorThemeUiTest {
         fixture = FrameFixture(robot, frame)
         fixture.show()
 
-        val (expectedBg, editorBg) = GuiActionRunner.execute<Pair<Color, Color>> {
-            val expected = UIManager.getColor("TextArea.background")
-            val field = EditorPanel::class.java.getDeclaredField("editor")
-            field.isAccessible = true
-            val editor = field.get(editorPanel) as org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-            Pair(expected, editor.background)
-        }
+        val (expectedBg, editorBg) =
+            GuiActionRunner.execute<Pair<Color, Color>> {
+                val expected = UIManager.getColor("TextArea.background")
+                val field = EditorPanel::class.java.getDeclaredField("editor")
+                field.isAccessible = true
+                val editor = field.get(editorPanel) as org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+                Pair(expected, editor.background)
+            }
 
-        assertEquals(expectedBg, editorBg,
-            "Editor background must match UIManager TextArea.background in dark theme")
+        assertEquals(
+            expectedBg,
+            editorBg,
+            "Editor background must match UIManager TextArea.background in dark theme",
+        )
     }
 
     @Test
@@ -85,16 +87,20 @@ class EditorThemeUiTest {
         fixture = FrameFixture(robot, frame)
         fixture.show()
 
-        val (expectedBg, editorBg) = GuiActionRunner.execute<Pair<Color, Color>> {
-            val expected = UIManager.getColor("TextArea.background")
-            val field = EditorPanel::class.java.getDeclaredField("editor")
-            field.isAccessible = true
-            val editor = field.get(editorPanel) as org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-            Pair(expected, editor.background)
-        }
+        val (expectedBg, editorBg) =
+            GuiActionRunner.execute<Pair<Color, Color>> {
+                val expected = UIManager.getColor("TextArea.background")
+                val field = EditorPanel::class.java.getDeclaredField("editor")
+                field.isAccessible = true
+                val editor = field.get(editorPanel) as org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+                Pair(expected, editor.background)
+            }
 
-        assertEquals(expectedBg, editorBg,
-            "Editor background must match UIManager TextArea.background in light theme")
+        assertEquals(
+            expectedBg,
+            editorBg,
+            "Editor background must match UIManager TextArea.background in light theme",
+        )
     }
 
     @Test
@@ -103,11 +109,12 @@ class EditorThemeUiTest {
         fixture = FrameFixture(robot, frame)
         fixture.show()
 
-        val darkBg = GuiActionRunner.execute<Color> {
-            val field = EditorPanel::class.java.getDeclaredField("editor")
-            field.isAccessible = true
-            (field.get(editorPanel) as org.fife.ui.rsyntaxtextarea.RSyntaxTextArea).background
-        }
+        val darkBg =
+            GuiActionRunner.execute<Color> {
+                val field = EditorPanel::class.java.getDeclaredField("editor")
+                field.isAccessible = true
+                (field.get(editorPanel) as org.fife.ui.rsyntaxtextarea.RSyntaxTextArea).background
+            }
 
         GuiActionRunner.execute {
             ThemeRegistry.apply("light")
@@ -115,13 +122,17 @@ class EditorThemeUiTest {
             editorPanel.applyTheme(false)
         }
 
-        val lightBg = GuiActionRunner.execute<Color> {
-            val field = EditorPanel::class.java.getDeclaredField("editor")
-            field.isAccessible = true
-            (field.get(editorPanel) as org.fife.ui.rsyntaxtextarea.RSyntaxTextArea).background
-        }
+        val lightBg =
+            GuiActionRunner.execute<Color> {
+                val field = EditorPanel::class.java.getDeclaredField("editor")
+                field.isAccessible = true
+                (field.get(editorPanel) as org.fife.ui.rsyntaxtextarea.RSyntaxTextArea).background
+            }
 
-        assertNotEquals(darkBg, lightBg,
-            "Editor background must change when switching from dark to light theme")
+        assertNotEquals(
+            darkBg,
+            lightBg,
+            "Editor background must change when switching from dark to light theme",
+        )
     }
 }

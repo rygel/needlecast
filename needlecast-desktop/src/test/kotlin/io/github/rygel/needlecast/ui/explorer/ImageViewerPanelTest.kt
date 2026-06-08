@@ -6,12 +6,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.awt.image.BufferedImage
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.Path
 import javax.imageio.ImageIO
 
 class ImageViewerPanelTest {
-
     companion object {
         @BeforeAll
         @JvmStatic
@@ -50,7 +48,9 @@ class ImageViewerPanelTest {
     // ── ImageViewerPanel construction ─────────────────────────────────────────
 
     @Test
-    fun `panel constructs without error for a valid PNG`(@TempDir dir: Path) {
+    fun `panel constructs without error for a valid PNG`(
+        @TempDir dir: Path,
+    ) {
         val img = BufferedImage(64, 64, BufferedImage.TYPE_INT_RGB)
         val file = dir.resolve("test.png").toFile()
         ImageIO.write(img, "png", file)
@@ -61,14 +61,18 @@ class ImageViewerPanelTest {
     }
 
     @Test
-    fun `panel constructs without error for a missing file`(@TempDir dir: Path) {
+    fun `panel constructs without error for a missing file`(
+        @TempDir dir: Path,
+    ) {
         val missing = dir.resolve("nonexistent.png").toFile()
         val panel = ImageViewerPanel(missing)
-        assertNotNull(panel)  // error is handled gracefully, not thrown
+        assertNotNull(panel) // error is handled gracefully, not thrown
     }
 
     @Test
-    fun `ImageIO reads image without disk cache`(@TempDir dir: Path) {
+    fun `ImageIO reads image without disk cache`(
+        @TempDir dir: Path,
+    ) {
         val img = BufferedImage(32, 32, BufferedImage.TYPE_INT_RGB)
         val file = dir.resolve("cache-test.png").toFile()
         ImageIO.write(img, "png", file)
@@ -82,6 +86,7 @@ class ImageViewerPanelTest {
 
     // ── Helper mirroring the private ExplorerPanel.isImageFile logic ─────────
 
-    private fun isImageFile(file: File) = file.extension.lowercase() in
-        setOf("jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "ico")
+    private fun isImageFile(file: File) =
+        file.extension.lowercase() in
+            setOf("jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "ico")
 }

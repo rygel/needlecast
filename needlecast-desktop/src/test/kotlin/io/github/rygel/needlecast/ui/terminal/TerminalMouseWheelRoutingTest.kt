@@ -8,7 +8,6 @@ import java.awt.event.MouseWheelEvent
 import javax.swing.JPanel
 
 class TerminalMouseWheelRoutingTest {
-
     @Test
     fun `plain remote wheel events are consumed to stop outer scrolling`() {
         val event = mouseWheelEvent()
@@ -37,20 +36,21 @@ class TerminalMouseWheelRoutingTest {
         assertFalse(shouldConsumeRemoteMouseWheelEvent(event, isRemoteMouseAction = true))
     }
 
-    private fun mouseWheelEvent(modifiersEx: Int = 0): MouseWheelEvent = MouseWheelEvent(
-        JPanel(),
-        MouseEvent.MOUSE_WHEEL,
-        System.currentTimeMillis(),
-        modifiersEx,
-        10,
-        10,
-        10,
-        10,
-        0,
-        false,
-        MouseWheelEvent.WHEEL_UNIT_SCROLL,
-        3,
-        1,
-        1.0,
-    )
+    private fun mouseWheelEvent(modifiersEx: Int = 0): MouseWheelEvent =
+        MouseWheelEvent(
+            JPanel(),
+            MouseEvent.MOUSE_WHEEL,
+            System.currentTimeMillis(),
+            modifiersEx,
+            10,
+            10,
+            10,
+            10,
+            0,
+            false,
+            MouseWheelEvent.WHEEL_UNIT_SCROLL,
+            3,
+            1,
+            1.0,
+        )
 }

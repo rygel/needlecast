@@ -22,18 +22,19 @@ import javax.swing.ListSelectionModel
 class ExternalEditorsSettingsPanel(
     private val ctx: AppContext,
 ) : JPanel(BorderLayout(0, 4)) {
-
     init {
         border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
 
-        val model = DefaultListModel<ExternalEditor>().apply {
-            ctx.config.externalEditors.forEach { addElement(it) }
-        }
-        val list = JList(model).apply {
-            selectionMode = ListSelectionModel.SINGLE_SELECTION
-        }
+        val model =
+            DefaultListModel<ExternalEditor>().apply {
+                ctx.config.externalEditors.forEach { addElement(it) }
+            }
+        val list =
+            JList(model).apply {
+                selectionMode = ListSelectionModel.SINGLE_SELECTION
+            }
 
-        val addButton    = JButton("+")
+        val addButton = JButton("+")
         val removeButton = JButton(RemixIcons.icon("ri-subtract-line", 16)).apply { isEnabled = false }
 
         list.addListSelectionListener {
@@ -43,19 +44,32 @@ class ExternalEditorsSettingsPanel(
         addButton.addActionListener {
             val nameField = JTextField(12)
             val execField = JTextField(12)
-            val form = JPanel(GridBagLayout()).apply {
-                val c = GridBagConstraints().apply {
-                    insets = Insets(4, 4, 4, 4); anchor = GridBagConstraints.WEST
+            val form =
+                JPanel(GridBagLayout()).apply {
+                    val c =
+                        GridBagConstraints().apply {
+                            insets = Insets(4, 4, 4, 4)
+                            anchor = GridBagConstraints.WEST
+                        }
+                    c.gridx = 0
+                    c.gridy = 0
+                    add(JLabel("Name:"), c)
+                    c.gridx = 1
+                    add(nameField, c)
+                    c.gridx = 0
+                    c.gridy = 1
+                    add(JLabel("Executable:"), c)
+                    c.gridx = 1
+                    add(execField, c)
                 }
-                c.gridx = 0; c.gridy = 0; add(JLabel("Name:"), c)
-                c.gridx = 1; add(nameField, c)
-                c.gridx = 0; c.gridy = 1; add(JLabel("Executable:"), c)
-                c.gridx = 1; add(execField, c)
-            }
-            val result = JOptionPane.showConfirmDialog(
-                this, form, "Add External Editor",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE,
-            )
+            val result =
+                JOptionPane.showConfirmDialog(
+                    this,
+                    form,
+                    "Add External Editor",
+                    JOptionPane.OK_CANCEL_OPTION,
+                    JOptionPane.PLAIN_MESSAGE,
+                )
             if (result == JOptionPane.OK_OPTION) {
                 val name = nameField.text.trim()
                 val exec = execField.text.trim()
@@ -74,9 +88,11 @@ class ExternalEditorsSettingsPanel(
             removeButton.isEnabled = false
         }
 
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
-            add(addButton); add(removeButton)
-        }
+        val toolbar =
+            JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+                add(addButton)
+                add(removeButton)
+            }
 
         add(JLabel("Editors shown in the 'Open with' menu:"), BorderLayout.NORTH)
         add(JScrollPane(list), BorderLayout.CENTER)

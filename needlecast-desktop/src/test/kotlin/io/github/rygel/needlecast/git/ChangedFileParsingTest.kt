@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class ChangedFileParsingTest {
-
     @Test
     fun `returns empty list for blank input`() {
         assertEquals(emptyList<ChangedFile>(), parseChangedFiles(""))
@@ -29,8 +28,8 @@ class ChangedFileParsingTest {
         val result = parseChangedFiles(" M src/Main.kt\n?? new.txt\nD  deleted.kt")
         assertEquals(3, result.size)
         assertEquals(ChangedFile("src/Main.kt", " M"), result[0])
-        assertEquals(ChangedFile("new.txt",     "??"), result[1])
-        assertEquals(ChangedFile("deleted.kt",  "D "), result[2])
+        assertEquals(ChangedFile("new.txt", "??"), result[1])
+        assertEquals(ChangedFile("deleted.kt", "D "), result[2])
     }
 
     @Test

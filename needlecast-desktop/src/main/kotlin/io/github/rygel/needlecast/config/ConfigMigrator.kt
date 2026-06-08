@@ -15,7 +15,6 @@ import io.github.rygel.needlecast.model.AppConfig
  * 3. Add a test in `ConfigMigratorTest`.
  */
 object ConfigMigrator {
-
     const val CURRENT_VERSION = 6
 
     fun migrate(config: AppConfig): AppConfig {

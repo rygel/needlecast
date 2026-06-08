@@ -5,7 +5,6 @@ import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import java.awt.Component
-import java.awt.Point
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.io.File
@@ -36,16 +35,21 @@ internal class ProjectTreeDndHandler(
 
     // ── Test hooks ─────────────────────────────────────────────────────────
 
-    fun simulateExternalDropForTest(items: List<File>, targetFolder: String? = null): Boolean {
+    fun simulateExternalDropForTest(
+        items: List<File>,
+        targetFolder: String? = null,
+    ): Boolean {
         val dirs = items.filter { it.isDirectory }
         val files = items.filter { it.isFile }
-        val (parent, idx) = if (targetFolder == null) {
-            rootNode to rootNode.childCount
-        } else {
-            val node = findFolderNodeByName(rootNode, targetFolder)
-                ?: error("Folder '$targetFolder' not found in tree")
-            node to node.childCount
-        }
+        val (parent, idx) =
+            if (targetFolder == null) {
+                rootNode to rootNode.childCount
+            } else {
+                val node =
+                    findFolderNodeByName(rootNode, targetFolder)
+                        ?: error("Folder '$targetFolder' not found in tree")
+                node to node.childCount
+            }
         return doImportExternal(dirs, files, parent, idx)
     }
 
@@ -104,6 +108,7 @@ internal class ProjectTreeDndHandler(
 
     private fun collectAllPaths(root: DefaultMutableTreeNode): MutableSet<String> {
         val set = mutableSetOf<String>()
+
         fun walk(n: DefaultMutableTreeNode) {
             val e = n.userObject
             if (e is ProjectTreeEntry.Project) set += e.directory.path
@@ -113,25 +118,31 @@ internal class ProjectTreeDndHandler(
         return set
     }
 
-    private fun namesMatch(a: String, b: String): Boolean =
-        if (IS_WINDOWS) a.equals(b, ignoreCase = true) else a == b
+    private fun namesMatch(
+        a: String,
+        b: String,
+    ): Boolean = if (IS_WINDOWS) a.equals(b, ignoreCase = true) else a == b
 
-    private fun confirmRepairPath(missingNode: DefaultMutableTreeNode, newPath: String): Boolean {
+    private fun confirmRepairPath(
+        missingNode: DefaultMutableTreeNode,
+        newPath: String,
+    ): Boolean {
         val entry = missingNode.userObject as ProjectTreeEntry.Project
         val oldPath = entry.directory.path
         val projectName = File(oldPath).name
-        val choice = JOptionPane.showOptionDialog(
-            parentComponent,
-            "<html>Project:&nbsp;&nbsp;${projectName.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
-                "Old path: ${oldPath.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
-                "New path: ${newPath.replace("&", "&amp;").replace("<", "&lt;")}</html>",
-            "Replace missing project path?",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.QUESTION_MESSAGE,
-            null,
-            arrayOf("Replace", "Add as new project"),
-            "Replace",
-        )
+        val choice =
+            JOptionPane.showOptionDialog(
+                parentComponent,
+                "<html>Project:&nbsp;&nbsp;${projectName.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
+                    "Old path: ${oldPath.replace("&", "&amp;").replace("<", "&lt;")}<br>" +
+                    "New path: ${newPath.replace("&", "&amp;").replace("<", "&lt;")}</html>",
+                "Replace missing project path?",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                arrayOf("Replace", "Add as new project"),
+                "Replace",
+            )
         if (choice != 0) return false
 
         val updatedDirectory = entry.directory.copy(path = newPath)
@@ -144,7 +155,10 @@ internal class ProjectTreeDndHandler(
         return true
     }
 
-    private fun findFolderNodeByName(n: DefaultMutableTreeNode, name: String): DefaultMutableTreeNode? {
+    private fun findFolderNodeByName(
+        n: DefaultMutableTreeNode,
+        name: String,
+    ): DefaultMutableTreeNode? {
         for (i in 0 until n.childCount) {
             val c = n.getChildAt(i) as DefaultMutableTreeNode
             if ((c.userObject as? ProjectTreeEntry.Folder)?.name == name) return c
@@ -158,28 +172,40 @@ internal class ProjectTreeDndHandler(
     // ── TransferHandler ────────────────────────────────────────────────────
 
     private inner class TreeTransferHandler : TransferHandler() {
-
-        private val flavor: DataFlavor = run {
-            val mime = DataFlavor.javaJVMLocalObjectMimeType + ";class=" + DefaultMutableTreeNode::class.java.name
-            try {
-                DataFlavor(mime)
-            } catch (_: ClassNotFoundException) {
-                DataFlavor(DefaultMutableTreeNode::class.java, "TreeNode")
+        private val flavor: DataFlavor =
+            run {
+                val mime = DataFlavor.javaJVMLocalObjectMimeType + ";class=" + DefaultMutableTreeNode::class.java.name
+                try {
+                    DataFlavor(mime)
+                } catch (_: ClassNotFoundException) {
+                    DataFlavor(DefaultMutableTreeNode::class.java, "TreeNode")
+                }
             }
-        }
 
-        private val uriListFlavor: DataFlavor? = try {
-            DataFlavor("text/uri-list;class=java.lang.String")
-        } catch (_: Exception) { null }
-        private val uriListReaderFlavor: DataFlavor? = try {
-            DataFlavor("text/uri-list;class=java.io.Reader")
-        } catch (_: Exception) { null }
-        private val uriListInputFlavor: DataFlavor? = try {
-            DataFlavor("text/uri-list;class=java.io.InputStream")
-        } catch (_: Exception) { null }
-        private val urlFlavor: DataFlavor? = try {
-            DataFlavor("application/x-java-url;class=java.net.URL")
-        } catch (_: Exception) { null }
+        private val uriListFlavor: DataFlavor? =
+            try {
+                DataFlavor("text/uri-list;class=java.lang.String")
+            } catch (_: Exception) {
+                null
+            }
+        private val uriListReaderFlavor: DataFlavor? =
+            try {
+                DataFlavor("text/uri-list;class=java.io.Reader")
+            } catch (_: Exception) {
+                null
+            }
+        private val uriListInputFlavor: DataFlavor? =
+            try {
+                DataFlavor("text/uri-list;class=java.io.InputStream")
+            } catch (_: Exception) {
+                null
+            }
+        private val urlFlavor: DataFlavor? =
+            try {
+                DataFlavor("application/x-java-url;class=java.net.URL")
+            } catch (_: Exception) {
+                null
+            }
 
         override fun getSourceActions(c: JComponent) = MOVE
 
@@ -188,21 +214,26 @@ internal class ProjectTreeDndHandler(
             val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return null
             return object : Transferable {
                 override fun getTransferDataFlavors() = arrayOf(flavor)
+
                 override fun isDataFlavorSupported(f: DataFlavor) = f == flavor
+
                 override fun getTransferData(f: DataFlavor): Any = node
             }
         }
 
         private fun nodeFrom(support: TransferSupport): DefaultMutableTreeNode? =
-            try { support.transferable.getTransferData(flavor) as? DefaultMutableTreeNode }
-            catch (_: Exception) { null }
+            try {
+                support.transferable.getTransferData(flavor) as? DefaultMutableTreeNode
+            } catch (_: Exception) {
+                null
+            }
 
         private fun isExternalDrop(support: TransferSupport): Boolean =
             support.isDataFlavorSupported(DataFlavor.javaFileListFlavor) ||
-                    (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) ||
-                    (uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor)) ||
-                    (uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor)) ||
-                    (uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor))
+                (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) ||
+                (uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor)) ||
+                (uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor)) ||
+                (uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor))
 
         private fun centeredFolderDrop(dl: JTree.DropLocation): DefaultMutableTreeNode? {
             val p = dl.dropPoint ?: return null
@@ -231,10 +262,11 @@ internal class ProjectTreeDndHandler(
                     }
                 }
             } else {
-                val parent = when (targetNode.userObject) {
-                    is ProjectTreeEntry.Folder -> targetNode
-                    else -> targetNode.parent as? DefaultMutableTreeNode ?: rootNode
-                }
+                val parent =
+                    when (targetNode.userObject) {
+                        is ProjectTreeEntry.Folder -> targetNode
+                        else -> targetNode.parent as? DefaultMutableTreeNode ?: rootNode
+                    }
                 val idx = if (parent === targetNode) dl.childIndex else parent.getIndex(targetNode).coerceAtLeast(0)
                 Pair(parent, idx)
             }
@@ -247,11 +279,13 @@ internal class ProjectTreeDndHandler(
                     try {
                         support.dropAction = MOVE
                         support.setShowDropLocation(true)
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
                     val dl = support.dropLocation as? JTree.DropLocation ?: return false
                     val overrideTarget = centeredFolderDrop(dl)
-                    val targetPath = overrideTarget?.let { TreePath(it.path) } ?: dl.path
-                        ?: return true
+                    val targetPath =
+                        overrideTarget?.let { TreePath(it.path) } ?: dl.path
+                            ?: return true
                     val targetNode = targetPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
                     val src = nodeFrom(support) ?: return false
                     var n: TreeNode? = targetNode
@@ -280,13 +314,15 @@ internal class ProjectTreeDndHandler(
             val (newParent, rawIndex) = resolveDropTarget(dl, centeredFolderDrop(dl)) ?: return false
 
             val oldParent = node.parent as? DefaultMutableTreeNode ?: return false
-            val oldIndex  = oldParent.getIndex(node)
+            val oldIndex = oldParent.getIndex(node)
             treeModel.removeNodeFromParent(node)
 
-            val insertIndex = if (newParent === oldParent && rawIndex > oldIndex)
-                (rawIndex - 1).coerceAtMost(newParent.childCount)
-            else
-                rawIndex.coerceAtMost(newParent.childCount)
+            val insertIndex =
+                if (newParent === oldParent && rawIndex > oldIndex) {
+                    (rawIndex - 1).coerceAtMost(newParent.childCount)
+                } else {
+                    rawIndex.coerceAtMost(newParent.childCount)
+                }
 
             treeModel.insertNodeInto(node, newParent, insertIndex)
             if (newParent !== rootNode) tree.expandPath(TreePath(newParent.path))
@@ -320,11 +356,14 @@ internal class ProjectTreeDndHandler(
         @Suppress("UNCHECKED_CAST")
         private fun entriesFromExternal(support: TransferSupport): Pair<List<File>, List<File>> {
             if (support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-                val items = try {
-                    (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
-                        ?.filterIsInstance<File>()
-                        ?: emptyList()
-                } catch (_: Exception) { emptyList() }
+                val items =
+                    try {
+                        (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
+                            ?.filterIsInstance<File>()
+                            ?: emptyList()
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
                 val dirs = items.filter { it.isDirectory }
                 val files = items.filter { it.isFile }
                 return dirs to files
@@ -336,7 +375,9 @@ internal class ProjectTreeDndHandler(
                     val dirs = if (file != null && file.isDirectory) listOf(file) else emptyList()
                     val files = if (file != null && file.isFile) listOf(file) else emptyList()
                     dirs to files
-                } catch (_: Exception) { emptyList<File>() to emptyList() }
+                } catch (_: Exception) {
+                    emptyList<File>() to emptyList()
+                }
             }
             val text = readUriListText(support) ?: return emptyList<File>() to emptyList()
             val items = parseUriList(text)
@@ -345,8 +386,8 @@ internal class ProjectTreeDndHandler(
             return dirs to files
         }
 
-        private fun readUriListText(support: TransferSupport): String? {
-            return try {
+        private fun readUriListText(support: TransferSupport): String? =
+            try {
                 when {
                     uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor) ->
                         support.transferable.getTransferData(uriListFlavor) as? String
@@ -360,17 +401,18 @@ internal class ProjectTreeDndHandler(
                     }
                     else -> null
                 }
-            } catch (_: Exception) { null }
-        }
+            } catch (_: Exception) {
+                null
+            }
 
         private fun parseUriList(text: String): List<File> =
-            text.lineSequence()
+            text
+                .lineSequence()
                 .map { it.trim() }
                 .filter { it.isNotEmpty() && !it.startsWith("#") }
                 .mapNotNull { line ->
                     if (!line.startsWith("file:/")) return@mapNotNull null
                     runCatching { File(URI(line)) }.getOrNull()
-                }
-                .toList()
+                }.toList()
     }
 }

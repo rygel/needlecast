@@ -10,7 +10,6 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 
 class CommandHistoryManagerTest {
-
     private fun makeCtx(dir: Path): AppContext {
         val store = JsonConfigStore(dir.resolve("config.json"))
         val ctx = AppContext(configStore = store)
@@ -18,15 +17,18 @@ class CommandHistoryManagerTest {
         return ctx
     }
 
-    private fun entry(label: String) = CommandHistoryEntry(
-        label = label,
-        argv = listOf("mvn", label),
-        workingDirectory = "/project",
-        exitCode = 0,
-    )
+    private fun entry(label: String) =
+        CommandHistoryEntry(
+            label = label,
+            argv = listOf("mvn", label),
+            workingDirectory = "/project",
+            exitCode = 0,
+        )
 
     @Test
-    fun `record stores entry and persists`(@TempDir dir: Path) {
+    fun `record stores entry and persists`(
+        @TempDir dir: Path,
+    ) {
         val ctx = makeCtx(dir)
         val mgr = CommandHistoryManager(ctx)
 
@@ -40,7 +42,9 @@ class CommandHistoryManagerTest {
     }
 
     @Test
-    fun `record prepends newest entry`(@TempDir dir: Path) {
+    fun `record prepends newest entry`(
+        @TempDir dir: Path,
+    ) {
         val ctx = makeCtx(dir)
         val mgr = CommandHistoryManager(ctx)
 
@@ -53,7 +57,9 @@ class CommandHistoryManagerTest {
     }
 
     @Test
-    fun `record caps history at MAX entries`(@TempDir dir: Path) {
+    fun `record caps history at MAX entries`(
+        @TempDir dir: Path,
+    ) {
         val ctx = makeCtx(dir)
         val mgr = CommandHistoryManager(ctx)
 
@@ -63,13 +69,17 @@ class CommandHistoryManagerTest {
     }
 
     @Test
-    fun `getHistory returns empty list for unknown project`(@TempDir dir: Path) {
+    fun `getHistory returns empty list for unknown project`(
+        @TempDir dir: Path,
+    ) {
         val mgr = CommandHistoryManager(makeCtx(dir))
         assertTrue(mgr.getHistory("/no/such/path").isEmpty())
     }
 
     @Test
-    fun `histories for different projects are independent`(@TempDir dir: Path) {
+    fun `histories for different projects are independent`(
+        @TempDir dir: Path,
+    ) {
         val ctx = makeCtx(dir)
         val mgr = CommandHistoryManager(ctx)
 
@@ -81,7 +91,9 @@ class CommandHistoryManagerTest {
     }
 
     @Test
-    fun `history survives config reload from disk`(@TempDir dir: Path) {
+    fun `history survives config reload from disk`(
+        @TempDir dir: Path,
+    ) {
         val configPath = dir.resolve("config.json")
         val store = JsonConfigStore(configPath)
         val ctx = AppContext(configStore = store)
@@ -98,15 +110,18 @@ class CommandHistoryManagerTest {
     }
 
     @Test
-    fun `entry fields are preserved after round-trip`(@TempDir dir: Path) {
+    fun `entry fields are preserved after round-trip`(
+        @TempDir dir: Path,
+    ) {
         val ctx = makeCtx(dir)
         val mgr = CommandHistoryManager(ctx)
-        val original = CommandHistoryEntry(
-            label = "test",
-            argv = listOf("npm", "run", "build"),
-            workingDirectory = "/workspace",
-            exitCode = 1,
-        )
+        val original =
+            CommandHistoryEntry(
+                label = "test",
+                argv = listOf("npm", "run", "build"),
+                workingDirectory = "/workspace",
+                exitCode = 1,
+            )
 
         mgr.record("/project", original)
         val stored = mgr.getHistory("/project")[0]
@@ -119,7 +134,9 @@ class CommandHistoryManagerTest {
     }
 
     @Test
-    fun `record discards oldest entries beyond MAX`(@TempDir dir: Path) {
+    fun `record discards oldest entries beyond MAX`(
+        @TempDir dir: Path,
+    ) {
         val ctx = makeCtx(dir)
         val mgr = CommandHistoryManager(ctx)
 

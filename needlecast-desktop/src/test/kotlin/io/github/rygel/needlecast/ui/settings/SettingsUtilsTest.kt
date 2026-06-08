@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test
 import java.awt.Font
 
 class SettingsUtilsTest {
-
     @Test
     fun `Font_MONOSPACED logical font is detected as monospaced`() {
         assertTrue(isMonospaced(Font.MONOSPACED))

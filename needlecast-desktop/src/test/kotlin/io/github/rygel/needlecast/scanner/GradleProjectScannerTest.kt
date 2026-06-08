@@ -9,17 +9,20 @@ import java.io.File
 import java.nio.file.Path
 
 class GradleProjectScannerTest {
-
     private val scanner = GradleProjectScanner()
 
     @Test
-    fun `returns null when no build file present`(@TempDir dir: Path) {
+    fun `returns null when no build file present`(
+        @TempDir dir: Path,
+    ) {
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         assertNull(result)
     }
 
     @Test
-    fun `detects Gradle project from build_gradle`(@TempDir dir: Path) {
+    fun `detects Gradle project from build_gradle`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "build.gradle").writeText("plugins {}")
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
@@ -33,7 +36,9 @@ class GradleProjectScannerTest {
     }
 
     @Test
-    fun `detects Gradle project from build_gradle_kts`(@TempDir dir: Path) {
+    fun `detects Gradle project from build_gradle_kts`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "build.gradle.kts").writeText("plugins {}")
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))
@@ -42,36 +47,50 @@ class GradleProjectScannerTest {
     }
 
     @Test
-    fun `uses gradlew wrapper when present`(@TempDir dir: Path) {
+    fun `uses gradlew wrapper when present`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "build.gradle").writeText("plugins {}")
         if (IS_WINDOWS) {
             File(dir.toFile(), "gradlew.bat").writeText("@echo off")
         } else {
-            File(dir.toFile(), "gradlew").apply { writeText("#!/bin/sh"); setExecutable(true) }
+            File(dir.toFile(), "gradlew").apply {
+                writeText("#!/bin/sh")
+                setExecutable(true)
+            }
         }
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
-        assertTrue(result.commands.all { cmd ->
-            cmd.label.startsWith("./gradlew") || cmd.label.startsWith("./gradlew")
-                || cmd.argv.any { it.contains("gradlew") }
-        })
+        assertTrue(
+            result.commands.all { cmd ->
+                cmd.label.startsWith("./gradlew") ||
+                    cmd.label.startsWith("./gradlew") ||
+                    cmd.argv.any { it.contains("gradlew") }
+            },
+        )
     }
 
     @Test
-    fun `detects subproject tasks from settings_gradle`(@TempDir dir: Path) {
+    fun `detects subproject tasks from settings_gradle`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "build.gradle").writeText("plugins {}")
-        File(dir.toFile(), "settings.gradle").writeText("""
+        File(dir.toFile(), "settings.gradle").writeText(
+            """
             rootProject.name = 'myapp'
             include ':desktop', ':web'
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         // Create subproject with application plugin
         val desktop = File(dir.toFile(), "desktop").also { it.mkdirs() }
-        File(desktop, "build.gradle").writeText("""
+        File(desktop, "build.gradle").writeText(
+            """
             plugins {
                 id 'application'
             }
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         // Create subproject without application plugin
         val web = File(dir.toFile(), "web").also { it.mkdirs() }
@@ -95,19 +114,25 @@ class GradleProjectScannerTest {
     }
 
     @Test
-    fun `detects subproject tasks from settings_gradle_kts`(@TempDir dir: Path) {
+    fun `detects subproject tasks from settings_gradle_kts`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "build.gradle.kts").writeText("plugins {}")
-        File(dir.toFile(), "settings.gradle.kts").writeText("""
+        File(dir.toFile(), "settings.gradle.kts").writeText(
+            """
             rootProject.name = "myapp"
             include(":app")
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val app = File(dir.toFile(), "app").also { it.mkdirs() }
-        File(app, "build.gradle.kts").writeText("""
+        File(app, "build.gradle.kts").writeText(
+            """
             plugins {
                 id("org.springframework.boot") version "3.2.0"
             }
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         val labels = result.commands.map { it.label }
@@ -117,13 +142,17 @@ class GradleProjectScannerTest {
     }
 
     @Test
-    fun `detects Spring Boot and Shadow tasks`(@TempDir dir: Path) {
-        File(dir.toFile(), "build.gradle").writeText("""
+    fun `detects Spring Boot and Shadow tasks`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "build.gradle").writeText(
+            """
             plugins {
                 id 'org.springframework.boot' version '3.2.0'
                 id 'com.github.johnrengelman.shadow' version '8.0.0'
             }
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         val labels = result.commands.map { it.label }
@@ -133,7 +162,9 @@ class GradleProjectScannerTest {
     }
 
     @Test
-    fun `ignores subproject with no build file`(@TempDir dir: Path) {
+    fun `ignores subproject with no build file`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "build.gradle").writeText("plugins {}")
         File(dir.toFile(), "settings.gradle").writeText("include ':ghost'")
         // No ghost/ directory or build file

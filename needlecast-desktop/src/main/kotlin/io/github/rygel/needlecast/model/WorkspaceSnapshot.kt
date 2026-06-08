@@ -8,16 +8,18 @@ data class WorkspaceSnapshot(
     val lastSelectedProjectPath: String? = null,
 )
 
-fun AppConfig.toWorkspaceSnapshot(): WorkspaceSnapshot = WorkspaceSnapshot(
-    groups = groups,
-    projectTree = projectTree,
-    lastSelectedGroupId = lastSelectedGroupId,
-    lastSelectedProjectPath = lastSelectedProjectPath,
-)
+fun AppConfig.toWorkspaceSnapshot(): WorkspaceSnapshot =
+    WorkspaceSnapshot(
+        groups = groups,
+        projectTree = projectTree,
+        lastSelectedGroupId = lastSelectedGroupId,
+        lastSelectedProjectPath = lastSelectedProjectPath,
+    )
 
-fun AppConfig.withWorkspaceSnapshot(snapshot: WorkspaceSnapshot): AppConfig = copy(
-    groups = snapshot.groups,
-    projectTree = snapshot.projectTree,
-    lastSelectedGroupId = snapshot.lastSelectedGroupId,
-    lastSelectedProjectPath = snapshot.lastSelectedProjectPath,
-)
+fun AppConfig.withWorkspaceSnapshot(snapshot: WorkspaceSnapshot): AppConfig =
+    copy(
+        groups = snapshot.groups,
+        projectTree = snapshot.projectTree,
+        lastSelectedGroupId = snapshot.lastSelectedGroupId,
+        lastSelectedProjectPath = snapshot.lastSelectedProjectPath,
+    )

@@ -12,17 +12,18 @@ import javax.swing.JPanel
 import javax.swing.UIManager
 
 class StatusBar : JPanel(BorderLayout()) {
-
     private val label = JLabel(" Ready")
-    private val quotaLabel = JLabel().apply {
-        isVisible = false
-        border = BorderFactory.createEmptyBorder(0, 8, 0, 8)
-    }
-    private val updateBadge = JLabel().apply {
-        isVisible = false
-        cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
-        border = BorderFactory.createEmptyBorder(0, 8, 0, 6)
-    }
+    private val quotaLabel =
+        JLabel().apply {
+            isVisible = false
+            border = BorderFactory.createEmptyBorder(0, 8, 0, 8)
+        }
+    private val updateBadge =
+        JLabel().apply {
+            isVisible = false
+            cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+            border = BorderFactory.createEmptyBorder(0, 8, 0, 6)
+        }
 
     init {
         border = BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY)
@@ -31,14 +32,19 @@ class StatusBar : JPanel(BorderLayout()) {
         add(updateBadge, BorderLayout.EAST)
     }
 
-    fun showUpdateAvailable(version: String, onClick: () -> Unit) {
+    fun showUpdateAvailable(
+        version: String,
+        onClick: () -> Unit,
+    ) {
         updateBadge.icon = RemixIcons.icon("ri-arrow-up-circle-fill", 12, java.awt.Color(0x4CAF50))
         updateBadge.text = " $version available  "
         updateBadge.foreground = UIManager.getColor("Component.accentColor") ?: Color(0x00BCD4)
         updateBadge.mouseListeners.forEach { updateBadge.removeMouseListener(it) }
-        updateBadge.addMouseListener(object : MouseAdapter() {
-            override fun mouseClicked(e: MouseEvent) = onClick()
-        })
+        updateBadge.addMouseListener(
+            object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) = onClick()
+            },
+        )
         updateBadge.isVisible = true
         revalidate()
     }
@@ -52,8 +58,12 @@ class StatusBar : JPanel(BorderLayout()) {
     }
 
     fun setFinished(exitCode: Int) {
-        label.text = if (exitCode == 0) " Finished successfully (exit 0)"
-                     else " Finished with exit code $exitCode"
+        label.text =
+            if (exitCode == 0) {
+                " Finished successfully (exit 0)"
+            } else {
+                " Finished with exit code $exitCode"
+            }
     }
 
     fun setReady() {
@@ -80,15 +90,24 @@ class StatusBar : JPanel(BorderLayout()) {
         quotaLabel.text = parts.joinToString(" | ")
 
         val worstPct = listOfNotNull(fiveH, sevenD).maxOrNull() ?: 0.0
-        quotaLabel.foreground = when {
-            worstPct >= 90 -> Color(0xF44336)
-            worstPct >= 70 -> Color(0xFF9800)
-            else -> UIManager.getColor("Label.foreground") ?: Color(0x4CAF50)
-        }
+        quotaLabel.foreground =
+            when {
+                worstPct >= 90 -> Color(0xF44336)
+                worstPct >= 70 -> Color(0xFF9800)
+                else -> UIManager.getColor("Label.foreground") ?: Color(0x4CAF50)
+            }
 
         val tooltipParts = mutableListOf<String>()
-        if (fiveH != null) tooltipParts.add("5-hour window: ${"%.1f".format(fiveH)}%${data.fiveHourResetsAt?.let { " (resets $it)" } ?: ""}")
-        if (sevenD != null) tooltipParts.add("7-day window: ${"%.1f".format(sevenD)}%${data.sevenDayResetsAt?.let { " (resets $it)" } ?: ""}")
+        if (fiveH !=
+            null
+        ) {
+            tooltipParts.add("5-hour window: ${"%.1f".format(fiveH)}%${data.fiveHourResetsAt?.let { " (resets $it)" } ?: ""}")
+        }
+        if (sevenD !=
+            null
+        ) {
+            tooltipParts.add("7-day window: ${"%.1f".format(sevenD)}%${data.sevenDayResetsAt?.let { " (resets $it)" } ?: ""}")
+        }
         if (data.sevenDaySonnetPercent != null) tooltipParts.add("7d Sonnet: ${"%.1f".format(data.sevenDaySonnetPercent)}%")
         if (data.sevenDayOpusPercent != null) tooltipParts.add("7d Opus: ${"%.1f".format(data.sevenDayOpusPercent)}%")
         quotaLabel.toolTipText = "<html>${tooltipParts.joinToString("<br>")}</html>"

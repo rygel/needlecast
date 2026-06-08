@@ -5,13 +5,14 @@ import org.junit.jupiter.api.Test
 import java.util.concurrent.TimeUnit
 
 class RunningProcessTest {
-
     @Test
     fun `isAlive returns true for running process`() {
-        val pb = if (isWindows())
-            ProcessBuilder("ping", "-n", "10", "127.0.0.1")
-        else
-            ProcessBuilder("sleep", "10")
+        val pb =
+            if (isWindows()) {
+                ProcessBuilder("ping", "-n", "10", "127.0.0.1")
+            } else {
+                ProcessBuilder("sleep", "10")
+            }
         val process = pb.start()
         try {
             val running = RunningProcess(process)
@@ -34,10 +35,12 @@ class RunningProcessTest {
 
     @Test
     fun `cancel destroys process forcibly`() {
-        val pb = if (isWindows())
-            ProcessBuilder("ping", "-n", "30", "127.0.0.1")
-        else
-            ProcessBuilder("sleep", "30")
+        val pb =
+            if (isWindows()) {
+                ProcessBuilder("ping", "-n", "30", "127.0.0.1")
+            } else {
+                ProcessBuilder("sleep", "30")
+            }
         val process = pb.start()
         val running = RunningProcess(process)
 
@@ -51,18 +54,24 @@ class RunningProcessTest {
 
     @Test
     fun `cancel interrupts reader thread`() {
-        val pb = if (isWindows())
-            ProcessBuilder("ping", "-n", "30", "127.0.0.1")
-        else
-            ProcessBuilder("sleep", "30")
-        val process = pb.start()
-        val readerThread = Thread({
-            try {
-                process.inputStream.bufferedReader().use { it.forEachLine { _ -> } }
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
+        val pb =
+            if (isWindows()) {
+                ProcessBuilder("ping", "-n", "30", "127.0.0.1")
+            } else {
+                ProcessBuilder("sleep", "30")
             }
-        }, "test-reader").apply { isDaemon = true; start() }
+        val process = pb.start()
+        val readerThread =
+            Thread({
+                try {
+                    process.inputStream.bufferedReader().use { it.forEachLine { _ -> } }
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
+            }, "test-reader").apply {
+                isDaemon = true
+                start()
+            }
 
         val running = RunningProcess(process, readerThread)
         running.cancel()

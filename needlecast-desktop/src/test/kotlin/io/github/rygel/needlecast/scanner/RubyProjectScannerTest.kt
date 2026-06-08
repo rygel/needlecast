@@ -9,16 +9,19 @@ import java.io.File
 import java.nio.file.Path
 
 class RubyProjectScannerTest {
-
     private val scanner = RubyProjectScanner()
 
     @Test
-    fun `returns null when no Gemfile`(@TempDir dir: Path) {
+    fun `returns null when no Gemfile`(
+        @TempDir dir: Path,
+    ) {
         assertNull(scanner.scan(ProjectDirectory(dir.toString())))
     }
 
     @Test
-    fun `detects ruby project`(@TempDir dir: Path) {
+    fun `detects ruby project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "Gemfile").writeText("source 'https://rubygems.org'\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(setOf(BuildTool.BUNDLER), result.buildTools)
@@ -26,7 +29,9 @@ class RubyProjectScannerTest {
     }
 
     @Test
-    fun `detects rails project`(@TempDir dir: Path) {
+    fun `detects rails project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "Gemfile").writeText("gem 'rails'\n")
         File(dir.toFile(), "bin").mkdirs()
         File(dir.toFile(), "bin/rails").writeText("#!/usr/bin/env ruby")
@@ -36,7 +41,9 @@ class RubyProjectScannerTest {
     }
 
     @Test
-    fun `detects rakefile`(@TempDir dir: Path) {
+    fun `detects rakefile`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "Gemfile").writeText("source 'https://rubygems.org'\n")
         File(dir.toFile(), "Rakefile").writeText("task :default")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!

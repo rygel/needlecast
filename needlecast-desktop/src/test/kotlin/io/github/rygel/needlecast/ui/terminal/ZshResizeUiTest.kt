@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.awt.Dimension
 import java.nio.charset.Charset
 import java.util.concurrent.CountDownLatch
@@ -17,22 +19,18 @@ import java.util.concurrent.atomic.AtomicReference
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
 
-import org.junit.jupiter.api.condition.DisabledOnOs
-import org.junit.jupiter.api.condition.EnabledOnOs
-import org.junit.jupiter.api.condition.OS
-
 @EnabledOnOs(OS.MAC)
 class ZshResizeUiTest {
-
     private lateinit var frame: JFrame
     private lateinit var widget: JediTermWidget
     private var process: com.pty4j.PtyProcess? = null
 
     @BeforeEach
     fun setUp() {
-        val settings = object : DefaultSettingsProvider() {
-            override fun enableMouseReporting(): Boolean = true
-        }
+        val settings =
+            object : DefaultSettingsProvider() {
+                override fun enableMouseReporting(): Boolean = true
+            }
         val latch = CountDownLatch(1)
         SwingUtilities.invokeLater {
             widget = JediTermWidget(Dimension(800, 400), settings)
@@ -49,7 +47,10 @@ class ZshResizeUiTest {
     @AfterEach
     fun tearDown() {
         process?.destroyForcibly()
-        SwingUtilities.invokeLater { widget.close(); frame.dispose() }
+        SwingUtilities.invokeLater {
+            widget.close()
+            frame.dispose()
+        }
     }
 
     @Test
@@ -58,15 +59,17 @@ class ZshResizeUiTest {
 
         val latch = CountDownLatch(1)
         Thread {
-            val proc = PtyProcessBuilder()
-                .setCommand(arrayOf("/bin/zsh", "--login"))
-                .setEnvironment(System.getenv().toMutableMap().apply {
-                    put("TERM", "xterm-256color")
-                })
-                .setDirectory(System.getProperty("user.home"))
-                .setInitialColumns(80)
-                .setInitialRows(24)
-                .start()
+            val proc =
+                PtyProcessBuilder()
+                    .setCommand(arrayOf("/bin/zsh", "--login"))
+                    .setEnvironment(
+                        System.getenv().toMutableMap().apply {
+                            put("TERM", "xterm-256color")
+                        },
+                    ).setDirectory(System.getProperty("user.home"))
+                    .setInitialColumns(80)
+                    .setInitialRows(24)
+                    .start()
             process = proc
 
             val connector = PtyProcessTtyConnector(proc, Charset.forName("UTF-8"))
@@ -116,15 +119,17 @@ class ZshResizeUiTest {
 
         val latch = CountDownLatch(1)
         Thread {
-            val proc = PtyProcessBuilder()
-                .setCommand(arrayOf("/bin/zsh", "--login"))
-                .setEnvironment(System.getenv().toMutableMap().apply {
-                    put("TERM", "xterm-256color")
-                })
-                .setDirectory(System.getProperty("user.home"))
-                .setInitialColumns(80)
-                .setInitialRows(24)
-                .start()
+            val proc =
+                PtyProcessBuilder()
+                    .setCommand(arrayOf("/bin/zsh", "--login"))
+                    .setEnvironment(
+                        System.getenv().toMutableMap().apply {
+                            put("TERM", "xterm-256color")
+                        },
+                    ).setDirectory(System.getProperty("user.home"))
+                    .setInitialColumns(80)
+                    .setInitialRows(24)
+                    .start()
             process = proc
 
             val connector = PtyProcessTtyConnector(proc, Charset.forName("UTF-8"))
@@ -167,15 +172,17 @@ class ZshResizeUiTest {
 
         val latch = CountDownLatch(1)
         Thread {
-            val proc = PtyProcessBuilder()
-                .setCommand(arrayOf("/bin/zsh", "--login"))
-                .setEnvironment(System.getenv().toMutableMap().apply {
-                    put("TERM", "xterm-256color")
-                })
-                .setDirectory(System.getProperty("user.home"))
-                .setInitialColumns(80)
-                .setInitialRows(24)
-                .start()
+            val proc =
+                PtyProcessBuilder()
+                    .setCommand(arrayOf("/bin/zsh", "--login"))
+                    .setEnvironment(
+                        System.getenv().toMutableMap().apply {
+                            put("TERM", "xterm-256color")
+                        },
+                    ).setDirectory(System.getProperty("user.home"))
+                    .setInitialColumns(80)
+                    .setInitialRows(24)
+                    .start()
             process = proc
 
             Thread.sleep(1000)

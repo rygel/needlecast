@@ -9,16 +9,19 @@ import java.io.File
 import java.nio.file.Path
 
 class RustProjectScannerTest {
-
     private val scanner = RustProjectScanner()
 
     @Test
-    fun `returns null when no Cargo_toml present`(@TempDir dir: Path) {
+    fun `returns null when no Cargo_toml present`(
+        @TempDir dir: Path,
+    ) {
         assertNull(scanner.scan(ProjectDirectory(dir.toString())))
     }
 
     @Test
-    fun `detects rust project from Cargo_toml`(@TempDir dir: Path) {
+    fun `detects rust project from Cargo_toml`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "Cargo.toml").writeText("[package]\nname = \"test\"\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(setOf(BuildTool.CARGO), result.buildTools)
@@ -31,14 +34,18 @@ class RustProjectScannerTest {
     }
 
     @Test
-    fun `detects workspace members and adds per-crate commands`(@TempDir dir: Path) {
-        File(dir.toFile(), "Cargo.toml").writeText("""
+    fun `detects workspace members and adds per-crate commands`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "Cargo.toml").writeText(
+            """
             [workspace]
             members = [
                 "crate-core",
                 "crate-cli",
             ]
-        """.trimIndent())
+            """.trimIndent(),
+        )
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertTrue(result.commands.any { it.label == "cargo build -p crate-core" })
         assertTrue(result.commands.any { it.label == "cargo test -p crate-core" })
@@ -47,18 +54,24 @@ class RustProjectScannerTest {
     }
 
     @Test
-    fun `parses single-line workspace members`(@TempDir dir: Path) {
-        File(dir.toFile(), "Cargo.toml").writeText("""
+    fun `parses single-line workspace members`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "Cargo.toml").writeText(
+            """
             [workspace]
             members = ["lib-a", "lib-b"]
-        """.trimIndent())
+            """.trimIndent(),
+        )
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertTrue(result.commands.any { it.label == "cargo build -p lib-a" })
         assertTrue(result.commands.any { it.label == "cargo build -p lib-b" })
     }
 
     @Test
-    fun `all commands have correct build tool and working directory`(@TempDir dir: Path) {
+    fun `all commands have correct build tool and working directory`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "Cargo.toml").writeText("[package]\nname = \"test\"\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         result.commands.forEach {

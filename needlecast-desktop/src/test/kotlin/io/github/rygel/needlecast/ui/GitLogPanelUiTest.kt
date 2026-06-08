@@ -3,6 +3,7 @@ package io.github.rygel.needlecast.ui
 import io.github.rygel.needlecast.git.ChangedFile
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.model.GitStatus
+import io.github.rygel.needlecast.ui.diff.DiffResult
 import org.assertj.swing.core.BasicRobot
 import org.assertj.swing.core.Robot
 import org.assertj.swing.edt.GuiActionRunner
@@ -10,17 +11,15 @@ import org.assertj.swing.edt.GuiQuery
 import org.assertj.swing.fixture.FrameFixture
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import java.awt.Dimension
 import java.nio.file.Path
 import javax.swing.JFrame
 import javax.swing.JList
 import javax.swing.JTextArea
 import javax.swing.JToggleButton
-import org.junit.jupiter.api.Assertions.assertTrue
-import io.github.rygel.needlecast.ui.diff.DiffResult
 
 private class FakeGitService(
     val logLines: String? = "",
@@ -33,27 +32,59 @@ private class FakeGitService(
     var committedMessage: String? = null
 
     override fun readStatus(dir: String): GitStatus = GitStatus.NotARepo
-    override fun log(dir: String, maxEntries: Int): String? = logLines
-    override fun show(dir: String, hash: String): String? = showOutput
+
+    override fun log(
+        dir: String,
+        maxEntries: Int,
+    ): String? = logLines
+
+    override fun show(
+        dir: String,
+        hash: String,
+    ): String? = showOutput
+
     override fun changedFiles(dir: String): List<ChangedFile> = changedFilesList
-    override fun stage(dir: String, files: List<String>) { stagedFiles = files }
-    override fun commit(dir: String, message: String) { committedMessage = message }
-    override fun fetchStreaming(dir: String, onLine: (String) -> Unit): Int {
+
+    override fun stage(
+        dir: String,
+        files: List<String>,
+    ) {
+        stagedFiles = files
+    }
+
+    override fun commit(
+        dir: String,
+        message: String,
+    ) {
+        committedMessage = message
+    }
+
+    override fun fetchStreaming(
+        dir: String,
+        onLine: (String) -> Unit,
+    ): Int {
         streamingLines.forEach { onLine(it) }
         return streamingExitCode
     }
-    override fun pushStreaming(dir: String, onLine: (String) -> Unit): Int {
+
+    override fun pushStreaming(
+        dir: String,
+        onLine: (String) -> Unit,
+    ): Int {
         streamingLines.forEach { onLine(it) }
         return streamingExitCode
     }
-    override fun pullStreaming(dir: String, onLine: (String) -> Unit): Int {
+
+    override fun pullStreaming(
+        dir: String,
+        onLine: (String) -> Unit,
+    ): Int {
         streamingLines.forEach { onLine(it) }
         return streamingExitCode
     }
 }
 
 class GitLogPanelUiTest {
-
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
     private lateinit var panel: GitLogPanel
@@ -74,13 +105,18 @@ class GitLogPanelUiTest {
         robot.cleanUp()
     }
 
-    private fun showInFrame(panel: GitLogPanel, width: Int = 700, height: Int = 500): FrameFixture {
-        val frame = GuiActionRunner.execute<JFrame> {
-            JFrame("GitLog Test").apply {
-                contentPane.add(panel)
-                setSize(width, height)
+    private fun showInFrame(
+        panel: GitLogPanel,
+        width: Int = 700,
+        height: Int = 500,
+    ): FrameFixture {
+        val frame =
+            GuiActionRunner.execute<JFrame> {
+                JFrame("GitLog Test").apply {
+                    contentPane.add(panel)
+                    setSize(width, height)
+                }
             }
-        }
         val fix = FrameFixture(robot, frame)
         fix.show()
         robot.waitForIdle()
@@ -90,22 +126,23 @@ class GitLogPanelUiTest {
 
     @Test
     fun `clicking a commit invokes onCommitSelected with parsed diff result`() {
-        val diffOutput = buildString {
-            appendLine("commit abc123")
-            appendLine("Author: Test")
-            appendLine("Date:   Now")
-            appendLine()
-            appendLine("    test commit")
-            appendLine()
-            appendLine(" 1 file changed, 1 insertion(+), 1 deletion(-)")
-            appendLine()
-            appendLine("diff --git a/src/Main.kt b/src/Main.kt")
-            appendLine("--- a/src/Main.kt")
-            appendLine("+++ b/src/Main.kt")
-            appendLine("@@ -1 +1 @@")
-            appendLine("-old line")
-            appendLine("+new line")
-        }
+        val diffOutput =
+            buildString {
+                appendLine("commit abc123")
+                appendLine("Author: Test")
+                appendLine("Date:   Now")
+                appendLine()
+                appendLine("    test commit")
+                appendLine()
+                appendLine(" 1 file changed, 1 insertion(+), 1 deletion(-)")
+                appendLine()
+                appendLine("diff --git a/src/Main.kt b/src/Main.kt")
+                appendLine("--- a/src/Main.kt")
+                appendLine("+++ b/src/Main.kt")
+                appendLine("@@ -1 +1 @@")
+                appendLine("-old line")
+                appendLine("+new line")
+            }
         val fake = FakeGitService(logLines = "abc123 Commit one\n", showOutput = diffOutput)
         panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
 
@@ -140,10 +177,11 @@ class GitLogPanelUiTest {
 
     @Test
     fun `commit card shows changed files returned by git service`() {
-        val files = listOf(
-            ChangedFile("src/Main.kt", " M"),
-            ChangedFile("new-file.txt", "??"),
-        )
+        val files =
+            listOf(
+                ChangedFile("src/Main.kt", " M"),
+                ChangedFile("new-file.txt", "??"),
+            )
         val fake = FakeGitService(changedFilesList = files)
         panel = GuiActionRunner.execute<GitLogPanel> { GitLogPanel(fake) }
         fixture = showInFrame(panel)
@@ -154,9 +192,12 @@ class GitLogPanelUiTest {
         val fileList = robot.finder().findByName(panel, "changed-files-list", JList::class.java, true)
         waitUntil(2_000) { (fileList as JList<*>).model.size == 2 }
 
-        val count = GuiActionRunner.execute(object : GuiQuery<Int>() {
-            override fun executeInEDT(): Int = fileList.model.size
-        })
+        val count =
+            GuiActionRunner.execute(
+                object : GuiQuery<Int>() {
+                    override fun executeInEDT(): Int = fileList.model.size
+                },
+            )
         assertEquals(2, count)
     }
 
@@ -199,12 +240,15 @@ class GitLogPanelUiTest {
         waitUntil(3_000) { area.isShowing && area.text.contains("✓ Done") }
         robot.waitForIdle()
 
-        val text = GuiActionRunner.execute(object : GuiQuery<String>() {
-            override fun executeInEDT(): String = area.text
-        })
+        val text =
+            GuiActionRunner.execute(
+                object : GuiQuery<String>() {
+                    override fun executeInEDT(): String = area.text
+                },
+            )
         assertTrue(text.contains("remote: Counting objects: 3"), "Expected first streamed line in output area")
-        assertTrue(text.contains("remote: done."),               "Expected second streamed line in output area")
-        assertTrue(text.contains("✓ Done"),                      "Expected done marker in output area")
+        assertTrue(text.contains("remote: done."), "Expected second streamed line in output area")
+        assertTrue(text.contains("✓ Done"), "Expected done marker in output area")
         fixture.button("btn-output-close").requireEnabled()
     }
 
@@ -218,43 +262,60 @@ class GitLogPanelUiTest {
 
         fixture.button("btn-fetch").click()
         waitUntil(3_000) {
-            robot.finder().findByName(panel, "output-area", JTextArea::class.java, true)
-                .text.contains("✓ Done")
+            robot
+                .finder()
+                .findByName(panel, "output-area", JTextArea::class.java, true)
+                .text
+                .contains("✓ Done")
         }
         robot.waitForIdle()
 
         fixture.button("btn-output-close").click()
         robot.waitForIdle()
 
-        val logToggleSelected = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
-            override fun executeInEDT(): Boolean =
-                robot.finder().findByName(panel, "toggle-log", JToggleButton::class.java, true).isSelected
-        })
+        val logToggleSelected =
+            GuiActionRunner.execute(
+                object : GuiQuery<Boolean>() {
+                    override fun executeInEDT(): Boolean =
+                        robot.finder().findByName(panel, "toggle-log", JToggleButton::class.java, true).isSelected
+                },
+            )
         assertTrue(logToggleSelected, "Expected Log toggle to be selected after Close")
     }
 
-    private fun waitUntil(timeoutMs: Long, condition: () -> Boolean) {
+    private fun waitUntil(
+        timeoutMs: Long,
+        condition: () -> Boolean,
+    ) {
         val deadline = System.nanoTime() + (timeoutMs * 1_000_000L)
         while (System.nanoTime() < deadline) {
-            val met = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
-                override fun executeInEDT(): Boolean = condition()
-            }) == true
+            val met =
+                GuiActionRunner.execute(
+                    object : GuiQuery<Boolean>() {
+                        override fun executeInEDT(): Boolean = condition()
+                    },
+                ) == true
             if (met) return
             Thread.sleep(10)
         }
         throw AssertionError("Timed out after ${timeoutMs}ms waiting for condition")
     }
 
-    private fun waitForListSize(size: Int, timeoutMs: Long) {
+    private fun waitForListSize(
+        size: Int,
+        timeoutMs: Long,
+    ) {
         val deadline = System.nanoTime() + (timeoutMs * 1_000_000)
         while (System.nanoTime() < deadline) {
-            val count = GuiActionRunner.execute(object : GuiQuery<Int>() {
-                override fun executeInEDT(): Int = list.model.size
-            })
+            val count =
+                GuiActionRunner.execute(
+                    object : GuiQuery<Int>() {
+                        override fun executeInEDT(): Int = list.model.size
+                    },
+                )
             if (count >= size) return
             Thread.sleep(10)
         }
         throw AssertionError("Timed out waiting for list size >= $size")
     }
-
 }

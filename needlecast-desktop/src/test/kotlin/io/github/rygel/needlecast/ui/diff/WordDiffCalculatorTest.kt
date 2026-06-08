@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class WordDiffCalculatorTest {
-
     @Test
     fun `detects single word change`() {
         val removed = """        println("old")"""
@@ -38,14 +37,20 @@ class WordDiffCalculatorTest {
     fun `handles entirely different lines`() {
         val result = WordDiffCalculator.compute("aaa bbb", "ccc ddd")
 
-        assertEquals(listOf(
-            WordDiff(WordDiffType.REMOVED, "aaa"),
-            WordDiff(WordDiffType.REMOVED, "bbb"),
-        ), result.removed)
-        assertEquals(listOf(
-            WordDiff(WordDiffType.ADDED, "ccc"),
-            WordDiff(WordDiffType.ADDED, "ddd"),
-        ), result.added)
+        assertEquals(
+            listOf(
+                WordDiff(WordDiffType.REMOVED, "aaa"),
+                WordDiff(WordDiffType.REMOVED, "bbb"),
+            ),
+            result.removed,
+        )
+        assertEquals(
+            listOf(
+                WordDiff(WordDiffType.ADDED, "ccc"),
+                WordDiff(WordDiffType.ADDED, "ddd"),
+            ),
+            result.added,
+        )
     }
 
     @Test

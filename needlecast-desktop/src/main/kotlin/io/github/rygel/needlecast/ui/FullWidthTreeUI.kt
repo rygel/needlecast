@@ -2,7 +2,6 @@ package io.github.rygel.needlecast.ui
 
 import java.awt.Insets
 import java.awt.Rectangle
-import javax.swing.JTree
 import javax.swing.plaf.basic.BasicTreeUI
 import javax.swing.tree.TreePath
 
@@ -33,15 +32,16 @@ internal class FullWidthTreeUI : BasicTreeUI() {
         val fullBounds = Rectangle(bounds.x, bounds.y, fullWidth, bounds.height)
         val leadIndex = t.leadSelectionRow
         val selected = t.isRowSelected(row)
-        val renderer = currentCellRenderer?.getTreeCellRendererComponent(
-            t,
-            path.lastPathComponent,
-            selected,
-            isExpanded,
-            isLeaf,
-            row,
-            leadIndex == row,
-        )
+        val renderer =
+            currentCellRenderer?.getTreeCellRendererComponent(
+                t,
+                path.lastPathComponent,
+                selected,
+                isExpanded,
+                isLeaf,
+                row,
+                leadIndex == row,
+            )
         if (renderer != null) {
             rendererPane.paintComponent(g, renderer, t, fullBounds.x, fullBounds.y, fullBounds.width, fullBounds.height, true)
         }

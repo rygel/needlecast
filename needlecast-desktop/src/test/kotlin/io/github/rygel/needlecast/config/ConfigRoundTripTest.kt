@@ -10,18 +10,21 @@ import java.nio.file.Path
 import java.util.UUID
 
 class ConfigRoundTripTest {
-
     @Test
-    fun `save and load preserves all groups and directories`(@TempDir dir: Path) {
+    fun `save and load preserves all groups and directories`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
-        val group = ProjectGroup(
-            id = UUID.randomUUID().toString(),
-            name = "Work",
-            directories = listOf(
-                ProjectDirectory("/home/user/project-a", "Project A"),
-                ProjectDirectory("/home/user/project-b"),
-            ),
-        )
+        val group =
+            ProjectGroup(
+                id = UUID.randomUUID().toString(),
+                name = "Work",
+                directories =
+                    listOf(
+                        ProjectDirectory("/home/user/project-a", "Project A"),
+                        ProjectDirectory("/home/user/project-b"),
+                    ),
+            )
         val config = AppConfig(groups = listOf(group), theme = "dark")
 
         store.save(config)
@@ -36,7 +39,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `load returns default config when file does not exist`(@TempDir dir: Path) {
+    fun `load returns default config when file does not exist`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("nonexistent.json"))
         val config = store.load()
         assertTrue(config.groups.isEmpty())
@@ -44,7 +49,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `export and import round-trips config correctly`(@TempDir dir: Path) {
+    fun `export and import round-trips config correctly`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         val group = ProjectGroup(UUID.randomUUID().toString(), "Export Test")
         val original = AppConfig(groups = listOf(group), theme = "light")
@@ -61,7 +68,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `window dimensions are persisted`(@TempDir dir: Path) {
+    fun `window dimensions are persisted`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         val config = AppConfig(windowWidth = 1920, windowHeight = 1080)
         store.save(config)
@@ -71,7 +80,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `tabsOnTop persists across save and load`(@TempDir dir: Path) {
+    fun `tabsOnTop persists across save and load`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
 
         store.save(AppConfig(tabsOnTop = true))
@@ -82,7 +93,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `terminal colors persist across save and load`(@TempDir dir: Path) {
+    fun `terminal colors persist across save and load`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         val config = AppConfig(terminalBackground = "#1E1E1E", terminalForeground = "#D4D4D4")
 
@@ -94,7 +107,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `terminal colors default to null when not set`(@TempDir dir: Path) {
+    fun `terminal colors default to null when not set`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig())
         val loaded = store.load()
@@ -103,21 +118,27 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `syntaxTheme persists across save and load`(@TempDir dir: Path) {
+    fun `syntaxTheme persists across save and load`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig(syntaxTheme = "monokai"))
         assertEquals("monokai", store.load().syntaxTheme)
     }
 
     @Test
-    fun `syntaxTheme defaults to auto`(@TempDir dir: Path) {
+    fun `syntaxTheme defaults to auto`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig())
         assertEquals("auto", store.load().syntaxTheme)
     }
 
     @Test
-    fun `dockingActiveHighlight persists across save and load`(@TempDir dir: Path) {
+    fun `dockingActiveHighlight persists across save and load`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig(dockingActiveHighlight = true))
         assertTrue(store.load().dockingActiveHighlight)
@@ -126,14 +147,18 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `dockingActiveHighlight defaults to false`(@TempDir dir: Path) {
+    fun `dockingActiveHighlight defaults to false`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig())
         assertFalse(store.load().dockingActiveHighlight)
     }
 
     @Test
-    fun `mediaAutoplay persists across save and load`(@TempDir dir: Path) {
+    fun `mediaAutoplay persists across save and load`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig(mediaAutoplay = true))
         assertTrue(store.load().mediaAutoplay, "mediaAutoplay=true should survive a round-trip")
@@ -142,14 +167,18 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `mediaAutoplay defaults to true`(@TempDir dir: Path) {
+    fun `mediaAutoplay defaults to true`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig())
         assertTrue(store.load().mediaAutoplay, "mediaAutoplay should default to true")
     }
 
     @Test
-    fun `editor colors persist across save and load`(@TempDir dir: Path) {
+    fun `editor colors persist across save and load`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         val config = AppConfig(editorBackground = "#1E1E2E", editorForeground = "#D4D4D4")
         store.save(config)
@@ -159,7 +188,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `editor colors default to null`(@TempDir dir: Path) {
+    fun `editor colors default to null`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig())
         val loaded = store.load()
@@ -168,7 +199,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `git auto fetch settings persist`(@TempDir dir: Path) {
+    fun `git auto fetch settings persist`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig(gitAutoFetch = false, gitAutoFetchIntervalMinutes = 10))
         val loaded = store.load()
@@ -177,14 +210,18 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `tour completed persists`(@TempDir dir: Path) {
+    fun `tour completed persists`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig(tourCompleted = true))
         assertTrue(store.load().tourCompleted)
     }
 
     @Test
-    fun `dismissed hints persist`(@TempDir dir: Path) {
+    fun `dismissed hints persist`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig(dismissedHints = setOf("terminal-hint", "docs-hint")))
         val loaded = store.load()
@@ -192,7 +229,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `shown hints persist`(@TempDir dir: Path) {
+    fun `shown hints persist`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig(shownHints = setOf("diff-first-open", "git-first-open")))
         val loaded = store.load()
@@ -200,7 +239,9 @@ class ConfigRoundTripTest {
     }
 
     @Test
-    fun `show contextual hints persists`(@TempDir dir: Path) {
+    fun `show contextual hints persists`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         store.save(AppConfig(showContextualHints = false))
         assertFalse(store.load().showContextualHints)

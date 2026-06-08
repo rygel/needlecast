@@ -7,7 +7,6 @@ import org.junit.jupiter.api.condition.EnabledOnOs
 import org.junit.jupiter.api.condition.OS
 
 class ProcessExecutorTest {
-
     @Test
     fun `run returns output and exit code for a successful command`() {
         val argv = if (isWindows()) listOf("cmd", "/c", "echo", "hello") else listOf("echo", "hello")
@@ -29,8 +28,12 @@ class ProcessExecutorTest {
     @Test
     fun `run returns null when process exceeds timeout`() {
         // ping loops ~10 s on both platforms; avoids Git-for-Windows 'timeout' collision on Windows
-        val argv = if (isWindows()) listOf("ping", "-n", "11", "127.0.0.1")
-                   else listOf("sleep", "10")
+        val argv =
+            if (isWindows()) {
+                listOf("ping", "-n", "11", "127.0.0.1")
+            } else {
+                listOf("sleep", "10")
+            }
         val result = ProcessExecutor.run(argv, timeoutMs = 100L)
         assertNull(result)
     }

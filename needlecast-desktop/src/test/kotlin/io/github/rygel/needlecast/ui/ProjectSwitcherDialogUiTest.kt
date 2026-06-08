@@ -6,7 +6,6 @@ import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectGroup
 import org.assertj.swing.core.BasicRobot
-import org.assertj.swing.core.KeyPressInfo.keyCode
 import org.assertj.swing.core.Robot
 import org.assertj.swing.edt.GuiActionRunner
 import org.assertj.swing.fixture.DialogFixture
@@ -26,7 +25,6 @@ import javax.swing.JFrame
  * Run via: mvn verify -Ptest-desktop (requires Xvfb — use Dockerfile.uitest).
  */
 class ProjectSwitcherDialogUiTest {
-
     private lateinit var robot: Robot
     private lateinit var ownerFrame: JFrame
     private var dialog: JDialog? = null
@@ -53,24 +51,30 @@ class ProjectSwitcherDialogUiTest {
     private fun makeCtxWithProjects(): AppContext {
         val store = JsonConfigStore(tempDir.resolve("config.json"))
         val ctx = AppContext(configStore = store)
-        val config = AppConfig(
-            groups = listOf(
-                ProjectGroup(
-                    id = "g1", name = "Work",
-                    directories = listOf(
-                        ProjectDirectory(path = "/work/frontend",  displayName = "Frontend"),
-                        ProjectDirectory(path = "/work/backend",   displayName = "Backend"),
-                        ProjectDirectory(path = "/work/auth-api",  displayName = "Auth API"),
+        val config =
+            AppConfig(
+                groups =
+                    listOf(
+                        ProjectGroup(
+                            id = "g1",
+                            name = "Work",
+                            directories =
+                                listOf(
+                                    ProjectDirectory(path = "/work/frontend", displayName = "Frontend"),
+                                    ProjectDirectory(path = "/work/backend", displayName = "Backend"),
+                                    ProjectDirectory(path = "/work/auth-api", displayName = "Auth API"),
+                                ),
+                        ),
+                        ProjectGroup(
+                            id = "g2",
+                            name = "Personal",
+                            directories =
+                                listOf(
+                                    ProjectDirectory(path = "/personal/blog", displayName = "Blog"),
+                                ),
+                        ),
                     ),
-                ),
-                ProjectGroup(
-                    id = "g2", name = "Personal",
-                    directories = listOf(
-                        ProjectDirectory(path = "/personal/blog", displayName = "Blog"),
-                    ),
-                ),
-            ),
-        )
+            )
         ctx.updateConfig(config)
         return ctx
     }
@@ -81,11 +85,13 @@ class ProjectSwitcherDialogUiTest {
         var selectedGroupId: String? = null
         var selectedPath: String? = null
 
-        dialog = GuiActionRunner.execute<JDialog> {
-            ProjectSwitcherDialog(ownerFrame, ctx) { gid, path ->
-                selectedGroupId = gid; selectedPath = path
+        dialog =
+            GuiActionRunner.execute<JDialog> {
+                ProjectSwitcherDialog(ownerFrame, ctx) { gid, path ->
+                    selectedGroupId = gid
+                    selectedPath = path
+                }
             }
-        }
         fixture = DialogFixture(robot, dialog)
         fixture!!.show()
         fixture!!.requireVisible()
@@ -96,9 +102,10 @@ class ProjectSwitcherDialogUiTest {
     @Test
     fun `typing in search field filters the project list`() {
         val ctx = makeCtxWithProjects()
-        dialog = GuiActionRunner.execute<JDialog> {
-            ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
-        }
+        dialog =
+            GuiActionRunner.execute<JDialog> {
+                ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
+            }
         fixture = DialogFixture(robot, dialog)
         fixture!!.show()
 
@@ -109,9 +116,10 @@ class ProjectSwitcherDialogUiTest {
     @Test
     fun `search is case-insensitive`() {
         val ctx = makeCtxWithProjects()
-        dialog = GuiActionRunner.execute<JDialog> {
-            ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
-        }
+        dialog =
+            GuiActionRunner.execute<JDialog> {
+                ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
+            }
         fixture = DialogFixture(robot, dialog)
         fixture!!.show()
 
@@ -122,9 +130,10 @@ class ProjectSwitcherDialogUiTest {
     @Test
     fun `search that matches nothing shows empty list`() {
         val ctx = makeCtxWithProjects()
-        dialog = GuiActionRunner.execute<JDialog> {
-            ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
-        }
+        dialog =
+            GuiActionRunner.execute<JDialog> {
+                ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
+            }
         fixture = DialogFixture(robot, dialog)
         fixture!!.show()
 
@@ -135,9 +144,10 @@ class ProjectSwitcherDialogUiTest {
     @Test
     fun `Escape closes the dialog`() {
         val ctx = makeCtxWithProjects()
-        dialog = GuiActionRunner.execute<JDialog> {
-            ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
-        }
+        dialog =
+            GuiActionRunner.execute<JDialog> {
+                ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
+            }
         fixture = DialogFixture(robot, dialog)
         fixture!!.show()
         fixture!!.requireVisible()
@@ -152,9 +162,10 @@ class ProjectSwitcherDialogUiTest {
         val ctx = makeCtxWithProjects()
         var selectedPath: String? = null
 
-        dialog = GuiActionRunner.execute<JDialog> {
-            ProjectSwitcherDialog(ownerFrame, ctx) { _, path -> selectedPath = path }
-        }
+        dialog =
+            GuiActionRunner.execute<JDialog> {
+                ProjectSwitcherDialog(ownerFrame, ctx) { _, path -> selectedPath = path }
+            }
         fixture = DialogFixture(robot, dialog)
         fixture!!.show()
 
@@ -170,9 +181,10 @@ class ProjectSwitcherDialogUiTest {
     @Test
     fun `Down arrow moves selection and Up arrow returns to first item`() {
         val ctx = makeCtxWithProjects()
-        dialog = GuiActionRunner.execute<JDialog> {
-            ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
-        }
+        dialog =
+            GuiActionRunner.execute<JDialog> {
+                ProjectSwitcherDialog(ownerFrame, ctx) { _, _ -> }
+            }
         fixture = DialogFixture(robot, dialog)
         fixture!!.show()
 

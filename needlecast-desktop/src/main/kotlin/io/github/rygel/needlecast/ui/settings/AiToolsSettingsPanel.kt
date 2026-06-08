@@ -13,8 +13,8 @@ import java.awt.Font
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
-import javax.swing.Box
 import javax.swing.BorderFactory
+import javax.swing.Box
 import javax.swing.JButton
 import javax.swing.JCheckBox
 import javax.swing.JColorChooser
@@ -29,192 +29,289 @@ class AiToolsSettingsPanel(
     private val ctx: AppContext,
     private val callbacks: SettingsCallbacks = SettingsCallbacks(),
 ) : JPanel(BorderLayout(0, 6)) {
-
     init {
         border = BorderFactory.createEmptyBorder(8, 10, 8, 10)
 
-        val quotaToggle = JCheckBox("Show Claude quota in status bar", ctx.config.claudeQuotaEnabled).apply {
-            toolTipText = "Display 5-hour and 7-day usage percentages from your Claude subscription in the status bar. Requires Claude Code credentials."
-            addActionListener {
-                ctx.updateConfig(ctx.config.copy(claudeQuotaEnabled = isSelected))
-                callbacks.onClaudeQuotaToggled(isSelected)
-            }
-        }
-
-        val editorBgBtn = JButton("Background").apply {
-            toolTipText = "Custom editor background color"
-            ctx.config.editorBackground?.let { hex ->
-                background = Color(hex.substring(1).toInt(16))
-            }
-            addActionListener {
-                val initial = ctx.config.editorBackground?.let { Color(it.substring(1).toInt(16)) }
-                    ?: UIManager.getColor("TextArea.background") ?: ThemeRegistry.DEFAULT_DARK_EDITOR_BG
-                val chosen = JColorChooser.showDialog(this@AiToolsSettingsPanel, "Editor Background", initial)
-                if (chosen != null) {
-                    val hex = "#${String.format("%02X%02X%02X", chosen.red, chosen.green, chosen.blue)}"
-                    ctx.updateConfig(ctx.config.copy(editorBackground = hex))
-                    background = chosen
+        val quotaToggle =
+            JCheckBox("Show Claude quota in status bar", ctx.config.claudeQuotaEnabled).apply {
+                toolTipText =
+                    "Display 5-hour and 7-day usage percentages from your Claude subscription in the status bar. Requires Claude Code credentials."
+                addActionListener {
+                    ctx.updateConfig(ctx.config.copy(claudeQuotaEnabled = isSelected))
+                    callbacks.onClaudeQuotaToggled(isSelected)
                 }
             }
-        }
-        val editorBgClear = JButton("Reset").apply {
-            toolTipText = "Reset to theme default"
-            addActionListener {
-                ctx.updateConfig(ctx.config.copy(editorBackground = null))
-                editorBgBtn.background = UIManager.getColor("TextArea.background") ?: ThemeRegistry.DEFAULT_DARK_EDITOR_BG
-            }
-        }
-        val editorFgBtn = JButton("Foreground").apply {
-            toolTipText = "Custom editor foreground color"
-            addActionListener {
-                val initial = ctx.config.editorForeground?.let { Color(it.substring(1).toInt(16)) }
-                    ?: UIManager.getColor("TextArea.foreground") ?: Color(0xD4D4D4)
-                val chosen = JColorChooser.showDialog(this@AiToolsSettingsPanel, "Editor Foreground", initial)
-                if (chosen != null) {
-                    val hex = "#${String.format("%02X%02X%02X", chosen.red, chosen.green, chosen.blue)}"
-                    ctx.updateConfig(ctx.config.copy(editorForeground = hex))
+
+        val editorBgBtn =
+            JButton("Background").apply {
+                toolTipText = "Custom editor background color"
+                ctx.config.editorBackground?.let { hex ->
+                    background = Color(hex.substring(1).toInt(16))
+                }
+                addActionListener {
+                    val initial =
+                        ctx.config.editorBackground?.let { Color(it.substring(1).toInt(16)) }
+                            ?: UIManager.getColor("TextArea.background") ?: ThemeRegistry.DEFAULT_DARK_EDITOR_BG
+                    val chosen = JColorChooser.showDialog(this@AiToolsSettingsPanel, "Editor Background", initial)
+                    if (chosen != null) {
+                        val hex = "#${String.format("%02X%02X%02X", chosen.red, chosen.green, chosen.blue)}"
+                        ctx.updateConfig(ctx.config.copy(editorBackground = hex))
+                        background = chosen
+                    }
                 }
             }
-        }
-        val editorFgClear = JButton("Reset").apply {
-            toolTipText = "Reset to theme default"
-            addActionListener {
-                ctx.updateConfig(ctx.config.copy(editorForeground = null))
+        val editorBgClear =
+            JButton("Reset").apply {
+                toolTipText = "Reset to theme default"
+                addActionListener {
+                    ctx.updateConfig(ctx.config.copy(editorBackground = null))
+                    editorBgBtn.background = UIManager.getColor("TextArea.background") ?: ThemeRegistry.DEFAULT_DARK_EDITOR_BG
+                }
             }
-        }
+        val editorFgBtn =
+            JButton("Foreground").apply {
+                toolTipText = "Custom editor foreground color"
+                addActionListener {
+                    val initial =
+                        ctx.config.editorForeground?.let { Color(it.substring(1).toInt(16)) }
+                            ?: UIManager.getColor("TextArea.foreground") ?: Color(0xD4D4D4)
+                    val chosen = JColorChooser.showDialog(this@AiToolsSettingsPanel, "Editor Foreground", initial)
+                    if (chosen != null) {
+                        val hex = "#${String.format("%02X%02X%02X", chosen.red, chosen.green, chosen.blue)}"
+                        ctx.updateConfig(ctx.config.copy(editorForeground = hex))
+                    }
+                }
+            }
+        val editorFgClear =
+            JButton("Reset").apply {
+                toolTipText = "Reset to theme default"
+                addActionListener {
+                    ctx.updateConfig(ctx.config.copy(editorForeground = null))
+                }
+            }
 
-        val editorColorsPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
-            add(JLabel("Editor Colors:"))
-            add(editorBgBtn)
-            add(editorBgClear)
-            add(Box.createHorizontalStrut(8))
-            add(editorFgBtn)
-            add(editorFgClear)
-        }
+        val editorColorsPanel =
+            JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+                add(JLabel("Editor Colors:"))
+                add(editorBgBtn)
+                add(editorBgClear)
+                add(Box.createHorizontalStrut(8))
+                add(editorFgBtn)
+                add(editorFgClear)
+            }
 
-        val hintsToggle = JCheckBox("Show contextual hints", ctx.config.showContextualHints).apply {
-            toolTipText = "Show helpful hints in empty panels when no project is selected"
-            addActionListener {
-                ctx.updateConfig(ctx.config.copy(showContextualHints = isSelected))
+        val hintsToggle =
+            JCheckBox("Show contextual hints", ctx.config.showContextualHints).apply {
+                toolTipText = "Show helpful hints in empty panels when no project is selected"
+                addActionListener {
+                    ctx.updateConfig(ctx.config.copy(showContextualHints = isSelected))
+                }
             }
-        }
-        val popupsToggle = JCheckBox("Show help popups", ctx.config.showHelpPopups).apply {
-            toolTipText = "Show one-time help popups when using features for the first time"
-            addActionListener {
-                ctx.updateConfig(ctx.config.copy(showHelpPopups = isSelected))
+        val popupsToggle =
+            JCheckBox("Show help popups", ctx.config.showHelpPopups).apply {
+                toolTipText = "Show one-time help popups when using features for the first time"
+                addActionListener {
+                    ctx.updateConfig(ctx.config.copy(showHelpPopups = isSelected))
+                }
             }
-        }
-        val restartTourBtn = JButton("Restart tour").apply {
-            toolTipText = "Replay the first-run guided tour"
-            addActionListener {
-                ctx.updateConfig(ctx.config.copy(tourCompleted = false, shownHints = emptySet(), dismissedHints = emptySet()))
+        val restartTourBtn =
+            JButton("Restart tour").apply {
+                toolTipText = "Replay the first-run guided tour"
+                addActionListener {
+                    ctx.updateConfig(ctx.config.copy(tourCompleted = false, shownHints = emptySet(), dismissedHints = emptySet()))
+                }
             }
-        }
 
-        val uxPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
-            add(hintsToggle)
-            add(popupsToggle)
-            add(Box.createHorizontalStrut(8))
-            add(restartTourBtn)
-        }
+        val uxPanel =
+            JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+                add(hintsToggle)
+                add(popupsToggle)
+                add(Box.createHorizontalStrut(8))
+                add(restartTourBtn)
+            }
 
         val enabledMap = ctx.config.aiCliEnabled.toMutableMap()
-        val builtIn    = KNOWN_AI_CLIS.map { it to false }
+        val builtIn = KNOWN_AI_CLIS.map { it to false }
         val customDefs = ctx.config.customAiClis.map { AiCli(it.name, it.command, it.description) to true }
-        val allClis    = (builtIn + customDefs).toMutableList()
+        val allClis = (builtIn + customDefs).toMutableList()
 
-        val listPanel = JPanel(GridBagLayout()).apply {
-            border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-        }
+        val listPanel =
+            JPanel(GridBagLayout()).apply {
+                border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
+            }
 
         fun rebuildList() {
             listPanel.removeAll()
-            val gc = GridBagConstraints().apply { insets = Insets(2, 4, 2, 4); anchor = GridBagConstraints.WEST }
+            val gc =
+                GridBagConstraints().apply {
+                    insets = Insets(2, 4, 2, 4)
+                    anchor = GridBagConstraints.WEST
+                }
             allClis.forEachIndexed { i, (cli, isCustom) ->
                 gc.gridy = i
                 val enabled = enabledMap[cli.command] != false
-                val cb = JCheckBox(cli.name, enabled).apply {
-                    toolTipText = cli.description
-                    addActionListener {
-                        enabledMap[cli.command] = isSelected
-                        ctx.updateConfig(ctx.config.copy(aiCliEnabled = enabledMap.toMap()))
+                val cb =
+                    JCheckBox(cli.name, enabled).apply {
+                        toolTipText = cli.description
+                        addActionListener {
+                            enabledMap[cli.command] = isSelected
+                            ctx.updateConfig(ctx.config.copy(aiCliEnabled = enabledMap.toMap()))
+                        }
                     }
-                }
-                gc.gridx = 0; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
+                gc.gridx = 0
+                gc.weightx = 0.0
+                gc.fill = GridBagConstraints.NONE
                 listPanel.add(cb, gc)
-                gc.gridx = 1; gc.weightx = 0.0
-                listPanel.add(JLabel("<html><tt>${cli.command}</tt></html>").apply {
-                    foreground = Color(0x888888)
-                }, gc)
-                gc.gridx = 2; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL
-                listPanel.add(JLabel(cli.description).apply {
-                    font = font.deriveFont(Font.PLAIN, 11f)
-                    foreground = Color(0x888888)
-                }, gc)
+                gc.gridx = 1
+                gc.weightx = 0.0
+                listPanel.add(
+                    JLabel("<html><tt>${cli.command}</tt></html>").apply {
+                        foreground = Color(0x888888)
+                    },
+                    gc,
+                )
+                gc.gridx = 2
+                gc.weightx = 1.0
+                gc.fill = GridBagConstraints.HORIZONTAL
+                listPanel.add(
+                    JLabel(cli.description).apply {
+                        font = font.deriveFont(Font.PLAIN, 11f)
+                        foreground = Color(0x888888)
+                    },
+                    gc,
+                )
             }
-            gc.gridy = allClis.size; gc.gridx = 0; gc.gridwidth = 3
-            gc.weighty = 1.0; gc.fill = GridBagConstraints.BOTH
+            gc.gridy = allClis.size
+            gc.gridx = 0
+            gc.gridwidth = 3
+            gc.weighty = 1.0
+            gc.fill = GridBagConstraints.BOTH
             listPanel.add(JPanel(), gc)
-            listPanel.revalidate(); listPanel.repaint()
+            listPanel.revalidate()
+            listPanel.repaint()
         }
 
         rebuildList()
 
-        val addBtn = JButton("+ Add Custom CLI").apply {
-            addActionListener {
-                val nameField = JTextField(14)
-                val cmdField  = JTextField(14)
-                val descField = JTextField(20)
-                val form = JPanel(GridBagLayout()).apply {
-                    val gc = GridBagConstraints().apply { insets = Insets(4, 4, 4, 4); anchor = GridBagConstraints.WEST }
-                    gc.gridx = 0; gc.gridy = 0; add(JLabel("Name:"), gc)
-                    gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; add(nameField, gc)
-                    gc.gridx = 0; gc.gridy = 1; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE; add(JLabel("Command:"), gc)
-                    gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; add(cmdField, gc)
-                    gc.gridx = 0; gc.gridy = 2; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE; add(JLabel("Description:"), gc)
-                    gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL; add(descField, gc)
+        val addBtn =
+            JButton("+ Add Custom CLI").apply {
+                addActionListener {
+                    val nameField = JTextField(14)
+                    val cmdField = JTextField(14)
+                    val descField = JTextField(20)
+                    val form =
+                        JPanel(GridBagLayout()).apply {
+                            val gc =
+                                GridBagConstraints().apply {
+                                    insets = Insets(4, 4, 4, 4)
+                                    anchor = GridBagConstraints.WEST
+                                }
+                            gc.gridx = 0
+                            gc.gridy = 0
+                            add(JLabel("Name:"), gc)
+                            gc.gridx = 1
+                            gc.weightx = 1.0
+                            gc.fill = GridBagConstraints.HORIZONTAL
+                            add(nameField, gc)
+                            gc.gridx = 0
+                            gc.gridy = 1
+                            gc.weightx = 0.0
+                            gc.fill = GridBagConstraints.NONE
+                            add(JLabel("Command:"), gc)
+                            gc.gridx = 1
+                            gc.weightx = 1.0
+                            gc.fill = GridBagConstraints.HORIZONTAL
+                            add(cmdField, gc)
+                            gc.gridx = 0
+                            gc.gridy = 2
+                            gc.weightx = 0.0
+                            gc.fill = GridBagConstraints.NONE
+                            add(JLabel("Description:"), gc)
+                            gc.gridx = 1
+                            gc.weightx = 1.0
+                            gc.fill = GridBagConstraints.HORIZONTAL
+                            add(descField, gc)
+                        }
+                    if (JOptionPane.showConfirmDialog(
+                            this@AiToolsSettingsPanel,
+                            form,
+                            "Add Custom CLI",
+                            JOptionPane.OK_CANCEL_OPTION,
+                            JOptionPane.PLAIN_MESSAGE,
+                        ) != JOptionPane.OK_OPTION
+                    ) {
+                        return@addActionListener
+                    }
+                    val name = nameField.text.trim()
+                    val cmd = cmdField.text.trim()
+                    if (name.isEmpty() || cmd.isEmpty()) return@addActionListener
+                    val def = AiCliDefinition(name, cmd, descField.text.trim())
+                    ctx.updateConfig(ctx.config.copy(customAiClis = ctx.config.customAiClis + def))
+                    allClis.add(AiCli(name, cmd, descField.text.trim()) to true)
+                    rebuildList()
                 }
-                if (JOptionPane.showConfirmDialog(this@AiToolsSettingsPanel, form, "Add Custom CLI",
-                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return@addActionListener
-                val name = nameField.text.trim()
-                val cmd  = cmdField.text.trim()
-                if (name.isEmpty() || cmd.isEmpty()) return@addActionListener
-                val def = AiCliDefinition(name, cmd, descField.text.trim())
-                ctx.updateConfig(ctx.config.copy(customAiClis = ctx.config.customAiClis + def))
-                allClis.add(AiCli(name, cmd, descField.text.trim()) to true)
-                rebuildList()
             }
-        }
 
-        val removeBtn = JButton(RemixIcons.icon("ri-subtract-line", 16)).apply {
-            addActionListener {
-                val customOnly = allClis.filter { it.second }.map { it.first }
-                if (customOnly.isEmpty()) {
-                    JOptionPane.showMessageDialog(this@AiToolsSettingsPanel, "No custom CLIs to remove.", "Remove", JOptionPane.INFORMATION_MESSAGE)
-                    return@addActionListener
+        val removeBtn =
+            JButton(RemixIcons.icon("ri-subtract-line", 16)).apply {
+                addActionListener {
+                    val customOnly = allClis.filter { it.second }.map { it.first }
+                    if (customOnly.isEmpty()) {
+                        JOptionPane.showMessageDialog(
+                            this@AiToolsSettingsPanel,
+                            "No custom CLIs to remove.",
+                            "Remove",
+                            JOptionPane.INFORMATION_MESSAGE,
+                        )
+                        return@addActionListener
+                    }
+                    val names = customOnly.map { it.name }.toTypedArray()
+                    val choice =
+                        JOptionPane.showInputDialog(
+                            this@AiToolsSettingsPanel,
+                            "Select CLI to remove:",
+                            "Remove Custom CLI",
+                            JOptionPane.PLAIN_MESSAGE,
+                            null,
+                            names,
+                            names[0],
+                        ) as? String ?: return@addActionListener
+                    val toRemove = customOnly.first { it.name == choice }
+                    ctx.updateConfig(ctx.config.copy(customAiClis = ctx.config.customAiClis.filter { it.command != toRemove.command }))
+                    allClis.removeAll { it.second && it.first.command == toRemove.command }
+                    rebuildList()
                 }
-                val names  = customOnly.map { it.name }.toTypedArray()
-                val choice = JOptionPane.showInputDialog(this@AiToolsSettingsPanel, "Select CLI to remove:",
-                    "Remove Custom CLI", JOptionPane.PLAIN_MESSAGE, null, names, names[0]) as? String ?: return@addActionListener
-                val toRemove = customOnly.first { it.name == choice }
-                ctx.updateConfig(ctx.config.copy(customAiClis = ctx.config.customAiClis.filter { it.command != toRemove.command }))
-                allClis.removeAll { it.second && it.first.command == toRemove.command }
-                rebuildList()
             }
-        }
 
-        add(JPanel(BorderLayout()).apply {
-            add(JLabel("<html>Check the AI tools shown in the project tree and AI Tools menu.<br>" +
-                "Built-in tools are detected automatically; custom tools use PATH lookup.</html>").apply {
-                border = BorderFactory.createEmptyBorder(0, 0, 4, 0)
-            }, BorderLayout.NORTH)
-            add(JPanel(BorderLayout()).apply {
-                add(quotaToggle, BorderLayout.NORTH)
-                add(editorColorsPanel, BorderLayout.CENTER)
-                add(uxPanel, BorderLayout.SOUTH)
-            }, BorderLayout.CENTER)
-        }, BorderLayout.NORTH)
+        add(
+            JPanel(BorderLayout()).apply {
+                add(
+                    JLabel(
+                        "<html>Check the AI tools shown in the project tree and AI Tools menu.<br>" +
+                            "Built-in tools are detected automatically; custom tools use PATH lookup.</html>",
+                    ).apply {
+                        border = BorderFactory.createEmptyBorder(0, 0, 4, 0)
+                    },
+                    BorderLayout.NORTH,
+                )
+                add(
+                    JPanel(BorderLayout()).apply {
+                        add(quotaToggle, BorderLayout.NORTH)
+                        add(editorColorsPanel, BorderLayout.CENTER)
+                        add(uxPanel, BorderLayout.SOUTH)
+                    },
+                    BorderLayout.CENTER,
+                )
+            },
+            BorderLayout.NORTH,
+        )
         add(JScrollPane(listPanel).apply { border = BorderFactory.createEmptyBorder() }, BorderLayout.CENTER)
-        add(JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply { add(addBtn); add(removeBtn) }, BorderLayout.SOUTH)
+        add(
+            JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+                add(addBtn)
+                add(removeBtn)
+            },
+            BorderLayout.SOUTH,
+        )
     }
 }

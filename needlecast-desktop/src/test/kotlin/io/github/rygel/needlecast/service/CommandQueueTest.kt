@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class CommandQueueTest {
-
     private lateinit var queue: CommandQueue
 
     @BeforeEach
@@ -13,11 +12,12 @@ class CommandQueueTest {
         queue = CommandQueue()
     }
 
-    private fun cmd(label: String) = QueuedCommand(
-        label = label,
-        argv = listOf("mvn", label),
-        workingDir = "/project",
-    )
+    private fun cmd(label: String) =
+        QueuedCommand(
+            label = label,
+            argv = listOf("mvn", label),
+            workingDir = "/project",
+        )
 
     @Test
     fun `new queue is empty`() {
@@ -45,7 +45,7 @@ class CommandQueueTest {
 
         assertEquals("clean", queue.drain()!!.label)
         assertEquals("build", queue.drain()!!.label)
-        assertEquals("test",  queue.drain()!!.label)
+        assertEquals("test", queue.drain()!!.label)
     }
 
     @Test
@@ -96,8 +96,8 @@ class CommandQueueTest {
         val snap = queue.snapshot()
 
         queue.enqueue(cmd("build"))
-        assertEquals(1, snap.size)   // snapshot does not grow
-        assertEquals(2, queue.size)  // queue grew
+        assertEquals(1, snap.size) // snapshot does not grow
+        assertEquals(2, queue.size) // queue grew
     }
 
     @Test
