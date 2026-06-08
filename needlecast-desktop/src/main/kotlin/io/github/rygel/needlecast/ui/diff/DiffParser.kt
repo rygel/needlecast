@@ -1,7 +1,6 @@
 package io.github.rygel.needlecast.ui.diff
 
 object DiffParser {
-
     fun parse(raw: String): DiffResult {
         if (raw.isBlank()) return DiffResult(emptyList(), DiffStats(0, 0))
 
@@ -45,14 +44,16 @@ object DiffParser {
                     }
                 }
 
-                files.add(FileDiff(
-                    filePath = filePath,
-                    oldPath = oldPath,
-                    additions = additions,
-                    deletions = deletions,
-                    binary = isBinary,
-                    hunks = hunks,
-                ))
+                files.add(
+                    FileDiff(
+                        filePath = filePath,
+                        oldPath = oldPath,
+                        additions = additions,
+                        deletions = deletions,
+                        binary = isBinary,
+                        hunks = hunks,
+                    ),
+                )
             } else {
                 i++
             }
@@ -69,14 +70,22 @@ object DiffParser {
         return if (bIdx >= 0) rest.substring(bIdx + 3) else rest.substringAfter(' ')
     }
 
-    private data class HunkParseResult(val hunk: Hunk, val nextIndex: Int)
+    private data class HunkParseResult(
+        val hunk: Hunk,
+        val nextIndex: Int,
+    )
 
-    private fun parseHunk(lines: List<String>, headerIndex: Int): HunkParseResult {
+    private fun parseHunk(
+        lines: List<String>,
+        headerIndex: Int,
+    ): HunkParseResult {
         val header = lines[headerIndex]
         val hunkHeaderRegex = Regex("""@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@""")
-        val match = hunkHeaderRegex.find(header) ?: return HunkParseResult(
-            Hunk(0, 0, 0, 0, emptyList()), headerIndex + 1
-        )
+        val match =
+            hunkHeaderRegex.find(header) ?: return HunkParseResult(
+                Hunk(0, 0, 0, 0, emptyList()),
+                headerIndex + 1,
+            )
 
         val oldStart = match.groupValues[1].toInt()
         val oldCount = match.groupValues[2].toIntOrNull() ?: 1

@@ -7,4 +7,7 @@ package io.github.rygel.needlecast.git
  * @param statusCode The two-character XY code from `git status --porcelain`
  *                   (e.g. `" M"`, `"M "`, `"??"`, `"A "`, `"D "`).
  */
-data class ChangedFile(val path: String, val statusCode: String)
+data class ChangedFile(
+    val path: String,
+    val statusCode: String,
+)

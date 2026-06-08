@@ -10,17 +10,20 @@ import java.nio.file.Path
 import javax.xml.parsers.DocumentBuilderFactory
 
 class IntellijRunConfigScanner : ProjectScanner {
-
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val xmlFiles = mutableListOf<File>()
 
-        dir.resolve(".idea/runConfigurations").toFile()
+        dir
+            .resolve(".idea/runConfigurations")
+            .toFile()
             .takeIf { it.isDirectory }
             ?.listFiles { f -> f.extension == "xml" }
             ?.let { xmlFiles.addAll(it) }
 
-        dir.resolve(".run").toFile()
+        dir
+            .resolve(".run")
+            .toFile()
             .takeIf { it.isDirectory }
             ?.listFiles { f -> f.extension == "xml" }
             ?.let { xmlFiles.addAll(it) }
@@ -37,7 +40,10 @@ class IntellijRunConfigScanner : ProjectScanner {
         )
     }
 
-    private fun parseRunConfig(file: File, workingDirectory: String): CommandDescriptor? {
+    private fun parseRunConfig(
+        file: File,
+        workingDirectory: String,
+    ): CommandDescriptor? {
         return try {
             val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
             doc.documentElement.normalize()
@@ -62,14 +68,16 @@ class IntellijRunConfigScanner : ProjectScanner {
         }
     }
 
-    private fun resolveArgv(config: Element, type: String): List<String> {
-        return when (type) {
+    private fun resolveArgv(
+        config: Element,
+        type: String,
+    ): List<String> =
+        when (type) {
             "Application" -> resolveApplicationArgv(config)
             "JUnit" -> resolveJUnitArgv(config)
             "MavenRunConfiguration" -> resolveMavenArgv(config)
             else -> listOf("<unsupported: $type>")
         }
-    }
 
     private fun resolveApplicationArgv(config: Element): List<String> {
         val options = getOptions(config)
@@ -93,12 +101,18 @@ class IntellijRunConfigScanner : ProjectScanner {
 
     private fun resolveMavenArgv(config: Element): List<String> {
         val runnerSettings = config.getElementsByTagName("MavenSettings")
-        val goals = if (runnerSettings.length > 0) {
-            (runnerSettings.item(0) as Element).getAttribute("goals").ifBlank { "verify" }
-        } else "verify"
+        val goals =
+            if (runnerSettings.length > 0) {
+                (runnerSettings.item(0) as Element).getAttribute("goals").ifBlank { "verify" }
+            } else {
+                "verify"
+            }
 
-        return if (IS_WINDOWS) listOf("cmd", "/c", "mvn") + goals.split(" ")
-        else listOf("mvn") + goals.split(" ")
+        return if (IS_WINDOWS) {
+            listOf("cmd", "/c", "mvn") + goals.split(" ")
+        } else {
+            listOf("mvn") + goals.split(" ")
+        }
     }
 
     private fun getOptions(config: Element): Map<String, String> {

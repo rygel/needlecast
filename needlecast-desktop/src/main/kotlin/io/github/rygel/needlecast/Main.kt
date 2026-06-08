@@ -29,7 +29,8 @@ fun main() {
             if (icon != null && taskbar.isSupported(java.awt.Taskbar.Feature.ICON_IMAGE)) {
                 taskbar.iconImage = icon
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
 
         window.isVisible = true
     }
@@ -47,7 +48,10 @@ internal fun isOsDark(): Boolean {
     if (lafDark is Boolean) return lafDark
 
     // Windows-specific fallback: the console background colour is dark on dark themes
-    val winProp = java.awt.Toolkit.getDefaultToolkit().getDesktopProperty("win.lconsole.backgroundColor")
+    val winProp =
+        java.awt.Toolkit
+            .getDefaultToolkit()
+            .getDesktopProperty("win.lconsole.backgroundColor")
     if (winProp is java.awt.Color) {
         val luminance = (0.299 * winProp.red + 0.587 * winProp.green + 0.114 * winProp.blue) / 255.0
         return luminance < 0.5

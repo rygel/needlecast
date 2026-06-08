@@ -7,7 +7,6 @@ import java.io.File
 import java.nio.file.Path
 
 class ExplorerSortTest {
-
     @TempDir lateinit var tempDir: Path
 
     private fun dir(name: String): FileEntry.Dir {
@@ -15,12 +14,17 @@ class ExplorerSortTest {
         return FileEntry.Dir(f)
     }
 
-    private fun file(name: String, bytes: Int = 0, lastModified: Long = 0L): FileEntry.RegularFile {
-        val f = File(tempDir.toFile(), name).also {
-            it.createNewFile()
-            if (bytes > 0) it.writeBytes(ByteArray(bytes))
-            if (lastModified != 0L) it.setLastModified(lastModified)
-        }
+    private fun file(
+        name: String,
+        bytes: Int = 0,
+        lastModified: Long = 0L,
+    ): FileEntry.RegularFile {
+        val f =
+            File(tempDir.toFile(), name).also {
+                it.createNewFile()
+                if (bytes > 0) it.writeBytes(ByteArray(bytes))
+                if (lastModified != 0L) it.setLastModified(lastModified)
+            }
         return FileEntry.RegularFile(f)
     }
 
@@ -30,16 +34,20 @@ class ExplorerSortTest {
     fun `name ascending sorts dirs alphabetically`() {
         val entries = listOf(dir("zebra"), dir("alpha"), dir("mango"))
         val result = sortGroup(entries, ExplorerSortState(COL_NAME, true))
-        assertEquals(listOf("alpha", "mango", "zebra"),
-            result.map { (it as FileEntry.Dir).file.name })
+        assertEquals(
+            listOf("alpha", "mango", "zebra"),
+            result.map { (it as FileEntry.Dir).file.name },
+        )
     }
 
     @Test
     fun `name descending reverses both dirs and files`() {
         val entries = listOf(file("apple.txt"), file("cherry.txt"), file("banana.txt"))
         val result = sortGroup(entries, ExplorerSortState(COL_NAME, false))
-        assertEquals(listOf("cherry.txt", "banana.txt", "apple.txt"),
-            result.map { (it as FileEntry.RegularFile).file.name })
+        assertEquals(
+            listOf("cherry.txt", "banana.txt", "apple.txt"),
+            result.map { (it as FileEntry.RegularFile).file.name },
+        )
     }
 
     // ── size sort ─────────────────────────────────────────────────────────────
@@ -48,30 +56,37 @@ class ExplorerSortTest {
     fun `size ascending sorts files by byte count`() {
         val entries = listOf(file("big.txt", 300), file("small.txt", 10), file("medium.txt", 100))
         val result = sortGroup(entries, ExplorerSortState(COL_SIZE, true))
-        assertEquals(listOf("small.txt", "medium.txt", "big.txt"),
-            result.map { (it as FileEntry.RegularFile).file.name })
+        assertEquals(
+            listOf("small.txt", "medium.txt", "big.txt"),
+            result.map { (it as FileEntry.RegularFile).file.name },
+        )
     }
 
     @Test
     fun `size sort on dir group falls back to name sort`() {
         val entries = listOf(dir("zebra"), dir("alpha"))
         val result = sortGroup(entries, ExplorerSortState(COL_SIZE, true))
-        assertEquals(listOf("alpha", "zebra"),
-            result.map { (it as FileEntry.Dir).file.name })
+        assertEquals(
+            listOf("alpha", "zebra"),
+            result.map { (it as FileEntry.Dir).file.name },
+        )
     }
 
     // ── modified sort ─────────────────────────────────────────────────────────
 
     @Test
     fun `modified ascending sorts files by lastModified`() {
-        val entries = listOf(
-            file("c.txt", lastModified = 3_000_000L),
-            file("a.txt", lastModified = 1_000_000L),
-            file("b.txt", lastModified = 2_000_000L),
-        )
+        val entries =
+            listOf(
+                file("c.txt", lastModified = 3_000_000L),
+                file("a.txt", lastModified = 1_000_000L),
+                file("b.txt", lastModified = 2_000_000L),
+            )
         val result = sortGroup(entries, ExplorerSortState(COL_MODIFIED, true))
-        assertEquals(listOf("a.txt", "b.txt", "c.txt"),
-            result.map { (it as FileEntry.RegularFile).file.name })
+        assertEquals(
+            listOf("a.txt", "b.txt", "c.txt"),
+            result.map { (it as FileEntry.RegularFile).file.name },
+        )
     }
 
     @Test
@@ -81,16 +96,20 @@ class ExplorerSortTest {
         (entries[0] as FileEntry.Dir).file.setLastModified(2_000_000L)
         (entries[1] as FileEntry.Dir).file.setLastModified(1_000_000L)
         val result = sortGroup(entries, ExplorerSortState(COL_MODIFIED, true))
-        assertEquals(listOf("early", "late"),
-            result.map { (it as FileEntry.Dir).file.name })
+        assertEquals(
+            listOf("early", "late"),
+            result.map { (it as FileEntry.Dir).file.name },
+        )
     }
 
     // ── edge cases ────────────────────────────────────────────────────────────
 
     @Test
     fun `empty group returns empty list`() {
-        assertEquals(emptyList<FileEntry>(),
-            sortGroup(emptyList(), ExplorerSortState(COL_NAME, true)))
+        assertEquals(
+            emptyList<FileEntry>(),
+            sortGroup(emptyList(), ExplorerSortState(COL_NAME, true)),
+        )
     }
 
     @Test

@@ -2,7 +2,6 @@ package io.github.rygel.needlecast.ui.terminal
 
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ProjectDirectory
-import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.AiCli
 import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.ShellDetector
@@ -38,8 +37,9 @@ private const val CARD_EMPTY = "__empty__"
  * Right-clicking the placeholder when a project is selected opens a shell picker popup.
  * Wire [onActivateRequested] to handle the activation with the chosen shell.
  */
-class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
-
+class TerminalManager(
+    private val ctx: AppContext,
+) : JPanel(CardLayout()) {
     private val cardLayout = layout as CardLayout
     private val terminals = mutableMapOf<String, ProjectTerminalPane>()
     private var currentDark = true
@@ -60,13 +60,17 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
      * Finds the project whose path is a prefix of [cwd] and forwards the status to its Claude session.
      * Must be called on the EDT.
      */
-    fun onHookEvent(cwd: String, status: AgentStatus) {
+    fun onHookEvent(
+        cwd: String,
+        status: AgentStatus,
+    ) {
         val normalised = cwd.replace('\\', '/')
         // Find the project path that is a prefix of (or equal to) the hook cwd
-        val path = terminals.keys.firstOrNull { p ->
-            val np = p.replace('\\', '/')
-            normalised == np || normalised.startsWith("$np/")
-        } ?: return
+        val path =
+            terminals.keys.firstOrNull { p ->
+                val np = p.replace('\\', '/')
+                normalised == np || normalised.startsWith("$np/")
+            } ?: return
         terminals[path]?.forceStatusOnClaudeTabs(status)
     }
 
@@ -74,11 +78,12 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
         terminals.values.forEach { it.setUseHooksForStatus(enabled) }
     }
 
-    private val placeholderLabel = JLabel(MSG_IDLE, SwingConstants.CENTER).apply {
-        foreground = javax.swing.UIManager.getColor("Label.disabledForeground")
-            ?: Color(0x6A737D)
-        font = Font(Font.MONOSPACED, Font.PLAIN, 12)
-    }
+    private val placeholderLabel =
+        JLabel(MSG_IDLE, SwingConstants.CENTER).apply {
+            foreground = javax.swing.UIManager.getColor("Label.disabledForeground")
+                ?: Color(0x6A737D)
+            font = Font(Font.MONOSPACED, Font.PLAIN, 12)
+        }
     private var placeholderPanel: JPanel? = null
     private var placeholderMouseListener: MouseAdapter? = null
 
@@ -89,7 +94,10 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
     }
 
     /** Switch display to [path] without creating a terminal. Shows placeholder if none exists. */
-    fun showProject(path: String, dir: ProjectDirectory? = null) {
+    fun showProject(
+        path: String,
+        dir: ProjectDirectory? = null,
+    ) {
         shownKey = path
         shownDir = dir
         if (terminals.containsKey(path)) {
@@ -108,17 +116,18 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
         startupCommand: String? = null,
     ) {
         if (!terminals.containsKey(path)) {
-            val pane = ProjectTerminalPane(
-                path,
-                currentDark,
-                extraEnv,
-                shellExecutable,
-                startupCommand,
-                currentFg,
-                currentBg,
-                currentFontSize,
-                currentFontFamily,
-            )
+            val pane =
+                ProjectTerminalPane(
+                    path,
+                    currentDark,
+                    extraEnv,
+                    shellExecutable,
+                    startupCommand,
+                    currentFg,
+                    currentBg,
+                    currentFontSize,
+                    currentFontFamily,
+                )
             pane.onStatusChanged = { status -> onProjectStatusChanged?.invoke(path, status) }
             pane.onFontSizeChanged = { size ->
                 currentFontSize = size
@@ -168,8 +177,9 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
     fun applyTheme(dark: Boolean) {
         currentDark = dark
         terminals.values.forEach { it.applyTheme(dark) }
-        val bg = javax.swing.UIManager.getColor("TextArea.background")
-            ?: javax.swing.UIManager.getColor("Panel.background")
+        val bg =
+            javax.swing.UIManager.getColor("TextArea.background")
+                ?: javax.swing.UIManager.getColor("Panel.background")
         if (bg != null) {
             placeholderPanel?.background = bg
             placeholderLabel.foreground = javax.swing.UIManager.getColor("Label.disabledForeground")
@@ -186,7 +196,10 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
     /** Fired whenever any terminal changes its font size (e.g. Ctrl+scroll). */
     var onFontSizeChanged: ((Int) -> Unit)? = null
 
-    fun applyTerminalColors(fg: java.awt.Color?, bg: java.awt.Color?) {
+    fun applyTerminalColors(
+        fg: java.awt.Color?,
+        bg: java.awt.Color?,
+    ) {
         currentFg = fg
         currentBg = bg
         terminals.values.forEach { it.applyTerminalColors(fg, bg) }
@@ -208,19 +221,21 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
     }
 
     private fun buildPlaceholder(): JPanel {
-        val panel = JPanel(BorderLayout()).apply {
-            background = javax.swing.UIManager.getColor("TextArea.background")
-                ?: javax.swing.UIManager.getColor("Panel.background")
-                ?: Color(0x1E1E1E)
-        }
-        val listener = object : MouseAdapter() {
-            override fun mousePressed(e: MouseEvent) {
-                if (SwingUtilities.isRightMouseButton(e) && shownDir != null) {
-                    val pt = SwingUtilities.convertPoint(e.component, e.point, panel)
-                    showShellMenu(panel, pt.x, pt.y)
+        val panel =
+            JPanel(BorderLayout()).apply {
+                background = javax.swing.UIManager.getColor("TextArea.background")
+                    ?: javax.swing.UIManager.getColor("Panel.background")
+                    ?: Color(0x1E1E1E)
+            }
+        val listener =
+            object : MouseAdapter() {
+                override fun mousePressed(e: MouseEvent) {
+                    if (SwingUtilities.isRightMouseButton(e) && shownDir != null) {
+                        val pt = SwingUtilities.convertPoint(e.component, e.point, panel)
+                        showShellMenu(panel, pt.x, pt.y)
+                    }
                 }
             }
-        }
         panel.addMouseListener(listener)
         placeholderLabel.addMouseListener(listener)
         placeholderMouseListener = listener
@@ -237,24 +252,27 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
         val isIdle = msg == MSG_IDLE
         val hintId = if (isIdle) "terminal-idle" else "terminal-ready"
         val headline = if (isIdle) "No project selected" else "Ready"
-        val desc = if (isIdle)
-            "Double-click a project in the tree to open a terminal, or press Ctrl+P to search."
-        else
-            "Right-click to open a terminal with your preferred shell."
+        val desc =
+            if (isIdle) {
+                "Double-click a project in the tree to open a terminal, or press Ctrl+P to search."
+            } else {
+                "Right-click to open a terminal with your preferred shell."
+            }
 
         if (ctx.config.showContextualHints && hintId !in ctx.config.dismissedHints) {
-            val hint = ContextualHintPanel(hintId, headline, desc, onDismiss = { id ->
-                ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
-                SwingUtilities.invokeLater {
-                    val p = placeholderPanel ?: return@invokeLater
-                    val c = (p.layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
-                    if (c != null) p.remove(c)
-                    placeholderLabel.text = msg
-                    p.add(placeholderLabel, BorderLayout.CENTER)
-                    p.revalidate()
-                    p.repaint()
-                }
-            })
+            val hint =
+                ContextualHintPanel(hintId, headline, desc, onDismiss = { id ->
+                    ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
+                    SwingUtilities.invokeLater {
+                        val p = placeholderPanel ?: return@invokeLater
+                        val c = (p.layout as BorderLayout).getLayoutComponent(BorderLayout.CENTER)
+                        if (c != null) p.remove(c)
+                        placeholderLabel.text = msg
+                        p.add(placeholderLabel, BorderLayout.CENTER)
+                        p.revalidate()
+                        p.repaint()
+                    }
+                })
             placeholderMouseListener?.let { hint.addMouseListener(it) }
             panel.add(hint, BorderLayout.CENTER)
         } else {
@@ -267,20 +285,26 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
 
     // ── Shell picker ─────────────────────────────────────────────────────────
 
-    private fun showShellMenu(invoker: JPanel, x: Int, y: Int) {
+    private fun showShellMenu(
+        invoker: JPanel,
+        x: Int,
+        y: Int,
+    ) {
         val dir = shownDir ?: return
         val menu = JPopupMenu()
 
         // AI CLI tools at the top
         if (availableCliTools.isNotEmpty()) {
             availableCliTools.forEach { cli ->
-                menu.add(JMenuItem(cli.name).apply {
-                    toolTipText = cli.description
-                    addActionListener {
-                        // Open terminal with project's shell but launch the CLI as startup command
-                        onActivateRequested?.invoke(dir.copy(startupCommand = cli.command))
-                    }
-                })
+                menu.add(
+                    JMenuItem(cli.name).apply {
+                        toolTipText = cli.description
+                        addActionListener {
+                            // Open terminal with project's shell but launch the CLI as startup command
+                            onActivateRequested?.invoke(dir.copy(startupCommand = cli.command))
+                        }
+                    },
+                )
             }
             menu.addSeparator()
         }
@@ -288,10 +312,12 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
         // Project-configured custom shell
         val customShell = dir.shellExecutable?.trim()?.takeIf { it.isNotEmpty() }
         if (customShell != null) {
-            menu.add(JMenuItem("Custom shell: $customShell").apply {
-                font = font.deriveFont(Font.BOLD)
-                addActionListener { onActivateRequested?.invoke(dir) }
-            })
+            menu.add(
+                JMenuItem("Custom shell: $customShell").apply {
+                    font = font.deriveFont(Font.BOLD)
+                    addActionListener { onActivateRequested?.invoke(dir) }
+                },
+            )
             menu.addSeparator()
         }
 
@@ -301,11 +327,13 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
             menu.add(JMenuItem("No shells detected").apply { isEnabled = false })
         } else {
             shells.forEach { shell ->
-                menu.add(JMenuItem(shell.displayName).apply {
-                    addActionListener {
-                        onActivateRequested?.invoke(dir.copy(shellExecutable = shell.command))
-                    }
-                })
+                menu.add(
+                    JMenuItem(shell.displayName).apply {
+                        addActionListener {
+                            onActivateRequested?.invoke(dir.copy(shellExecutable = shell.command))
+                        }
+                    },
+                )
             }
         }
 
@@ -313,7 +341,7 @@ class TerminalManager(private val ctx: AppContext) : JPanel(CardLayout()) {
     }
 
     companion object {
-        private const val MSG_IDLE  = "Select a project to open a terminal"
+        private const val MSG_IDLE = "Select a project to open a terminal"
         private const val MSG_READY = "Right-click to open a terminal"
     }
 }
@@ -333,7 +361,6 @@ private class ProjectTerminalPane(
     initialFontSize: Int = 13,
     initialFontFamily: String? = null,
 ) : JPanel(BorderLayout()) {
-
     private var customFg: java.awt.Color? = initialFg
     private var customBg: java.awt.Color? = initialBg
     private var currentFontSize: Int = initialFontSize
@@ -341,7 +368,10 @@ private class ProjectTerminalPane(
 
     var onFontSizeChanged: ((Int) -> Unit)? = null
 
-    fun applyTerminalColors(fg: java.awt.Color?, bg: java.awt.Color?) {
+    fun applyTerminalColors(
+        fg: java.awt.Color?,
+        bg: java.awt.Color?,
+    ) {
         customFg = fg
         customBg = bg
         for (i in 0 until tabs.tabCount) {
@@ -371,30 +401,34 @@ private class ProjectTerminalPane(
     private val tabStatuses = mutableMapOf<TerminalPanel, AgentStatus>()
 
     private fun recomputeStatus() {
-        val merged = when {
-            tabStatuses.values.any { it == AgentStatus.THINKING } -> AgentStatus.THINKING
-            tabStatuses.values.any { it == AgentStatus.WAITING }  -> AgentStatus.WAITING
-            else                                                   -> AgentStatus.NONE
-        }
+        val merged =
+            when {
+                tabStatuses.values.any { it == AgentStatus.THINKING } -> AgentStatus.THINKING
+                tabStatuses.values.any { it == AgentStatus.WAITING } -> AgentStatus.WAITING
+                else -> AgentStatus.NONE
+            }
         onStatusChanged?.invoke(merged)
     }
 
     init {
         minimumSize = Dimension(0, 0)
         tabs.minimumSize = Dimension(0, 0)
-        val addButton = JButton("+").apply {
-            toolTipText = "New terminal tab"
-            isFocusable = false
-            addActionListener { addTerminalTab() }
-        }
-        val toolbar = JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
-            isOpaque = false
-            add(addButton)
-        }
-        val topBar = JPanel(BorderLayout()).apply {
-            add(JLabel(), BorderLayout.CENTER) // spacer
-            add(toolbar, BorderLayout.EAST)
-        }
+        val addButton =
+            JButton("+").apply {
+                toolTipText = "New terminal tab"
+                isFocusable = false
+                addActionListener { addTerminalTab() }
+            }
+        val toolbar =
+            JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
+                isOpaque = false
+                add(addButton)
+            }
+        val topBar =
+            JPanel(BorderLayout()).apply {
+                add(JLabel(), BorderLayout.CENTER) // spacer
+                add(toolbar, BorderLayout.EAST)
+            }
         add(topBar, BorderLayout.NORTH)
         add(tabs, BorderLayout.CENTER)
         addTerminalTab()
@@ -402,13 +436,18 @@ private class ProjectTerminalPane(
 
     private fun addTerminalTab() {
         tabCounter++
-        val terminal = TerminalPanel(
-            initialDir = path, dark = isDark, extraEnv = extraEnv,
-            shellExecutable = shellExecutable, startupCommand = startupCommand,
-            initialFg = customFg, initialBg = customBg,
-            initialFontSize = currentFontSize,
-            initialFontFamily = currentFontFamily,
-        )
+        val terminal =
+            TerminalPanel(
+                initialDir = path,
+                dark = isDark,
+                extraEnv = extraEnv,
+                shellExecutable = shellExecutable,
+                startupCommand = startupCommand,
+                initialFg = customFg,
+                initialBg = customBg,
+                initialFontSize = currentFontSize,
+                initialFontFamily = currentFontFamily,
+            )
         terminal.onStatusChanged = { status ->
             tabStatuses[terminal] = status
             recomputeStatus()
@@ -424,9 +463,12 @@ private class ProjectTerminalPane(
         val title = "Terminal $tabCounter"
         val idx = tabs.tabCount
         tabs.addTab(title, terminal)
-        tabs.setTabComponentAt(idx, TerminalTabHeader(title, canClose = { tabs.tabCount > 1 }) {
-            closeTab(terminal)
-        })
+        tabs.setTabComponentAt(
+            idx,
+            TerminalTabHeader(title, canClose = { tabs.tabCount > 1 }) {
+                closeTab(terminal)
+            },
+        )
         tabs.selectedIndex = idx
         terminal.requestFocusInWindow()
     }
@@ -487,12 +529,14 @@ private class TerminalTabHeader(
         isOpaque = false
         border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         add(JLabel(title))
-        add(JButton(RemixIcons.icon("ri-close-line", 12)).apply {
-            toolTipText = "Close tab"
-            isFocusable = false
-            isBorderPainted = false
-            isContentAreaFilled = false
-            addActionListener { if (canClose()) onClose() }
-        })
+        add(
+            JButton(RemixIcons.icon("ri-close-line", 12)).apply {
+                toolTipText = "Close tab"
+                isFocusable = false
+                isBorderPainted = false
+                isContentAreaFilled = false
+                addActionListener { if (canClose()) onClose() }
+            },
+        )
     }
 }

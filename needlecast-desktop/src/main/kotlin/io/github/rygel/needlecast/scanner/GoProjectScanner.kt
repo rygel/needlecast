@@ -13,13 +13,17 @@ import java.nio.file.Path
  * for the run command.
  */
 class GoProjectScanner : ProjectScanner {
-
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val goMod = dir.resolve("go.mod").toFile()
         if (!goMod.exists()) return null
 
-        val content = try { goMod.readText(Charsets.UTF_8) } catch (_: Exception) { "" }
+        val content =
+            try {
+                goMod.readText(Charsets.UTF_8)
+            } catch (_: Exception) {
+                ""
+            }
         val commands = mutableListOf<CommandDescriptor>()
 
         commands += cmd("go build ./...", directory, "go", "build", "./...")
@@ -51,7 +55,11 @@ class GoProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
+    private fun cmd(
+        label: String,
+        dir: ProjectDirectory,
+        vararg args: String,
+    ): CommandDescriptor =
         CommandDescriptor(
             label = label,
             buildTool = BuildTool.GO,

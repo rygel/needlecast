@@ -1,9 +1,9 @@
 package io.github.rygel.needlecast.ui
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.process.ProcessExecutor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
-import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.ui.components.ContextualHintPanel
 import java.awt.BorderLayout
 import java.awt.Color
@@ -15,16 +15,16 @@ import java.awt.GraphicsEnvironment
 import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.JButton
+import javax.swing.JCheckBox
 import javax.swing.JLabel
 import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTable
+import javax.swing.JTextArea
 import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
-import javax.swing.JTextArea
-import javax.swing.JCheckBox
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 
@@ -34,8 +34,9 @@ import javax.swing.table.DefaultTableCellRenderer
  * Scans for outdated dependencies, shows results in a table with checkboxes,
  * and applies selected updates by replacing version strings in project files.
  */
-class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
-
+class RenovatePanel(
+    private val ctx: AppContext,
+) : JPanel(BorderLayout()) {
     /** One row in the updates table. Carries everything needed to apply the update. */
     private data class DepUpdate(
         val manager: String,
@@ -58,150 +59,186 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     )
 
     private val statusLabel = JLabel("", SwingConstants.LEFT)
-    private val projectLabel = JLabel("No project selected").apply {
-        font = font.deriveFont(Font.ITALIC)
-    }
+    private val projectLabel =
+        JLabel("No project selected").apply {
+            font = font.deriveFont(Font.ITALIC)
+        }
 
     private var currentProjectPath: String? = null
     private var updates = mutableListOf<DepUpdate>()
     private var renovateFound = false
 
-    private val tableModel = object : AbstractTableModel() {
-        private val columns = arrayOf("", "Manager", "Dependency", "Current", "Available", "Type")
-        override fun getRowCount() = updates.size
-        override fun getColumnCount() = columns.size
-        override fun getColumnName(col: Int) = columns[col]
-        override fun getColumnClass(col: Int) = if (col == 0) java.lang.Boolean::class.java else String::class.java
-        override fun isCellEditable(row: Int, col: Int) = col == 0
-        override fun getValueAt(row: Int, col: Int): Any {
-            val u = updates[row]
-            return when (col) {
-                0 -> u.selected
-                1 -> u.manager
-                2 -> u.depName
-                3 -> u.currentValue
-                4 -> u.newValue
-                5 -> u.updateType
-                else -> ""
-            }
-        }
-        override fun setValueAt(value: Any?, row: Int, col: Int) {
-            if (col == 0 && value is Boolean) {
-                updates[row] = updates[row].copy(selected = value)
-                fireTableCellUpdated(row, col)
-                updateApplyButton()
-            }
-        }
-    }
+    private val tableModel =
+        object : AbstractTableModel() {
+            private val columns = arrayOf("", "Manager", "Dependency", "Current", "Available", "Type")
 
-    private val table = JTable(tableModel).apply {
-        font = Font(monoFont(), Font.PLAIN, 12)
-        rowHeight = 22
-        autoCreateRowSorter = true
-        setDefaultRenderer(Object::class.java, UpdateTypeCellRenderer())
-        columnModel.getColumn(0).preferredWidth = 30
-        columnModel.getColumn(0).maxWidth = 30
-        columnModel.getColumn(1).preferredWidth = 100
-        columnModel.getColumn(2).preferredWidth = 280
-        columnModel.getColumn(3).preferredWidth = 110
-        columnModel.getColumn(4).preferredWidth = 110
-        columnModel.getColumn(5).preferredWidth = 70
-    }
+            override fun getRowCount() = updates.size
+
+            override fun getColumnCount() = columns.size
+
+            override fun getColumnName(col: Int) = columns[col]
+
+            override fun getColumnClass(col: Int) = if (col == 0) java.lang.Boolean::class.java else String::class.java
+
+            override fun isCellEditable(
+                row: Int,
+                col: Int,
+            ) = col == 0
+
+            override fun getValueAt(
+                row: Int,
+                col: Int,
+            ): Any {
+                val u = updates[row]
+                return when (col) {
+                    0 -> u.selected
+                    1 -> u.manager
+                    2 -> u.depName
+                    3 -> u.currentValue
+                    4 -> u.newValue
+                    5 -> u.updateType
+                    else -> ""
+                }
+            }
+
+            override fun setValueAt(
+                value: Any?,
+                row: Int,
+                col: Int,
+            ) {
+                if (col == 0 && value is Boolean) {
+                    updates[row] = updates[row].copy(selected = value)
+                    fireTableCellUpdated(row, col)
+                    updateApplyButton()
+                }
+            }
+        }
+
+    private val table =
+        JTable(tableModel).apply {
+            font = Font(monoFont(), Font.PLAIN, 12)
+            rowHeight = 22
+            autoCreateRowSorter = true
+            setDefaultRenderer(Object::class.java, UpdateTypeCellRenderer())
+            columnModel.getColumn(0).preferredWidth = 30
+            columnModel.getColumn(0).maxWidth = 30
+            columnModel.getColumn(1).preferredWidth = 100
+            columnModel.getColumn(2).preferredWidth = 280
+            columnModel.getColumn(3).preferredWidth = 110
+            columnModel.getColumn(4).preferredWidth = 110
+            columnModel.getColumn(5).preferredWidth = 70
+        }
     private val tableScroll = JScrollPane(table)
     private var hintPanel: ContextualHintPanel? = null
 
-    private val runButton = JButton("Scan for Updates").apply {
-        isEnabled = false  // enabled only after checkRenovateStatus() confirms installation
-        addActionListener { runLocalScan() }
-    }
-
-    private val applyButton = JButton("Apply Selected").apply {
-        isEnabled = false
-        addActionListener { applySelected() }
-    }
-
-    private val selectAllButton = JButton("All").apply {
-        toolTipText = "Select all updates"
-        addActionListener {
-            updates.forEach { it.selected = true }
-            tableModel.fireTableDataChanged()
-            updateApplyButton()
+    private val runButton =
+        JButton("Scan for Updates").apply {
+            isEnabled = false // enabled only after checkRenovateStatus() confirms installation
+            addActionListener { runLocalScan() }
         }
-    }
 
-    private val selectNoneButton = JButton("None").apply {
-        toolTipText = "Deselect all updates"
-        addActionListener {
-            updates.forEach { it.selected = false }
-            tableModel.fireTableDataChanged()
-            updateApplyButton()
+    private val applyButton =
+        JButton("Apply Selected").apply {
+            isEnabled = false
+            addActionListener { applySelected() }
         }
-    }
 
-    private val selectPatchButton = JButton("Patch only").apply {
-        toolTipText = "Select only patch updates (safest)"
-        addActionListener {
-            updates.forEach { it.selected = it.updateType == "patch" }
-            tableModel.fireTableDataChanged()
-            updateApplyButton()
+    private val selectAllButton =
+        JButton("All").apply {
+            toolTipText = "Select all updates"
+            addActionListener {
+                updates.forEach { it.selected = true }
+                tableModel.fireTableDataChanged()
+                updateApplyButton()
+            }
         }
-    }
 
-    private val summaryLabel = JLabel(" ").apply {
-        border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
-    }
+    private val selectNoneButton =
+        JButton("None").apply {
+            toolTipText = "Deselect all updates"
+            addActionListener {
+                updates.forEach { it.selected = false }
+                tableModel.fireTableDataChanged()
+                updateApplyButton()
+            }
+        }
+
+    private val selectPatchButton =
+        JButton("Patch only").apply {
+            toolTipText = "Select only patch updates (safest)"
+            addActionListener {
+                updates.forEach { it.selected = it.updateType == "patch" }
+                tableModel.fireTableDataChanged()
+                updateApplyButton()
+            }
+        }
+
+    private val summaryLabel =
+        JLabel(" ").apply {
+            border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
+        }
     private val defaultSummaryFg: Color = summaryLabel.foreground
-    private val logArea = JTextArea().apply {
-        isEditable = false
-        lineWrap = false
-        wrapStyleWord = false
-        font = Font(monoFont(), Font.PLAIN, 11)
-    }
-    private val logScroll = JScrollPane(logArea).apply {
-        preferredSize = Dimension(0, 140)
-        isVisible = false
-    }
-    private val showLogsCheck = JCheckBox("Show logs").apply {
-        addActionListener {
-            logScroll.isVisible = isSelected
-            revalidate()
+    private val logArea =
+        JTextArea().apply {
+            isEditable = false
+            lineWrap = false
+            wrapStyleWord = false
+            font = Font(monoFont(), Font.PLAIN, 11)
         }
-    }
-    private val verboseLogsCheck = JCheckBox("Verbose").apply {
-        toolTipText = "Include DEBUG output from Renovate"
-    }
+    private val logScroll =
+        JScrollPane(logArea).apply {
+            preferredSize = Dimension(0, 140)
+            isVisible = false
+        }
+    private val showLogsCheck =
+        JCheckBox("Show logs").apply {
+            addActionListener {
+                logScroll.isVisible = isSelected
+                revalidate()
+            }
+        }
+    private val verboseLogsCheck =
+        JCheckBox("Verbose").apply {
+            toolTipText = "Include DEBUG output from Renovate"
+        }
 
     init {
         minimumSize = Dimension(0, 0)
 
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 6, 4)).apply {
-            add(runButton)
-            add(applyButton)
-            add(JLabel("  Select:"))
-            add(selectAllButton)
-            add(selectNoneButton)
-            add(selectPatchButton)
-            add(showLogsCheck)
-            add(verboseLogsCheck)
-            add(statusLabel)
-        }
+        val toolbar =
+            JPanel(FlowLayout(FlowLayout.LEFT, 6, 4)).apply {
+                add(runButton)
+                add(applyButton)
+                add(JLabel("  Select:"))
+                add(selectAllButton)
+                add(selectNoneButton)
+                add(selectPatchButton)
+                add(showLogsCheck)
+                add(verboseLogsCheck)
+                add(statusLabel)
+            }
 
-        val projectBar = JPanel(FlowLayout(FlowLayout.LEFT, 8, 2)).apply {
-            add(JLabel("Project:"))
-            add(projectLabel)
-        }
+        val projectBar =
+            JPanel(FlowLayout(FlowLayout.LEFT, 8, 2)).apply {
+                add(JLabel("Project:"))
+                add(projectLabel)
+            }
 
-        val header = JPanel(BorderLayout()).apply {
-            add(projectBar, BorderLayout.NORTH)
-            add(toolbar, BorderLayout.SOUTH)
-        }
+        val header =
+            JPanel(BorderLayout()).apply {
+                add(projectBar, BorderLayout.NORTH)
+                add(toolbar, BorderLayout.SOUTH)
+            }
 
         add(header, BorderLayout.NORTH)
         add(tableScroll, BorderLayout.CENTER)
-        add(JPanel(BorderLayout()).apply {
-            add(summaryLabel, BorderLayout.NORTH)
-            add(logScroll, BorderLayout.CENTER)
-        }, BorderLayout.SOUTH)
+        add(
+            JPanel(BorderLayout()).apply {
+                add(summaryLabel, BorderLayout.NORTH)
+                add(logScroll, BorderLayout.CENTER)
+            },
+            BorderLayout.SOUTH,
+        )
 
         checkRenovateStatus()
         loadProject(null)
@@ -216,17 +253,30 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     /** Called when the active project changes. */
     fun loadProject(path: String?) {
         currentProjectPath = path
-        hintPanel?.let { remove(it); hintPanel = null }
+        hintPanel?.let {
+            remove(it)
+            hintPanel = null
+        }
 
         if (path == null) {
             projectLabel.text = "No project selected"
             projectLabel.font = projectLabel.font.deriveFont(Font.ITALIC)
             if (ctx.config.showContextualHints && "renovate-empty" !in ctx.config.dismissedHints) {
-                val hint = ContextualHintPanel("renovate-empty", "No project selected",
-                    "Select a project to view dependency updates.", onDismiss = { id ->
-                    ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
-                    SwingUtilities.invokeLater { hintPanel = null; setContent(tableScroll); revalidate(); repaint() }
-                })
+                val hint =
+                    ContextualHintPanel(
+                        "renovate-empty",
+                        "No project selected",
+                        "Select a project to view dependency updates.",
+                        onDismiss = { id ->
+                            ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
+                            SwingUtilities.invokeLater {
+                                hintPanel = null
+                                setContent(tableScroll)
+                                revalidate()
+                                repaint()
+                            }
+                        },
+                    )
                 hintPanel = hint
                 setContent(hint)
             } else {
@@ -241,7 +291,8 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         tableModel.fireTableDataChanged()
         summaryLabel.text = " "
         updateApplyButton()
-        revalidate(); repaint()
+        revalidate()
+        repaint()
     }
 
     private fun updateApplyButton() {
@@ -309,12 +360,15 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             }
 
             override fun done() {
-                val result = try { get() } catch (e: Exception) {
-                    summaryLabel.foreground = Color(0xF44336)
-                    summaryLabel.text = "Error: ${e.cause?.message ?: e.message}"
-                    setButtonsEnabled(true)
-                    return
-                }
+                val result =
+                    try {
+                        get()
+                    } catch (e: Exception) {
+                        summaryLabel.foreground = Color(0xF44336)
+                        summaryLabel.text = "Error: ${e.cause?.message ?: e.message}"
+                        setButtonsEnabled(true)
+                        return
+                    }
                 if (result == null) {
                     summaryLabel.foreground = Color(0xF44336)
                     summaryLabel.text = scanError ?: "Renovate scan failed."
@@ -355,22 +409,29 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         val selected = updates.filter { it.selected }
         if (selected.isEmpty()) return
 
-        val msg = buildString {
-            append("<html>Apply ${selected.size} update(s)?<br><br>")
-            val majors = selected.filter { it.updateType == "major" }
-            if (majors.isNotEmpty()) {
-                append("WARNING: ${majors.size} major update(s) may contain breaking changes:<br>")
-                majors.forEach {
-                    val dep = it.depName.replace("&", "&amp;").replace("<", "&lt;")
-                    append("&nbsp;&nbsp;\u2022 $dep ${it.currentValue} \u2192 ${it.newValue}<br>")
+        val msg =
+            buildString {
+                append("<html>Apply ${selected.size} update(s)?<br><br>")
+                val majors = selected.filter { it.updateType == "major" }
+                if (majors.isNotEmpty()) {
+                    append("WARNING: ${majors.size} major update(s) may contain breaking changes:<br>")
+                    majors.forEach {
+                        val dep = it.depName.replace("&", "&amp;").replace("<", "&lt;")
+                        append("&nbsp;&nbsp;\u2022 $dep ${it.currentValue} \u2192 ${it.newValue}<br>")
+                    }
+                    append("<br>")
                 }
-                append("<br>")
+                val escapedDir = dir.replace("&", "&amp;").replace("<", "&lt;")
+                append("Files will be modified in:<br>$escapedDir</html>")
             }
-            val escapedDir = dir.replace("&", "&amp;").replace("<", "&lt;")
-            append("Files will be modified in:<br>$escapedDir</html>")
-        }
-        val confirm = JOptionPane.showConfirmDialog(this, msg, "Apply Updates",
-            JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE)
+        val confirm =
+            JOptionPane.showConfirmDialog(
+                this,
+                msg,
+                "Apply Updates",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+            )
         if (confirm != JOptionPane.OK_OPTION) return
 
         // Group replacements by file, dedup shared variables
@@ -409,7 +470,10 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
      * Build a map of file path -> list of (oldString, newString) replacements.
      * Deduplicates shared Maven properties (e.g. jackson.version used by multiple deps).
      */
-    private fun buildReplacements(projectDir: String, selected: List<DepUpdate>): Map<String, List<Pair<String, String>>> {
+    private fun buildReplacements(
+        projectDir: String,
+        selected: List<DepUpdate>,
+    ): Map<String, List<Pair<String, String>>> {
         val result = mutableMapOf<String, MutableList<Pair<String, String>>>()
         val appliedProperties = mutableSetOf<String>() // "file:propertyName" dedup key
 
@@ -432,15 +496,18 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             // Dockerfile: replace the full image string
             if (update.replaceString.isNotEmpty()) {
                 val oldStr = update.replaceString
-                val newStr = if (update.autoReplaceTemplate.isNotEmpty() && update.newDigest.isNotEmpty()) {
-                    // Pin digest: image:tag@sha256:digest
-                    update.autoReplaceTemplate
-                        .replace("{{depName}}", update.depName)
-                        .replace("{{newValue}}", update.newValue)
-                        .replace("{{newDigest}}", update.newDigest)
-                } else if (update.newValue != "?" && update.currentValue != update.newValue) {
-                    oldStr.replace(update.currentValue, update.newValue)
-                } else continue
+                val newStr =
+                    if (update.autoReplaceTemplate.isNotEmpty() && update.newDigest.isNotEmpty()) {
+                        // Pin digest: image:tag@sha256:digest
+                        update.autoReplaceTemplate
+                            .replace("{{depName}}", update.depName)
+                            .replace("{{newValue}}", update.newValue)
+                            .replace("{{newDigest}}", update.newDigest)
+                    } else if (update.newValue != "?" && update.currentValue != update.newValue) {
+                        oldStr.replace(update.currentValue, update.newValue)
+                    } else {
+                        continue
+                    }
                 result.getOrPut(filePath) { mutableListOf() } += oldStr to newStr
                 continue
             }
@@ -476,33 +543,36 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                     val depUpdates = dep.path("updates")
                     if (depUpdates.isEmpty) continue
                     val depName = dep.path("depName").asText("")
-                    val currentValue = dep.path("currentValue").asText(
-                        dep.path("currentVersion").asText("?")
-                    )
+                    val currentValue =
+                        dep.path("currentValue").asText(
+                            dep.path("currentVersion").asText("?"),
+                        )
                     val sharedVar = dep.path("sharedVariableName").asText("")
                     val frp = dep.path("fileReplacePosition").asInt(-1)
                     val replaceStr = dep.path("replaceString").asText("")
                     val autoReplace = dep.path("autoReplaceStringTemplate").asText("")
 
                     for (update in depUpdates) {
-                        val newValue = update.path("newValue").asText(
-                            update.path("newVersion").asText("?")
-                        )
+                        val newValue =
+                            update.path("newValue").asText(
+                                update.path("newVersion").asText("?"),
+                            )
                         val updateType = update.path("updateType").asText("?")
                         val newDigest = update.path("newDigest").asText("")
-                        result += DepUpdate(
-                            manager = manager,
-                            packageFile = pkgFile,
-                            depName = depName,
-                            currentValue = currentValue,
-                            newValue = newValue,
-                            updateType = updateType,
-                            sharedVariableName = sharedVar,
-                            fileReplacePosition = frp,
-                            replaceString = replaceStr,
-                            autoReplaceTemplate = autoReplace,
-                            newDigest = newDigest,
-                        )
+                        result +=
+                            DepUpdate(
+                                manager = manager,
+                                packageFile = pkgFile,
+                                depName = depName,
+                                currentValue = currentValue,
+                                newValue = newValue,
+                                updateType = updateType,
+                                sharedVariableName = sharedVar,
+                                fileReplacePosition = frp,
+                                replaceString = replaceStr,
+                                autoReplaceTemplate = autoReplace,
+                                newDigest = newDigest,
+                            )
                     }
                 }
             }
@@ -520,17 +590,25 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             override fun doInBackground(): Pair<Boolean, String> {
                 val found = ProcessExecutor.isOnPath("renovate")
                 if (!found) return false to ""
-                val version = ProcessExecutor.run(listOf("renovate", "--version"), timeoutMs = 5_000L)
-                    ?.output?.lines()?.firstOrNull()?.trim() ?: ""
+                val version =
+                    ProcessExecutor
+                        .run(listOf("renovate", "--version"), timeoutMs = 5_000L)
+                        ?.output
+                        ?.lines()
+                        ?.firstOrNull()
+                        ?.trim() ?: ""
                 return true to version
             }
 
             override fun done() {
-                val (found, version) = try { get() } catch (_: Exception) {
-                    statusLabel.text = "Error checking Renovate"
-                    statusLabel.foreground = Color(0xF44336)
-                    return
-                }
+                val (found, version) =
+                    try {
+                        get()
+                    } catch (_: Exception) {
+                        statusLabel.text = "Error checking Renovate"
+                        statusLabel.foreground = Color(0xF44336)
+                        return
+                    }
                 renovateFound = found
                 runButton.isEnabled = found
                 if (found) {
@@ -557,16 +635,22 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     /** Colour-codes the update type column. */
     private class UpdateTypeCellRenderer : DefaultTableCellRenderer() {
         override fun getTableCellRendererComponent(
-            table: JTable, value: Any?, isSelected: Boolean, hasFocus: Boolean, row: Int, col: Int,
+            table: JTable,
+            value: Any?,
+            isSelected: Boolean,
+            hasFocus: Boolean,
+            row: Int,
+            col: Int,
         ): Component {
             val c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col)
             if (!isSelected && col == 5) {
-                foreground = when (value) {
-                    "major" -> Color(0xF44336)
-                    "minor" -> Color(0xFFA726)
-                    "patch" -> Color(0x4CAF50)
-                    else -> table.foreground
-                }
+                foreground =
+                    when (value) {
+                        "major" -> Color(0xF44336)
+                        "minor" -> Color(0xFFA726)
+                        "patch" -> Color(0x4CAF50)
+                        else -> table.foreground
+                    }
                 font = font.deriveFont(Font.BOLD)
             } else if (!isSelected) {
                 foreground = table.foreground
@@ -580,11 +664,12 @@ class RenovatePanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         private fun monoFont(): String {
             val os = System.getProperty("os.name", "").lowercase()
             val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
-            val preferred = when {
-                os.contains("win") -> listOf("Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Consolas")
-                os.contains("mac") -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Monaco")
-                else -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono")
-            }
+            val preferred =
+                when {
+                    os.contains("win") -> listOf("Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Consolas")
+                    os.contains("mac") -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Monaco")
+                    else -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono")
+                }
             return preferred.firstOrNull { it in available } ?: Font.MONOSPACED
         }
     }

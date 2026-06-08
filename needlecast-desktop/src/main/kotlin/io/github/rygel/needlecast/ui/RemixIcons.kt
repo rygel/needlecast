@@ -1,27 +1,33 @@
 package io.github.rygel.needlecast.ui
 
 import java.awt.Color
-import java.awt.Graphics2D
 import java.awt.image.BufferedImage
 import javax.swing.Icon
 import javax.swing.ImageIcon
 
 object RemixIcons {
-
     private val cache = mutableMapOf<String, Icon>()
 
-    fun icon(name: String, size: Int = 16, color: Color? = null): Icon {
+    fun icon(
+        name: String,
+        size: Int = 16,
+        color: Color? = null,
+    ): Icon {
         val key = "$name|$size|${color?.rgb ?: 0}"
         return cache.getOrPut(key) {
-            val url = RemixIcons::class.java.getResource("/icons/$name-$size.png")
-                ?: return@getOrPut fallbackIcon(size)
+            val url =
+                RemixIcons::class.java.getResource("/icons/$name-$size.png")
+                    ?: return@getOrPut fallbackIcon(size)
             val img = javax.imageio.ImageIO.read(url)
             tintImage(img, color ?: Color(0xBBBBBB))
             ImageIcon(img)
         }
     }
 
-    private fun tintImage(img: BufferedImage, color: Color) {
+    private fun tintImage(
+        img: BufferedImage,
+        color: Color,
+    ) {
         val w = img.width
         val h = img.height
         for (y in 0 until h) {

@@ -34,22 +34,24 @@ import javax.swing.event.DocumentListener
 class SkillsPanel(
     private val ctx: AppContext,
 ) : JPanel(BorderLayout()) {
-
     private val listModel = DefaultListModel<SkillEntry>()
-    private val skillList = JList(listModel).apply {
-        selectionMode = ListSelectionModel.SINGLE_SELECTION
-        setCellRenderer(SkillCellRenderer())
-    }
-    private val searchField = JTextField().apply {
-        toolTipText = "Filter skills by name or description"
-    }
-    private val descArea = JTextArea(4, 30).apply {
-        isEditable = false
-        lineWrap = true
-        wrapStyleWord = true
-        font = Font(Font.SANS_SERIF, Font.PLAIN, 12)
-        border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
-    }
+    private val skillList =
+        JList(listModel).apply {
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+            setCellRenderer(SkillCellRenderer())
+        }
+    private val searchField =
+        JTextField().apply {
+            toolTipText = "Filter skills by name or description"
+        }
+    private val descArea =
+        JTextArea(4, 30).apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            font = Font(Font.SANS_SERIF, Font.PLAIN, 12)
+            border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
+        }
     private val newButton = JButton(RemixIcons.icon("ri-add-line", 16))
     private val editButton = JButton(RemixIcons.icon("ri-edit-line", 16))
     private val deleteButton = JButton(RemixIcons.icon("ri-delete-bin-line", 16))
@@ -64,27 +66,30 @@ class SkillsPanel(
         deleteButton.toolTipText = "Delete selected skill"
         deployButton.toolTipText = "Select a project first to deploy skills to it."
 
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 2, 2)).apply {
-            add(newButton)
-            add(editButton)
-            add(deleteButton)
-            add(Box.createHorizontalStrut(8))
-            add(JLabel("Search:"))
-            add(searchField.apply { preferredSize = java.awt.Dimension(140, 26) })
-        }
+        val toolbar =
+            JPanel(FlowLayout(FlowLayout.LEFT, 2, 2)).apply {
+                add(newButton)
+                add(editButton)
+                add(deleteButton)
+                add(Box.createHorizontalStrut(8))
+                add(JLabel("Search:"))
+                add(searchField.apply { preferredSize = java.awt.Dimension(140, 26) })
+            }
 
         val listScroll = JScrollPane(skillList)
         val descScroll = JScrollPane(descArea)
-        val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, listScroll, descScroll).apply {
-            dividerLocation = 200
-            resizeWeight = 0.7
-        }
+        val splitPane =
+            JSplitPane(JSplitPane.VERTICAL_SPLIT, listScroll, descScroll).apply {
+                dividerLocation = 200
+                resizeWeight = 0.7
+            }
 
-        val bottomBar = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.X_AXIS)
-            border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-            add(deployButton)
-        }
+        val bottomBar =
+            JPanel().apply {
+                layout = BoxLayout(this, BoxLayout.X_AXIS)
+                border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
+                add(deployButton)
+            }
 
         add(toolbar, BorderLayout.NORTH)
         add(splitPane, BorderLayout.CENTER)
@@ -99,11 +104,15 @@ class SkillsPanel(
         deleteButton.addActionListener { deleteSelectedSkill() }
         deployButton.addActionListener { toggleDeploy() }
 
-        searchField.document.addDocumentListener(object : DocumentListener {
-            override fun insertUpdate(e: DocumentEvent?) = applyFilter()
-            override fun removeUpdate(e: DocumentEvent?) = applyFilter()
-            override fun changedUpdate(e: DocumentEvent?) = applyFilter()
-        })
+        searchField.document.addDocumentListener(
+            object : DocumentListener {
+                override fun insertUpdate(e: DocumentEvent?) = applyFilter()
+
+                override fun removeUpdate(e: DocumentEvent?) = applyFilter()
+
+                override fun changedUpdate(e: DocumentEvent?) = applyFilter()
+            },
+        )
 
         refreshList()
     }
@@ -134,11 +143,12 @@ class SkillsPanel(
     private fun refreshDeployStatus() {
         val project = currentProject
         val targetDir = project?.directory?.skillTargetDir
-        deployedNames = if (project != null && targetDir != null) {
-            ctx.skillLibraryStore.deployedSkills(project.directory.path, targetDir).toSet()
-        } else {
-            emptySet()
-        }
+        deployedNames =
+            if (project != null && targetDir != null) {
+                ctx.skillLibraryStore.deployedSkills(project.directory.path, targetDir).toSet()
+            } else {
+                emptySet()
+            }
         skillList.repaint()
         updateDeployButton()
     }
@@ -179,26 +189,33 @@ class SkillsPanel(
         var targetDir = project.directory.skillTargetDir
 
         if (targetDir == null) {
-            val input = JOptionPane.showInputDialog(
-                SwingUtilities.getWindowAncestor(this),
-                "Skill target directory (relative to project root):",
-                "Configure Skill Target",
-                JOptionPane.QUESTION_MESSAGE,
-                null,
-                null,
-                ".claude/skills",
-            ) as? String ?: return
+            val input =
+                JOptionPane.showInputDialog(
+                    SwingUtilities.getWindowAncestor(this),
+                    "Skill target directory (relative to project root):",
+                    "Configure Skill Target",
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    null,
+                    ".claude/skills",
+                ) as? String ?: return
             targetDir = input.trim()
             if (targetDir.isBlank()) return
             val updatedDir = project.directory.copy(skillTargetDir = targetDir)
-            ctx.updateConfig(ctx.config.copy(
-                projectTree = updateProjectInTree(ctx.config.projectTree, project.directory.path, updatedDir),
-                groups = ctx.config.groups.map { group ->
-                    group.copy(directories = group.directories.map {
-                        if (it.path == project.directory.path) updatedDir else it
-                    })
-                },
-            ))
+            ctx.updateConfig(
+                ctx.config.copy(
+                    projectTree = updateProjectInTree(ctx.config.projectTree, project.directory.path, updatedDir),
+                    groups =
+                        ctx.config.groups.map { group ->
+                            group.copy(
+                                directories =
+                                    group.directories.map {
+                                        if (it.path == project.directory.path) updatedDir else it
+                                    },
+                            )
+                        },
+                ),
+            )
             project = project.copy(directory = updatedDir)
             currentProject = project
         }
@@ -238,23 +255,25 @@ class SkillsPanel(
 
     private fun deleteSelectedSkill() {
         val sel = skillList.selectedValue ?: return
-        val confirm = JOptionPane.showConfirmDialog(
-            this,
-            "Delete skill \"${sel.name}\"?",
-            "Confirm Delete",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE,
-        )
+        val confirm =
+            JOptionPane.showConfirmDialog(
+                this,
+                "Delete skill \"${sel.name}\"?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE,
+            )
         if (confirm != JOptionPane.YES_OPTION) return
         ctx.skillLibraryStore.delete(sel.name)
         refreshList()
     }
 
     private inner class SkillCellRenderer : ListCellRenderer<SkillEntry> {
-        private val label = JLabel().apply {
-            border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
-            isOpaque = true
-        }
+        private val label =
+            JLabel().apply {
+                border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
+                isOpaque = true
+            }
 
         override fun getListCellRendererComponent(
             list: JList<out SkillEntry>,
@@ -284,15 +303,17 @@ class SkillsPanel(
             tree: List<ProjectTreeEntry>,
             projectPath: String,
             updatedDir: ProjectDirectory,
-        ): List<ProjectTreeEntry> = tree.map { entry ->
-            when (entry) {
-                is ProjectTreeEntry.Folder -> entry.copy(
-                    children = updateProjectInTree(entry.children, projectPath, updatedDir),
-                )
-                is ProjectTreeEntry.Project -> {
-                    if (entry.directory.path == projectPath) entry.copy(directory = updatedDir) else entry
+        ): List<ProjectTreeEntry> =
+            tree.map { entry ->
+                when (entry) {
+                    is ProjectTreeEntry.Folder ->
+                        entry.copy(
+                            children = updateProjectInTree(entry.children, projectPath, updatedDir),
+                        )
+                    is ProjectTreeEntry.Project -> {
+                        if (entry.directory.path == projectPath) entry.copy(directory = updatedDir) else entry
+                    }
                 }
             }
-        }
     }
 }

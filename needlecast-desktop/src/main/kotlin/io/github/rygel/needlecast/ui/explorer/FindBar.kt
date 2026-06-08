@@ -1,8 +1,9 @@
 package io.github.rygel.needlecast.ui.explorer
 
+import io.github.rygel.needlecast.ui.RemixIcons
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rtextarea.SearchContext
 import org.fife.ui.rtextarea.SearchEngine
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.awt.event.KeyAdapter
@@ -13,72 +14,94 @@ import javax.swing.JCheckBox
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextField
-import io.github.rygel.needlecast.ui.RemixIcons
 
 /**
  * Inline find/replace bar that sits at the bottom of the editor.
  * Ctrl+F shows find mode; Ctrl+H shows find+replace mode. Escape hides it.
  */
-class FindBar(private val editor: RSyntaxTextArea) : JPanel(BorderLayout()) {
-
-    private val searchField   = JTextField(18)
-    private val replaceField  = JTextField(18)
-    private val matchCase     = JCheckBox("Aa")
-    private val wholeWord     = JCheckBox("\\b")
-    private val regex         = JCheckBox(".*")
-    private val statusLabel   = JLabel(" ")
-    private val replaceRow    = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0))
+class FindBar(
+    private val editor: RSyntaxTextArea,
+) : JPanel(BorderLayout()) {
+    private val searchField = JTextField(18)
+    private val replaceField = JTextField(18)
+    private val matchCase = JCheckBox("Aa")
+    private val wholeWord = JCheckBox("\\b")
+    private val regex = JCheckBox(".*")
+    private val statusLabel = JLabel(" ")
+    private val replaceRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0))
 
     init {
-        border = BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(1, 0, 0, 0, java.awt.Color.GRAY),
-            BorderFactory.createEmptyBorder(3, 6, 3, 6),
-        )
+        border =
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, java.awt.Color.GRAY),
+                BorderFactory.createEmptyBorder(3, 6, 3, 6),
+            )
 
-        val findRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
-            add(JLabel("Find:"))
-            add(searchField)
-            add(JButton(RemixIcons.icon("ri-arrow-up-s-line", 12)).apply { toolTipText = "Previous (Shift+Enter)"; addActionListener { find(forward = false) } })
-            add(JButton(RemixIcons.icon("ri-arrow-down-s-line", 12)).apply { toolTipText = "Next (Enter)";           addActionListener { find(forward = true) } })
-            add(matchCase)
-            add(wholeWord)
-            add(regex)
-            add(statusLabel)
-            add(JButton(RemixIcons.icon("ri-close-line", 12)).apply { toolTipText = "Close (Escape)"; addActionListener { hideBar() } })
-        }
+        val findRow =
+            JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+                add(JLabel("Find:"))
+                add(searchField)
+                add(
+                    JButton(RemixIcons.icon("ri-arrow-up-s-line", 12)).apply {
+                        toolTipText = "Previous (Shift+Enter)"
+                        addActionListener { find(forward = false) }
+                    },
+                )
+                add(
+                    JButton(RemixIcons.icon("ri-arrow-down-s-line", 12)).apply {
+                        toolTipText = "Next (Enter)"
+                        addActionListener { find(forward = true) }
+                    },
+                )
+                add(matchCase)
+                add(wholeWord)
+                add(regex)
+                add(statusLabel)
+                add(
+                    JButton(RemixIcons.icon("ri-close-line", 12)).apply {
+                        toolTipText = "Close (Escape)"
+                        addActionListener { hideBar() }
+                    },
+                )
+            }
 
         replaceRow.apply {
             add(JLabel("Replace:"))
             add(replaceField)
-            add(JButton("Replace").apply     { addActionListener { replaceNext() } })
-            add(JButton("Replace All").apply { addActionListener { replaceAll()  } })
+            add(JButton("Replace").apply { addActionListener { replaceNext() } })
+            add(JButton("Replace All").apply { addActionListener { replaceAll() } })
         }
 
-        val center = JPanel(BorderLayout(0, 2)).apply {
-            add(findRow,    BorderLayout.NORTH)
-            add(replaceRow, BorderLayout.SOUTH)
-        }
+        val center =
+            JPanel(BorderLayout(0, 2)).apply {
+                add(findRow, BorderLayout.NORTH)
+                add(replaceRow, BorderLayout.SOUTH)
+            }
         add(center, BorderLayout.CENTER)
 
         // Enter / Shift+Enter to step through matches
-        searchField.addKeyListener(object : KeyAdapter() {
-            override fun keyPressed(e: KeyEvent) {
-                when {
-                    e.keyCode == KeyEvent.VK_ENTER && e.isShiftDown -> find(forward = false)
-                    e.keyCode == KeyEvent.VK_ENTER                  -> find(forward = true)
-                    e.keyCode == KeyEvent.VK_ESCAPE                 -> hideBar()
+        searchField.addKeyListener(
+            object : KeyAdapter() {
+                override fun keyPressed(e: KeyEvent) {
+                    when {
+                        e.keyCode == KeyEvent.VK_ENTER && e.isShiftDown -> find(forward = false)
+                        e.keyCode == KeyEvent.VK_ENTER -> find(forward = true)
+                        e.keyCode == KeyEvent.VK_ESCAPE -> hideBar()
+                    }
                 }
-            }
-        })
-        replaceField.addKeyListener(object : KeyAdapter() {
-            override fun keyPressed(e: KeyEvent) {
-                if (e.keyCode == KeyEvent.VK_ESCAPE) hideBar()
-            }
-        })
+            },
+        )
+        replaceField.addKeyListener(
+            object : KeyAdapter() {
+                override fun keyPressed(e: KeyEvent) {
+                    if (e.keyCode == KeyEvent.VK_ESCAPE) hideBar()
+                }
+            },
+        )
 
         matchCase.toolTipText = "Match case"
         wholeWord.toolTipText = "Whole word"
-        regex.toolTipText     = "Regular expression"
+        regex.toolTipText = "Regular expression"
         regex.addActionListener { wholeWord.isEnabled = !regex.isSelected }
     }
 
@@ -94,21 +117,25 @@ class FindBar(private val editor: RSyntaxTextArea) : JPanel(BorderLayout()) {
     fun hideBar() {
         isVisible = false
         editor.requestFocusInWindow()
-        SearchEngine.markAll(editor, SearchContext(""))  // clear highlights
+        SearchEngine.markAll(editor, SearchContext("")) // clear highlights
         statusLabel.text = " "
     }
 
-    private fun context(forward: Boolean) = SearchContext(searchField.text).apply {
-        matchCase           = this@FindBar.matchCase.isSelected
-        wholeWord           = this@FindBar.wholeWord.isSelected && !regex.isSelected
-        isRegularExpression = regex.isSelected
-        searchForward       = forward
-        markAll             = true
-    }
+    private fun context(forward: Boolean) =
+        SearchContext(searchField.text).apply {
+            matchCase = this@FindBar.matchCase.isSelected
+            wholeWord = this@FindBar.wholeWord.isSelected && !regex.isSelected
+            isRegularExpression = regex.isSelected
+            searchForward = forward
+            markAll = true
+        }
 
     private fun find(forward: Boolean) {
         val text = searchField.text
-        if (text.isEmpty()) { statusLabel.text = " "; return }
+        if (text.isEmpty()) {
+            statusLabel.text = " "
+            return
+        }
         try {
             val result = SearchEngine.find(editor, context(forward))
             if (result.wasFound()) {

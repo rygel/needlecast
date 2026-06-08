@@ -1,7 +1,7 @@
 package io.github.rygel.needlecast.ui.terminal
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import java.net.URI
 import java.net.http.HttpClient
@@ -16,9 +16,10 @@ class ClaudeUsageService(
     private val onUsage: (ClaudeUsageData?) -> Unit,
 ) {
     private val mapper = ObjectMapper()
-    private val executor = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "claude-usage-poller").apply { isDaemon = true }
-    }
+    private val executor =
+        Executors.newSingleThreadExecutor { r ->
+            Thread(r, "claude-usage-poller").apply { isDaemon = true }
+        }
     private var httpClient: HttpClient? = null
     private var accessToken: String? = null
     private var expiresAtMs: Long = 0
@@ -32,7 +33,11 @@ class ClaudeUsageService(
         }
         logger.info("Claude usage polling started")
         pollOnce()
-        timer = Timer(POLL_INTERVAL_MS) { pollOnce() }.apply { isRepeats = true; start() }
+        timer =
+            Timer(POLL_INTERVAL_MS) { pollOnce() }.apply {
+                isRepeats = true
+                start()
+            }
     }
 
     fun stop() {
@@ -44,7 +49,11 @@ class ClaudeUsageService(
 
     private fun loadCredentials(): Boolean {
         val credPath = Path.of(System.getProperty("user.home"), ".claude", ".credentials.json")
-        if (!java.nio.file.Files.exists(credPath)) return false
+        if (!java.nio.file.Files
+                .exists(credPath)
+        ) {
+            return false
+        }
         return try {
             val tree = mapper.readTree(credPath.toFile())
             val oauth = tree.get("claudeAiOauth") ?: return false
@@ -52,9 +61,11 @@ class ClaudeUsageService(
             val expires = oauth.get("expiresAt")?.asLong() ?: 0L
             this.accessToken = token
             this.expiresAtMs = expires
-            this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(java.time.Duration.ofSeconds(10))
-                .build()
+            this.httpClient =
+                HttpClient
+                    .newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(10))
+                    .build()
             true
         } catch (e: Exception) {
             logger.warn("Failed to read Claude credentials: {}", e.message)
@@ -71,15 +82,17 @@ class ClaudeUsageService(
         val client = httpClient ?: return
         executor.submit {
             try {
-                val request = HttpRequest.newBuilder()
-                    .uri(URI.create(USAGE_URL))
-                    .header("Authorization", "Bearer $token")
-                    .header("Accept", "application/json")
-                    .header("User-Agent", USER_AGENT)
-                    .header("anthropic-beta", BETA_HEADER)
-                    .GET()
-                    .timeout(java.time.Duration.ofSeconds(15))
-                    .build()
+                val request =
+                    HttpRequest
+                        .newBuilder()
+                        .uri(URI.create(USAGE_URL))
+                        .header("Authorization", "Bearer $token")
+                        .header("Accept", "application/json")
+                        .header("User-Agent", USER_AGENT)
+                        .header("anthropic-beta", BETA_HEADER)
+                        .GET()
+                        .timeout(java.time.Duration.ofSeconds(15))
+                        .build()
                 val response = client.send(request, HttpResponse.BodyHandlers.ofString())
                 if (response.statusCode() != 200) {
                     logger.warn("Claude usage API request failed with status {}", response.statusCode())

@@ -1,15 +1,15 @@
 package io.github.rygel.needlecast.model
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.annotation.JsonProperty
 import java.util.UUID
 
 // CommandHistoryEntry is defined in CommandDescriptor.kt (same package)
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
-    JsonSubTypes.Type(value = ProjectTreeEntry.Folder::class,  name = "folder"),
+    JsonSubTypes.Type(value = ProjectTreeEntry.Folder::class, name = "folder"),
     JsonSubTypes.Type(value = ProjectTreeEntry.Project::class, name = "project"),
 )
 sealed class ProjectTreeEntry {
@@ -30,7 +30,10 @@ sealed class ProjectTreeEntry {
 }
 
 data class PromptTemplate(
-    val id: String = java.util.UUID.randomUUID().toString(),
+    val id: String =
+        java.util.UUID
+            .randomUUID()
+            .toString(),
     val name: String = "",
     val category: String = "",
     val description: String = "",
@@ -58,11 +61,12 @@ data class AppConfig(
     val lastSelectedProjectPath: String? = null,
     val theme: String = "dark-purple",
     val language: String = "en",
-    val externalEditors: List<ExternalEditor> = listOf(
-        ExternalEditor("VS Code", "code"),
-        ExternalEditor("Zed", "zed"),
-        ExternalEditor("IntelliJ IDEA", "idea"),
-    ),
+    val externalEditors: List<ExternalEditor> =
+        listOf(
+            ExternalEditor("VS Code", "code"),
+            ExternalEditor("Zed", "zed"),
+            ExternalEditor("IntelliJ IDEA", "idea"),
+        ),
     val commandHistory: Map<String, List<CommandHistoryEntry>> = emptyMap(),
     val shortcuts: Map<String, String> = emptyMap(),
     val projectTree: List<ProjectTreeEntry> = emptyList(),

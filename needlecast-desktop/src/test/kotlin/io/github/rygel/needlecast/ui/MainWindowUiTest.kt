@@ -23,7 +23,6 @@ import javax.swing.JMenu
  * Never run locally without a virtual display.
  */
 class MainWindowUiTest {
-
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
     private lateinit var window: MainWindow
@@ -64,8 +63,10 @@ class MainWindowUiTest {
 
     @Test
     fun `window title starts with Needlecast`() {
-        assertTrue(window.title.startsWith("Needlecast"),
-            "Expected title to start with 'Needlecast' but was: '${window.title}'")
+        assertTrue(
+            window.title.startsWith("Needlecast"),
+            "Expected title to start with 'Needlecast' but was: '${window.title}'",
+        )
     }
 
     @Test

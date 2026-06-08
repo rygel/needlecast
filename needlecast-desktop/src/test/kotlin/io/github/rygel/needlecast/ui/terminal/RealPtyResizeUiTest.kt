@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.DisabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.awt.Dimension
 import java.nio.charset.Charset
 import java.util.concurrent.CountDownLatch
@@ -19,21 +21,18 @@ import java.util.concurrent.atomic.AtomicReference
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
 
-import org.junit.jupiter.api.condition.DisabledOnOs
-import org.junit.jupiter.api.condition.OS
-
 @DisabledOnOs(OS.WINDOWS)
 class RealPtyResizeUiTest {
-
     private lateinit var frame: JFrame
     private lateinit var widget: JediTermWidget
     private var process: com.pty4j.PtyProcess? = null
 
     @BeforeEach
     fun setUp() {
-        val settings = object : DefaultSettingsProvider() {
-            override fun enableMouseReporting(): Boolean = true
-        }
+        val settings =
+            object : DefaultSettingsProvider() {
+                override fun enableMouseReporting(): Boolean = true
+            }
 
         val latch = CountDownLatch(1)
         SwingUtilities.invokeLater {
@@ -63,13 +62,14 @@ class RealPtyResizeUiTest {
         val readDims = AtomicReference<String>()
 
         Thread {
-            val proc = PtyProcessBuilder()
-                .setCommand(arrayOf("/bin/bash", "--login"))
-                .setEnvironment(System.getenv().toMutableMap().apply { put("TERM", "xterm-256color") })
-                .setDirectory(System.getProperty("user.home"))
-                .setInitialColumns(80)
-                .setInitialRows(24)
-                .start()
+            val proc =
+                PtyProcessBuilder()
+                    .setCommand(arrayOf("/bin/bash", "--login"))
+                    .setEnvironment(System.getenv().toMutableMap().apply { put("TERM", "xterm-256color") })
+                    .setDirectory(System.getProperty("user.home"))
+                    .setInitialColumns(80)
+                    .setInitialRows(24)
+                    .start()
             process = proc
 
             val connector = PtyProcessTtyConnector(proc, Charset.forName("UTF-8"))
@@ -93,8 +93,11 @@ class RealPtyResizeUiTest {
             println("[TEST] After resize WinSize: ${afterWinSize?.columns}x${afterWinSize?.rows}")
 
             assertTrue(afterWinSize != null, "WinSize after resize must not be null")
-            assertNotEquals(initialWinSize?.columns, afterWinSize?.columns,
-                "Columns must change after resize (initial=${initialWinSize?.columns}, after=${afterWinSize?.columns})")
+            assertNotEquals(
+                initialWinSize?.columns,
+                afterWinSize?.columns,
+                "Columns must change after resize (initial=${initialWinSize?.columns}, after=${afterWinSize?.columns})",
+            )
 
             proc.outputStream.write("tput cols\n".toByteArray())
             proc.outputStream.flush()
@@ -134,13 +137,14 @@ class RealPtyResizeUiTest {
 
         val latch = CountDownLatch(1)
         Thread {
-            val proc = PtyProcessBuilder()
-                .setCommand(arrayOf("/bin/bash", "--login"))
-                .setEnvironment(System.getenv().toMutableMap().apply { put("TERM", "xterm-256color") })
-                .setDirectory(System.getProperty("user.home"))
-                .setInitialColumns(80)
-                .setInitialRows(24)
-                .start()
+            val proc =
+                PtyProcessBuilder()
+                    .setCommand(arrayOf("/bin/bash", "--login"))
+                    .setEnvironment(System.getenv().toMutableMap().apply { put("TERM", "xterm-256color") })
+                    .setDirectory(System.getProperty("user.home"))
+                    .setInitialColumns(80)
+                    .setInitialRows(24)
+                    .start()
             process = proc
 
             val connector = PtyProcessTtyConnector(proc, Charset.forName("UTF-8"))
@@ -176,13 +180,14 @@ class RealPtyResizeUiTest {
 
         val latch = CountDownLatch(1)
         Thread {
-            val proc = PtyProcessBuilder()
-                .setCommand(arrayOf("/bin/bash", "--login"))
-                .setEnvironment(System.getenv().toMutableMap().apply { put("TERM", "xterm-256color") })
-                .setDirectory(System.getProperty("user.home"))
-                .setInitialColumns(80)
-                .setInitialRows(24)
-                .start()
+            val proc =
+                PtyProcessBuilder()
+                    .setCommand(arrayOf("/bin/bash", "--login"))
+                    .setEnvironment(System.getenv().toMutableMap().apply { put("TERM", "xterm-256color") })
+                    .setDirectory(System.getProperty("user.home"))
+                    .setInitialColumns(80)
+                    .setInitialRows(24)
+                    .start()
             process = proc
 
             val connector = PtyProcessTtyConnector(proc, Charset.forName("UTF-8"))
@@ -202,17 +207,25 @@ class RealPtyResizeUiTest {
             val bufferWidth = widget.terminalTextBuffer.width
             val bufferHeight = widget.terminalTextBuffer.height
 
-            result.set("winSize=${winSize?.columns}x${winSize?.rows}, " +
-                "termSize=${termSize?.width}x${termSize?.height}, " +
-                "buffer=${bufferWidth}x${bufferHeight}")
+            result.set(
+                "winSize=${winSize?.columns}x${winSize?.rows}, " +
+                    "termSize=${termSize?.width}x${termSize?.height}, " +
+                    "buffer=${bufferWidth}x$bufferHeight",
+            )
 
             println("[TEST] $result")
 
             if (winSize != null && termSize != null) {
-                assertEquals(winSize.columns, termSize.width,
-                    "Terminal text width must match PTY win size columns")
-                assertEquals(winSize.rows, termSize.height,
-                    "Terminal text height must match PTY win size rows")
+                assertEquals(
+                    winSize.columns,
+                    termSize.width,
+                    "Terminal text width must match PTY win size columns",
+                )
+                assertEquals(
+                    winSize.rows,
+                    termSize.height,
+                    "Terminal text height must match PTY win size rows",
+                )
             }
         }.also { it.isDaemon = true }.start()
 
@@ -226,7 +239,13 @@ class RealPtyResizeUiTest {
         val err = AtomicReference<Throwable>()
         val latch = CountDownLatch(1)
         SwingUtilities.invokeLater {
-            try { ref.set(fn()) } catch (t: Throwable) { err.set(t) } finally { latch.countDown() }
+            try {
+                ref.set(fn())
+            } catch (t: Throwable) {
+                err.set(t)
+            } finally {
+                latch.countDown()
+            }
         }
         assertTrue(latch.await(10, TimeUnit.SECONDS))
         err.get()?.let { throw it }

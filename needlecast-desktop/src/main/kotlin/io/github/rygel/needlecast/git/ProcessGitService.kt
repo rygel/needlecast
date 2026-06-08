@@ -10,7 +10,8 @@ import java.util.concurrent.TimeUnit
  * Internal so it can be tested directly without spawning a real git process.
  */
 internal fun parseChangedFiles(porcelainOutput: String): List<ChangedFile> =
-    porcelainOutput.lines()
+    porcelainOutput
+        .lines()
         .filter { it.length >= 3 }
         .map { ChangedFile(path = it.substring(3), statusCode = it.substring(0, 2)) }
 
@@ -19,61 +20,84 @@ internal fun parseChangedFiles(porcelainOutput: String): List<ChangedFile> =
  * All calls block the calling thread; always invoke from a background thread or SwingWorker.
  */
 class ProcessGitService : GitService {
-
     private val logger = LoggerFactory.getLogger(ProcessGitService::class.java)
 
-    override fun readStatus(dir: String): GitStatus {
-        return try {
-            val branch = runGit(dir, "symbolic-ref", "--short", "HEAD")?.trim()
-                ?: runGit(dir, "rev-parse", "--short", "HEAD")?.trim()?.let { "($it)" }
+    override fun readStatus(dir: String): GitStatus =
+        try {
+            val branch =
+                runGit(dir, "symbolic-ref", "--short", "HEAD")?.trim()
+                    ?: runGit(dir, "rev-parse", "--short", "HEAD")?.trim()?.let { "($it)" }
             val dirty = runGit(dir, "status", "--porcelain")?.isNotEmpty() ?: false
             GitStatus(branch, dirty)
         } catch (e: Exception) {
             logger.debug("Failed to read git status for {}", dir, e)
             GitStatus.NotARepo
         }
-    }
 
-    override fun log(dir: String, maxEntries: Int): String? =
-        runGit(dir, "log", "--oneline", "--no-decorate", "-$maxEntries")
+    override fun log(
+        dir: String,
+        maxEntries: Int,
+    ): String? = runGit(dir, "log", "--oneline", "--no-decorate", "-$maxEntries")
 
-    override fun show(dir: String, hash: String): String? =
-        runGit(dir, "show", "--stat", "-p", "--no-color", hash)
+    override fun show(
+        dir: String,
+        hash: String,
+    ): String? = runGit(dir, "show", "--stat", "-p", "--no-color", hash)
 
     override fun changedFiles(dir: String): List<ChangedFile> {
         val raw = runGit(dir, "status", "--porcelain") ?: return emptyList()
         return parseChangedFiles(raw)
     }
 
-    override fun stage(dir: String, files: List<String>) {
+    override fun stage(
+        dir: String,
+        files: List<String>,
+    ) {
         runGitOrThrow(dir, "add", "--", *files.toTypedArray())
     }
 
-    override fun commit(dir: String, message: String) {
+    override fun commit(
+        dir: String,
+        message: String,
+    ) {
         runGitOrThrow(dir, "commit", "-m", message)
     }
 
-    override fun fetchStreaming(dir: String, onLine: (String) -> Unit): Int =
-        runGitStreaming(dir, listOf("fetch"), onLine)
+    override fun fetchStreaming(
+        dir: String,
+        onLine: (String) -> Unit,
+    ): Int = runGitStreaming(dir, listOf("fetch"), onLine)
 
-    override fun pushStreaming(dir: String, onLine: (String) -> Unit): Int =
-        runGitStreaming(dir, listOf("push"), onLine)
+    override fun pushStreaming(
+        dir: String,
+        onLine: (String) -> Unit,
+    ): Int = runGitStreaming(dir, listOf("push"), onLine)
 
-    override fun pullStreaming(dir: String, onLine: (String) -> Unit): Int =
-        runGitStreaming(dir, listOf("pull"), onLine)
+    override fun pullStreaming(
+        dir: String,
+        onLine: (String) -> Unit,
+    ): Int = runGitStreaming(dir, listOf("pull"), onLine)
 
     /** Runs git and returns combined stdout+stderr, or null on failure/timeout. */
-    private fun runGit(dir: String, vararg args: String): String? {
+    private fun runGit(
+        dir: String,
+        vararg args: String,
+    ): String? {
         val result = ProcessExecutor.run(listOf("git", "-C", dir) + args.toList(), timeoutMs = 10_000L)
         return result?.output?.ifBlank { null }
     }
 
     /** Runs git and throws [RuntimeException] if the process exits non-zero. */
-    private fun runGitOrThrow(dir: String, vararg args: String): String {
-        val result = ProcessExecutor.run(listOf("git", "-C", dir) + args.toList(), timeoutMs = 10_000L)
-            ?: throw RuntimeException("git process failed to start or timed out")
-        if (result.exitCode != 0)
+    private fun runGitOrThrow(
+        dir: String,
+        vararg args: String,
+    ): String {
+        val result =
+            ProcessExecutor.run(listOf("git", "-C", dir) + args.toList(), timeoutMs = 10_000L)
+                ?: throw RuntimeException("git process failed to start or timed out")
+        if (result.exitCode != 0) {
             throw RuntimeException("git exited with code ${result.exitCode}:\n${result.output}")
+        }
         return result.output
     }
 
@@ -82,13 +106,26 @@ class ProcessGitService : GitService {
      * Returns the process exit code, or -1 if the process could not be started.
      * Times out after 120 seconds (generous for push/pull over slow remotes).
      */
-    private fun runGitStreaming(dir: String, args: List<String>, onLine: (String) -> Unit): Int {
+    private fun runGitStreaming(
+        dir: String,
+        args: List<String>,
+        onLine: (String) -> Unit,
+    ): Int {
         val pb = ProcessBuilder(listOf("git", "-C", dir) + args).redirectErrorStream(true)
-        val proc = try { pb.start() } catch (_: Exception) { return -1 }
+        val proc =
+            try {
+                pb.start()
+            } catch (_: Exception) {
+                return -1
+            }
         return try {
-            val reader = Thread({
-                proc.inputStream.bufferedReader().forEachLine { onLine(it) }
-            }, "git-streaming-reader").apply { isDaemon = true; start() }
+            val reader =
+                Thread({
+                    proc.inputStream.bufferedReader().forEachLine { onLine(it) }
+                }, "git-streaming-reader").apply {
+                    isDaemon = true
+                    start()
+                }
             if (!proc.waitFor(120_000L, TimeUnit.MILLISECONDS)) {
                 proc.destroyForcibly()
                 reader.join(1_000L)

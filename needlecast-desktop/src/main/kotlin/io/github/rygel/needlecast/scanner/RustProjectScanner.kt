@@ -13,13 +13,17 @@ import java.nio.file.Path
  * per-crate commands (e.g. `cargo test -p my-crate`).
  */
 class RustProjectScanner : ProjectScanner {
-
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val cargoToml = dir.resolve("Cargo.toml").toFile()
         if (!cargoToml.exists()) return null
 
-        val content = try { cargoToml.readText(Charsets.UTF_8) } catch (_: Exception) { "" }
+        val content =
+            try {
+                cargoToml.readText(Charsets.UTF_8)
+            } catch (_: Exception) {
+                ""
+            }
         val commands = mutableListOf<CommandDescriptor>()
 
         // Standard commands
@@ -55,8 +59,15 @@ class RustProjectScanner : ProjectScanner {
         var inMembers = false
         for (line in content.lines()) {
             val trimmed = line.trim()
-            if (trimmed == "[workspace]") { inWorkspace = true; continue }
-            if (trimmed.startsWith("[") && trimmed != "[workspace]") { inWorkspace = false; inMembers = false; continue }
+            if (trimmed == "[workspace]") {
+                inWorkspace = true
+                continue
+            }
+            if (trimmed.startsWith("[") && trimmed != "[workspace]") {
+                inWorkspace = false
+                inMembers = false
+                continue
+            }
             if (inWorkspace && trimmed.startsWith("members")) {
                 // Single-line: members = ["a", "b"]
                 val bracket = trimmed.substringAfter("[", "")
@@ -71,15 +82,27 @@ class RustProjectScanner : ProjectScanner {
                 continue
             }
             if (inMembers) {
-                if (trimmed == "]") { inMembers = false; continue }
-                val name = trimmed.removeSuffix(",").trim().removeSurrounding("\"").trim()
+                if (trimmed == "]") {
+                    inMembers = false
+                    continue
+                }
+                val name =
+                    trimmed
+                        .removeSuffix(",")
+                        .trim()
+                        .removeSurrounding("\"")
+                        .trim()
                 if (name.isNotEmpty()) members += name
             }
         }
         return members
     }
 
-    private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
+    private fun cmd(
+        label: String,
+        dir: ProjectDirectory,
+        vararg args: String,
+    ): CommandDescriptor =
         CommandDescriptor(
             label = label,
             buildTool = BuildTool.CARGO,

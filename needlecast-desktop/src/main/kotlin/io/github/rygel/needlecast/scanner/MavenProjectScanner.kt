@@ -7,13 +7,17 @@ import io.github.rygel.needlecast.model.ProjectDirectory
 import java.nio.file.Path
 
 class MavenProjectScanner : ProjectScanner {
-
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val pomFile = dir.resolve("pom.xml").toFile()
         if (!pomFile.exists()) return null
 
-        val pom = try { pomFile.readText() } catch (_: Exception) { "" }
+        val pom =
+            try {
+                pomFile.readText()
+            } catch (_: Exception) {
+                ""
+            }
 
         val commands = mutableListOf<CommandDescriptor>()
 
@@ -29,7 +33,12 @@ class MavenProjectScanner : ProjectScanner {
         for (module in parseModules(pom)) {
             val modulePom = dir.resolve(module).resolve("pom.xml").toFile()
             if (!modulePom.exists()) continue
-            val modulePomText = try { modulePom.readText() } catch (_: Exception) { continue }
+            val modulePomText =
+                try {
+                    modulePom.readText()
+                } catch (_: Exception) {
+                    continue
+                }
 
             // -pl module targets a specific module, -am builds its dependencies
             commands += cmd("mvn -pl $module -am compile", "-pl $module -am compile", directory.path)
@@ -50,7 +59,11 @@ class MavenProjectScanner : ProjectScanner {
     }
 
     /** Detect plugin-specific goals from a pom.xml. If [module] is set, prefix with -pl. */
-    private fun pluginGoals(pom: String, workDir: String, module: String? = null): List<CommandDescriptor> {
+    private fun pluginGoals(
+        pom: String,
+        workDir: String,
+        module: String? = null,
+    ): List<CommandDescriptor> {
         val commands = mutableListOf<CommandDescriptor>()
         val pl = if (module != null) "-pl $module " else ""
 
@@ -58,7 +71,7 @@ class MavenProjectScanner : ProjectScanner {
         if (pom.contains("org.openjfx")) {
             commands += cmd("mvn ${pl}javafx:run", "${pl}javafx:run", workDir)
             commands += cmd("mvn ${pl}javafx:compile", "${pl}javafx:compile", workDir)
-            if (pom.contains("jlink"))  commands += cmd("mvn ${pl}javafx:jlink", "${pl}javafx:jlink", workDir)
+            if (pom.contains("jlink")) commands += cmd("mvn ${pl}javafx:jlink", "${pl}javafx:jlink", workDir)
             if (pom.contains("jimage")) commands += cmd("mvn ${pl}javafx:jimage", "${pl}javafx:jimage", workDir)
         }
 
@@ -106,11 +119,19 @@ class MavenProjectScanner : ProjectScanner {
         return pattern.findAll(pom).map { it.groupValues[1] }.toList()
     }
 
-    private fun cmd(label: String, goal: String, workingDirectory: String) = CommandDescriptor(
+    private fun cmd(
+        label: String,
+        goal: String,
+        workingDirectory: String,
+    ) = CommandDescriptor(
         label = label,
         buildTool = BuildTool.MAVEN,
-        argv = if (IS_WINDOWS) listOf("cmd", "/c", "mvn") + goal.split(" ")
-               else listOf("mvn") + goal.split(" "),
+        argv =
+            if (IS_WINDOWS) {
+                listOf("cmd", "/c", "mvn") + goal.split(" ")
+            } else {
+                listOf("mvn") + goal.split(" ")
+            },
         workingDirectory = workingDirectory,
     )
 }

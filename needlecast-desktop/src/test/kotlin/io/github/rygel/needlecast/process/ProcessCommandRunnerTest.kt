@@ -10,17 +10,24 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class ProcessCommandRunnerTest {
-
     private val runner = ProcessCommandRunner()
 
     @Test
-    fun `run executes command and captures stdout`(@TempDir dir: Path) {
+    fun `run executes command and captures stdout`(
+        @TempDir dir: Path,
+    ) {
         val lines = mutableListOf<String>()
         val exitLatch = CountDownLatch(1)
-        val listener = object : ProcessOutputListener {
-            override fun onLine(line: String) { lines.add(line) }
-            override fun onExit(exitCode: Int) { exitLatch.countDown() }
-        }
+        val listener =
+            object : ProcessOutputListener {
+                override fun onLine(line: String) {
+                    lines.add(line)
+                }
+
+                override fun onExit(exitCode: Int) {
+                    exitLatch.countDown()
+                }
+            }
 
         val argv = if (isWindows()) listOf("cmd", "/c", "echo", "hello world") else listOf("echo", "hello world")
         val descriptor = CommandDescriptor("test", BuildTool.MAVEN, argv, dir.toString())
@@ -31,13 +38,20 @@ class ProcessCommandRunnerTest {
     }
 
     @Test
-    fun `run reports non-zero exit code`(@TempDir dir: Path) {
+    fun `run reports non-zero exit code`(
+        @TempDir dir: Path,
+    ) {
         var exitCode = Int.MIN_VALUE
         val exitLatch = CountDownLatch(1)
-        val listener = object : ProcessOutputListener {
-            override fun onLine(line: String) {}
-            override fun onExit(code: Int) { exitCode = code; exitLatch.countDown() }
-        }
+        val listener =
+            object : ProcessOutputListener {
+                override fun onLine(line: String) {}
+
+                override fun onExit(code: Int) {
+                    exitCode = code
+                    exitLatch.countDown()
+                }
+            }
 
         val argv = if (isWindows()) listOf("cmd", "/c", "exit", "42") else listOf("sh", "-c", "exit 42")
         val descriptor = CommandDescriptor("test", BuildTool.MAVEN, argv, dir.toString())
@@ -48,56 +62,96 @@ class ProcessCommandRunnerTest {
     }
 
     @Test
-    fun `run respects working directory`(@TempDir dir: Path) {
+    fun `run respects working directory`(
+        @TempDir dir: Path,
+    ) {
         val lines = mutableListOf<String>()
         val exitLatch = CountDownLatch(1)
-        val listener = object : ProcessOutputListener {
-            override fun onLine(line: String) { lines.add(line) }
-            override fun onExit(exitCode: Int) { exitLatch.countDown() }
-        }
+        val listener =
+            object : ProcessOutputListener {
+                override fun onLine(line: String) {
+                    lines.add(line)
+                }
+
+                override fun onExit(exitCode: Int) {
+                    exitLatch.countDown()
+                }
+            }
 
         val argv = if (isWindows()) listOf("cmd", "/c", "cd") else listOf("pwd")
         val descriptor = CommandDescriptor("test", BuildTool.MAVEN, argv, dir.toString())
         runner.run(descriptor, listener)
 
         assertTrue(exitLatch.await(5, TimeUnit.SECONDS))
-        assertTrue(lines.any { it.contains(dir.toString()) || it.contains(dir.toRealPath().toString()) },
-            "Working directory should be $dir but got: $lines")
+        assertTrue(
+            lines.any { it.contains(dir.toString()) || it.contains(dir.toRealPath().toString()) },
+            "Working directory should be $dir but got: $lines",
+        )
     }
 
     @Test
-    fun `run passes environment variables`(@TempDir dir: Path) {
+    fun `run passes environment variables`(
+        @TempDir dir: Path,
+    ) {
         val lines = mutableListOf<String>()
         val exitLatch = CountDownLatch(1)
-        val listener = object : ProcessOutputListener {
-            override fun onLine(line: String) { lines.add(line) }
-            override fun onExit(exitCode: Int) { exitLatch.countDown() }
-        }
+        val listener =
+            object : ProcessOutputListener {
+                override fun onLine(line: String) {
+                    lines.add(line)
+                }
 
-        val argv = if (isWindows()) listOf("cmd", "/c", "echo", "%NEEDLECAST_TEST_VAR%")
-                   else listOf("sh", "-c", "echo \$NEEDLECAST_TEST_VAR")
-        val descriptor = CommandDescriptor(
-            "test", BuildTool.MAVEN, argv, dir.toString(),
-            env = mapOf("NEEDLECAST_TEST_VAR" to "test-value-123")
-        )
+                override fun onExit(exitCode: Int) {
+                    exitLatch.countDown()
+                }
+            }
+
+        val argv =
+            if (isWindows()) {
+                listOf("cmd", "/c", "echo", "%NEEDLECAST_TEST_VAR%")
+            } else {
+                listOf("sh", "-c", "echo \$NEEDLECAST_TEST_VAR")
+            }
+        val descriptor =
+            CommandDescriptor(
+                "test",
+                BuildTool.MAVEN,
+                argv,
+                dir.toString(),
+                env = mapOf("NEEDLECAST_TEST_VAR" to "test-value-123"),
+            )
         runner.run(descriptor, listener)
 
         assertTrue(exitLatch.await(5, TimeUnit.SECONDS))
-        assertTrue(lines.any { it.contains("test-value-123") },
-            "Should see env variable value: $lines")
+        assertTrue(
+            lines.any { it.contains("test-value-123") },
+            "Should see env variable value: $lines",
+        )
     }
 
     @Test
-    fun `run captures multi-line output`(@TempDir dir: Path) {
+    fun `run captures multi-line output`(
+        @TempDir dir: Path,
+    ) {
         val lines = mutableListOf<String>()
         val exitLatch = CountDownLatch(1)
-        val listener = object : ProcessOutputListener {
-            override fun onLine(line: String) { lines.add(line) }
-            override fun onExit(exitCode: Int) { exitLatch.countDown() }
-        }
+        val listener =
+            object : ProcessOutputListener {
+                override fun onLine(line: String) {
+                    lines.add(line)
+                }
 
-        val argv = if (isWindows()) listOf("cmd", "/c", "echo line1&& echo line2&& echo line3")
-                   else listOf("sh", "-c", "echo line1; echo line2; echo line3")
+                override fun onExit(exitCode: Int) {
+                    exitLatch.countDown()
+                }
+            }
+
+        val argv =
+            if (isWindows()) {
+                listOf("cmd", "/c", "echo line1&& echo line2&& echo line3")
+            } else {
+                listOf("sh", "-c", "echo line1; echo line2; echo line3")
+            }
         val descriptor = CommandDescriptor("test", BuildTool.MAVEN, argv, dir.toString())
         runner.run(descriptor, listener)
 

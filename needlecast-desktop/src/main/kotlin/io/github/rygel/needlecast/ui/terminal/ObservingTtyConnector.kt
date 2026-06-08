@@ -9,10 +9,13 @@ class ObservingTtyConnector(
     private val onOutput: (chunk: String) -> Unit,
     private val onEof: (() -> Unit)? = null,
 ) : TtyConnector by delegate {
-
     private val logger = LoggerFactory.getLogger(ObservingTtyConnector::class.java)
 
-    override fun read(buf: CharArray, offset: Int, length: Int): Int {
+    override fun read(
+        buf: CharArray,
+        offset: Int,
+        length: Int,
+    ): Int {
         val n = delegate.read(buf, offset, length)
         if (n > 0) {
             onOutput(String(buf, offset, n))

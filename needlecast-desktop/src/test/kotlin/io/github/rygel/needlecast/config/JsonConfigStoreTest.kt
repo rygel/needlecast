@@ -9,30 +9,34 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 
 class JsonConfigStoreTest {
-
     @Test
-    fun `round-trips AppConfig to file and back`(@TempDir dir: Path) {
+    fun `round-trips AppConfig to file and back`(
+        @TempDir dir: Path,
+    ) {
         val configPath = dir.resolve("config.json")
         val store = JsonConfigStore(configPath)
 
-        val config = AppConfig(
-            groups = listOf(
-                ProjectGroup(
-                    id = "group-1",
-                    name = "Work Projects",
-                    directories = listOf(
-                        ProjectDirectory(path = "/home/user/work/project-a"),
-                        ProjectDirectory(path = "/home/user/work/project-b", displayName = "Project B"),
+        val config =
+            AppConfig(
+                groups =
+                    listOf(
+                        ProjectGroup(
+                            id = "group-1",
+                            name = "Work Projects",
+                            directories =
+                                listOf(
+                                    ProjectDirectory(path = "/home/user/work/project-a"),
+                                    ProjectDirectory(path = "/home/user/work/project-b", displayName = "Project B"),
+                                ),
+                        ),
+                        ProjectGroup(
+                            id = "group-2",
+                            name = "Personal",
+                            directories = emptyList(),
+                        ),
                     ),
-                ),
-                ProjectGroup(
-                    id = "group-2",
-                    name = "Personal",
-                    directories = emptyList(),
-                ),
-            ),
-            theme = "dark",
-        )
+                theme = "dark",
+            )
 
         store.save(config)
         val loaded = store.load()
@@ -41,24 +45,28 @@ class JsonConfigStoreTest {
     }
 
     @Test
-    fun `returns default config when file does not exist`(@TempDir dir: Path) {
+    fun `returns default config when file does not exist`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("nonexistent.json"))
         val config = store.load()
         // Don't compare the full object — default prompt/command libraries use random UUIDs
         assertEquals("dark-purple", config.theme)
-        assertEquals(1200,    config.windowWidth)
+        assertEquals(1200, config.windowWidth)
         assertTrue(config.groups.isEmpty())
-
     }
 
     @Test
-    fun `import and export round-trip`(@TempDir dir: Path) {
+    fun `import and export round-trip`(
+        @TempDir dir: Path,
+    ) {
         val store = JsonConfigStore(dir.resolve("config.json"))
         val exportPath = dir.resolve("export.json")
 
-        val config = AppConfig(
-            groups = listOf(ProjectGroup("id-1", "Test Group")),
-        )
+        val config =
+            AppConfig(
+                groups = listOf(ProjectGroup("id-1", "Test Group")),
+            )
 
         store.export(config, exportPath)
         val imported = store.import(exportPath)
@@ -67,7 +75,9 @@ class JsonConfigStoreTest {
     }
 
     @Test
-    fun `save is atomic (tmp file is cleaned up)`(@TempDir dir: Path) {
+    fun `save is atomic (tmp file is cleaned up)`(
+        @TempDir dir: Path,
+    ) {
         val configPath = dir.resolve("config.json")
         val store = JsonConfigStore(configPath)
 

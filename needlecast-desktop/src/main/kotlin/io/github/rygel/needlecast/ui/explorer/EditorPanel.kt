@@ -3,6 +3,7 @@ package io.github.rygel.needlecast.ui.explorer
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
+import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.TextChunker
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
@@ -21,13 +22,12 @@ import java.nio.file.StandardCopyOption
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JLabel
+import javax.swing.JMenuItem
 import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
-import javax.swing.JMenuItem
 import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
-import io.github.rygel.needlecast.ui.RemixIcons
 
 /**
  * Ordered list of charsets to try when reading a file.
@@ -35,21 +35,25 @@ import io.github.rygel.needlecast.ui.RemixIcons
  * Windows) rather than the JVM default (which Java 17+ hardcodes to UTF-8).
  * ISO-8859-1 is always last — it maps every byte 0–255 to a character and never throws.
  */
-private val readCharsets: List<Charset> = buildList {
-    add(Charsets.UTF_8)
-    val nativeName = System.getProperty("native.encoding")
-        ?: System.getProperty("sun.jnu.encoding")
-    if (nativeName != null) {
-        try {
-            val native = Charset.forName(nativeName)
-            if (native != Charsets.UTF_8) add(native)
-        } catch (_: Exception) { }
+private val readCharsets: List<Charset> =
+    buildList {
+        add(Charsets.UTF_8)
+        val nativeName =
+            System.getProperty("native.encoding")
+                ?: System.getProperty("sun.jnu.encoding")
+        if (nativeName != null) {
+            try {
+                val native = Charset.forName(nativeName)
+                if (native != Charsets.UTF_8) add(native)
+            } catch (_: Exception) {
+            }
+        }
+        if (last() != Charsets.ISO_8859_1) add(Charsets.ISO_8859_1)
     }
-    if (last() != Charsets.ISO_8859_1) add(Charsets.ISO_8859_1)
-}
 
-class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
-
+class EditorPanel(
+    private val ctx: AppContext,
+) : JPanel(BorderLayout()) {
     private var currentFile: File? = null
     private var isModified = false
     private var isLoadingFile = false
@@ -60,76 +64,113 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private var pendingCaret: CaretTarget? = null
 
     private val fileLabel = JLabel("No file open")
-    private val editor = RSyntaxTextArea(20, 80).apply {
-        isEditable = true
-        font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
-        antiAliasingEnabled = true
-        tabSize = 4
-        isCodeFoldingEnabled = true
-    }
+    private val editor =
+        RSyntaxTextArea(20, 80).apply {
+            isEditable = true
+            font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
+            antiAliasingEnabled = true
+            tabSize = 4
+            isCodeFoldingEnabled = true
+        }
     private val scrollPane = RTextScrollPane(editor)
     private val findBar = FindBar(editor)
 
     init {
-        val saveButton = JButton("Save").apply {
-            addActionListener { saveFile() }
-        }
-        val openWithButton = JButton("Open with", RemixIcons.icon("ri-arrow-down-s-line", 12)).apply {
-            addActionListener { showOpenWithMenu(this) }
-        }
+        val saveButton =
+            JButton("Save").apply {
+                addActionListener { saveFile() }
+            }
+        val openWithButton =
+            JButton("Open with", RemixIcons.icon("ri-arrow-down-s-line", 12)).apply {
+                addActionListener { showOpenWithMenu(this) }
+            }
 
-        val toolbar = JPanel(BorderLayout()).apply {
-            border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
-            add(fileLabel, BorderLayout.CENTER)
-            val btnPanel = JPanel()
-            btnPanel.add(saveButton)
-            btnPanel.add(openWithButton)
-            add(btnPanel, BorderLayout.EAST)
-        }
+        val toolbar =
+            JPanel(BorderLayout()).apply {
+                border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
+                add(fileLabel, BorderLayout.CENTER)
+                val btnPanel = JPanel()
+                btnPanel.add(saveButton)
+                btnPanel.add(openWithButton)
+                add(btnPanel, BorderLayout.EAST)
+            }
 
         // Ctrl+S save
-        val ctrlS = KeyStroke.getKeyStroke(KeyEvent.VK_S, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
+        val ctrlS =
+            KeyStroke.getKeyStroke(
+                KeyEvent.VK_S,
+                java.awt.Toolkit
+                    .getDefaultToolkit()
+                    .menuShortcutKeyMaskEx,
+            )
         editor.inputMap.put(ctrlS, "save-file")
-        editor.actionMap.put("save-file", object : javax.swing.AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent) = saveFile()
-        })
+        editor.actionMap.put(
+            "save-file",
+            object : javax.swing.AbstractAction() {
+                override fun actionPerformed(e: java.awt.event.ActionEvent) = saveFile()
+            },
+        )
 
         // Track modifications
-        editor.document.addDocumentListener(object : javax.swing.event.DocumentListener {
-            override fun insertUpdate(e: javax.swing.event.DocumentEvent) = markModified()
-            override fun removeUpdate(e: javax.swing.event.DocumentEvent) = markModified()
-            override fun changedUpdate(e: javax.swing.event.DocumentEvent) {}
-            private fun markModified() {
-                if (!isLoadingFile && currentFile != null && !isModified) {
-                    isModified = true
-                    SwingUtilities.invokeLater { fileLabel.text = "* ${currentFile!!.name}" }
+        editor.document.addDocumentListener(
+            object : javax.swing.event.DocumentListener {
+                override fun insertUpdate(e: javax.swing.event.DocumentEvent) = markModified()
+
+                override fun removeUpdate(e: javax.swing.event.DocumentEvent) = markModified()
+
+                override fun changedUpdate(e: javax.swing.event.DocumentEvent) {}
+
+                private fun markModified() {
+                    if (!isLoadingFile && currentFile != null && !isModified) {
+                        isModified = true
+                        SwingUtilities.invokeLater { fileLabel.text = "* ${currentFile!!.name}" }
+                    }
                 }
-            }
-        })
+            },
+        )
 
         // Ctrl+F — find
-        val ctrlF = KeyStroke.getKeyStroke(KeyEvent.VK_F, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
+        val ctrlF =
+            KeyStroke.getKeyStroke(
+                KeyEvent.VK_F,
+                java.awt.Toolkit
+                    .getDefaultToolkit()
+                    .menuShortcutKeyMaskEx,
+            )
         editor.inputMap.put(ctrlF, "show-find")
-        editor.actionMap.put("show-find", object : javax.swing.AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent) = findBar.showBar(replaceMode = false)
-        })
+        editor.actionMap.put(
+            "show-find",
+            object : javax.swing.AbstractAction() {
+                override fun actionPerformed(e: java.awt.event.ActionEvent) = findBar.showBar(replaceMode = false)
+            },
+        )
 
         // Ctrl+H — find & replace
-        val ctrlH = KeyStroke.getKeyStroke(KeyEvent.VK_H, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
+        val ctrlH =
+            KeyStroke.getKeyStroke(
+                KeyEvent.VK_H,
+                java.awt.Toolkit
+                    .getDefaultToolkit()
+                    .menuShortcutKeyMaskEx,
+            )
         editor.inputMap.put(ctrlH, "show-replace")
-        editor.actionMap.put("show-replace", object : javax.swing.AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent) = findBar.showBar(replaceMode = true)
-        })
+        editor.actionMap.put(
+            "show-replace",
+            object : javax.swing.AbstractAction() {
+                override fun actionPerformed(e: java.awt.event.ActionEvent) = findBar.showBar(replaceMode = true)
+            },
+        )
 
         // Ctrl+scroll — zoom font size
-        val zoomListener = java.awt.event.MouseWheelListener { e ->
-            if (e.isControlDown) {
-                editorFontSize = (editorFontSize - e.wheelRotation.toInt()).coerceIn(6, 72)
-                editor.font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
-                ctx.updateConfig(ctx.config.copy(editorFontSize = editorFontSize))
-                e.consume()
+        val zoomListener =
+            java.awt.event.MouseWheelListener { e ->
+                if (e.isControlDown) {
+                    editorFontSize = (editorFontSize - e.wheelRotation.toInt()).coerceIn(6, 72)
+                    editor.font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
+                    ctx.updateConfig(ctx.config.copy(editorFontSize = editorFontSize))
+                    e.consume()
+                }
             }
-        }
         // Register only on the scroll pane so that non-Ctrl scroll events on the text area
         // propagate naturally to RTextScrollPane for normal scrolling.
         scrollPane.addMouseWheelListener(zoomListener)
@@ -144,10 +185,11 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     fun applyTheme(dark: Boolean) {
         val syntaxTheme = ctx.config.syntaxTheme
-        val themeFile = when (syntaxTheme) {
-            "auto" -> if (dark) "monokai.xml" else "idea.xml"
-            else   -> "$syntaxTheme.xml"
-        }
+        val themeFile =
+            when (syntaxTheme) {
+                "auto" -> if (dark) "monokai.xml" else "idea.xml"
+                else -> "$syntaxTheme.xml"
+            }
         try {
             val stream = Theme::class.java.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/$themeFile")
             if (stream != null) {
@@ -162,14 +204,17 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
         // Derive colors from the active FlatLaf theme so the editor matches the
         // surrounding application.  UIManager colors update when the L&F changes.
-        val bg = javax.swing.UIManager.getColor("TextArea.background")
-            ?: javax.swing.UIManager.getColor("Panel.background")
-            ?: if (dark) java.awt.Color(0x1E1E1E) else java.awt.Color.WHITE
-        val fg = javax.swing.UIManager.getColor("TextArea.foreground")
-            ?: javax.swing.UIManager.getColor("Panel.foreground")
-            ?: if (dark) java.awt.Color(0xD4D4D4) else java.awt.Color(0x1E1E1E)
-        val caret = javax.swing.UIManager.getColor("TextArea.caretForeground")
-            ?: fg
+        val bg =
+            javax.swing.UIManager.getColor("TextArea.background")
+                ?: javax.swing.UIManager.getColor("Panel.background")
+                ?: if (dark) java.awt.Color(0x1E1E1E) else java.awt.Color.WHITE
+        val fg =
+            javax.swing.UIManager.getColor("TextArea.foreground")
+                ?: javax.swing.UIManager.getColor("Panel.foreground")
+                ?: if (dark) java.awt.Color(0xD4D4D4) else java.awt.Color(0x1E1E1E)
+        val caret =
+            javax.swing.UIManager.getColor("TextArea.caretForeground")
+                ?: fg
 
         editor.background = bg
         editor.foreground = fg
@@ -196,24 +241,32 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     fun checkUnsaved(): Boolean {
         if (!isModified || currentFile == null) return true
-        val result = JOptionPane.showOptionDialog(
-            this,
-            "Save changes to ${currentFile!!.name}?",
-            "Unsaved Changes",
-            JOptionPane.YES_NO_CANCEL_OPTION,
-            JOptionPane.QUESTION_MESSAGE,
-            null,
-            arrayOf("Save", "Discard", "Cancel"),
-            "Save",
-        )
+        val result =
+            JOptionPane.showOptionDialog(
+                this,
+                "Save changes to ${currentFile!!.name}?",
+                "Unsaved Changes",
+                JOptionPane.YES_NO_CANCEL_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                arrayOf("Save", "Discard", "Cancel"),
+                "Save",
+            )
         return when (result) {
-            JOptionPane.YES_OPTION -> { saveFile(); true }
+            JOptionPane.YES_OPTION -> {
+                saveFile()
+                true
+            }
             JOptionPane.NO_OPTION -> true
             else -> false
         }
     }
 
-    fun openFile(file: File, line: Int? = null, column: Int? = null) {
+    fun openFile(
+        file: File,
+        line: Int? = null,
+        column: Int? = null,
+    ) {
         loadWorker?.cancel(true)
         TextChunker.cancel(editor)
         pendingCaret = if (line != null) CaretTarget(line, column) else null
@@ -238,39 +291,52 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         isModified = false
         fileLabel.text = file.name
 
-        loadWorker = object : javax.swing.SwingWorker<String, Void>() {
-            override fun doInBackground(): String {
-                var result: String? = null
-                for (cs in readCharsets) {
-                    try { result = Files.readString(file.toPath(), cs); break }
-                    catch (_: MalformedInputException) { }
+        loadWorker =
+            object : javax.swing.SwingWorker<String, Void>() {
+                override fun doInBackground(): String {
+                    var result: String? = null
+                    for (cs in readCharsets) {
+                        try {
+                            result = Files.readString(file.toPath(), cs)
+                            break
+                        } catch (_: MalformedInputException) {
+                        }
+                    }
+                    return result!! // ISO_8859_1 is last and never throws
                 }
-                return result!! // ISO_8859_1 is last and never throws
-            }
 
-            override fun done() {
-                if (isCancelled || seq != loadSeq) return
-                val content = try { get() } catch (_: Exception) {
-                    isLoadingFile = false
-                    editor.text = "Failed to load file."
-                    return
+                override fun done() {
+                    if (isCancelled || seq != loadSeq) return
+                    val content =
+                        try {
+                            get()
+                        } catch (_: Exception) {
+                            isLoadingFile = false
+                            editor.text = "Failed to load file."
+                            return
+                        }
+                    TextChunker.setTextChunked(editor, content) {
+                        editor.caretPosition = 0
+                        isLoadingFile = false
+                        applyPendingCaret()
+                    }
                 }
-                TextChunker.setTextChunked(editor, content) {
-                    editor.caretPosition = 0
-                    isLoadingFile = false
-                    applyPendingCaret()
-                }
-            }
-        }.also { it.execute() }
+            }.also { it.execute() }
     }
 
-    fun applyFont(family: String?, size: Int) {
+    fun applyFont(
+        family: String?,
+        size: Int,
+    ) {
         editorFontFamily = family?.takeIf { it.isNotBlank() } ?: monoFont()
         editorFontSize = size.coerceIn(6, 72)
         editor.font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
     }
 
-    fun focusLocation(line: Int, column: Int? = null) {
+    fun focusLocation(
+        line: Int,
+        column: Int? = null,
+    ) {
         pendingCaret = CaretTarget(line, column)
         if (!isLoadingFile) applyPendingCaret()
     }
@@ -285,7 +351,10 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             fileLabel.text = file.name
         } catch (e: Exception) {
             JOptionPane.showMessageDialog(
-                this, "Save failed: ${e.message}", "Save Error", JOptionPane.ERROR_MESSAGE,
+                this,
+                "Save failed: ${e.message}",
+                "Save Error",
+                JOptionPane.ERROR_MESSAGE,
             )
         }
     }
@@ -296,7 +365,10 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         moveCaretTo(target.line, target.column)
     }
 
-    private fun moveCaretTo(line: Int, column: Int?) {
+    private fun moveCaretTo(
+        line: Int,
+        column: Int?,
+    ) {
         val root = editor.document.defaultRootElement
         val lineIdx = (line - 1).coerceAtLeast(0)
         if (lineIdx >= root.elementCount) return
@@ -314,10 +386,11 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     }
 
     private fun showOpenWithMenu(button: JButton) {
-        val file = currentFile ?: run {
-            JOptionPane.showMessageDialog(this, "No file is currently open.", "Open With", JOptionPane.INFORMATION_MESSAGE)
-            return
-        }
+        val file =
+            currentFile ?: run {
+                JOptionPane.showMessageDialog(this, "No file is currently open.", "Open With", JOptionPane.INFORMATION_MESSAGE)
+                return
+            }
         val menu = JPopupMenu()
         val editors = ctx.config.externalEditors
         if (editors.isEmpty()) {
@@ -326,84 +399,104 @@ class EditorPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             menu.add(item)
         } else {
             editors.forEach { editor ->
-                menu.add(JMenuItem(editor.name).apply {
-                    addActionListener { launchEditor(file, editor) }
-                })
+                menu.add(
+                    JMenuItem(editor.name).apply {
+                        addActionListener { launchEditor(file, editor) }
+                    },
+                )
             }
         }
         menu.show(button, 0, button.height)
     }
 
-    private fun launchEditor(file: File, editor: ExternalEditor) {
+    private fun launchEditor(
+        file: File,
+        editor: ExternalEditor,
+    ) {
         try {
-            val cmd = if (IS_WINDOWS) listOf("cmd", "/c", editor.executable, file.absolutePath)
-                      else listOf(editor.executable, file.absolutePath)
+            val cmd =
+                if (IS_WINDOWS) {
+                    listOf("cmd", "/c", editor.executable, file.absolutePath)
+                } else {
+                    listOf(editor.executable, file.absolutePath)
+                }
             ProcessBuilder(cmd).start()
         } catch (e: Exception) {
             JOptionPane.showMessageDialog(
-                this, "Failed to launch ${editor.name}: ${e.message}", "Launch Error", JOptionPane.ERROR_MESSAGE,
+                this,
+                "Failed to launch ${editor.name}: ${e.message}",
+                "Launch Error",
+                JOptionPane.ERROR_MESSAGE,
             )
         }
     }
 
-    private fun syntaxStyleFor(file: File): String = when (file.extension.lowercase()) {
-        "kt", "kts"         -> SyntaxConstants.SYNTAX_STYLE_KOTLIN
-        "java"              -> SyntaxConstants.SYNTAX_STYLE_JAVA
-        "xml", "pom"        -> SyntaxConstants.SYNTAX_STYLE_XML
-        "html", "htm"       -> SyntaxConstants.SYNTAX_STYLE_HTML
-        "json"              -> SyntaxConstants.SYNTAX_STYLE_JSON
-        "js", "mjs"         -> SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT
-        "ts"                -> SyntaxConstants.SYNTAX_STYLE_TYPESCRIPT
-        "css"               -> SyntaxConstants.SYNTAX_STYLE_CSS
-        "py"                -> SyntaxConstants.SYNTAX_STYLE_PYTHON
-        "sh", "bash"        -> SyntaxConstants.SYNTAX_STYLE_UNIX_SHELL
-        "bat", "cmd"        -> SyntaxConstants.SYNTAX_STYLE_WINDOWS_BATCH
-        "sql"               -> SyntaxConstants.SYNTAX_STYLE_SQL
-        "yaml", "yml"       -> SyntaxConstants.SYNTAX_STYLE_YAML
-        "toml"              -> SyntaxConstants.SYNTAX_STYLE_NONE
-        "properties"        -> SyntaxConstants.SYNTAX_STYLE_PROPERTIES_FILE
-        "cs"                -> SyntaxConstants.SYNTAX_STYLE_CSHARP
-        "c", "h"            -> SyntaxConstants.SYNTAX_STYLE_C
-        "cpp", "cxx", "hpp" -> SyntaxConstants.SYNTAX_STYLE_CPLUSPLUS
-        "go"                -> SyntaxConstants.SYNTAX_STYLE_GO
-        "rs"                -> SyntaxConstants.SYNTAX_STYLE_RUST
-        "rb"                -> SyntaxConstants.SYNTAX_STYLE_RUBY
-        "md"                -> SyntaxConstants.SYNTAX_STYLE_MARKDOWN
-        "gradle"            -> SyntaxConstants.SYNTAX_STYLE_GROOVY
-        else                -> SyntaxConstants.SYNTAX_STYLE_NONE
-    }
+    private fun syntaxStyleFor(file: File): String =
+        when (file.extension.lowercase()) {
+            "kt", "kts" -> SyntaxConstants.SYNTAX_STYLE_KOTLIN
+            "java" -> SyntaxConstants.SYNTAX_STYLE_JAVA
+            "xml", "pom" -> SyntaxConstants.SYNTAX_STYLE_XML
+            "html", "htm" -> SyntaxConstants.SYNTAX_STYLE_HTML
+            "json" -> SyntaxConstants.SYNTAX_STYLE_JSON
+            "js", "mjs" -> SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT
+            "ts" -> SyntaxConstants.SYNTAX_STYLE_TYPESCRIPT
+            "css" -> SyntaxConstants.SYNTAX_STYLE_CSS
+            "py" -> SyntaxConstants.SYNTAX_STYLE_PYTHON
+            "sh", "bash" -> SyntaxConstants.SYNTAX_STYLE_UNIX_SHELL
+            "bat", "cmd" -> SyntaxConstants.SYNTAX_STYLE_WINDOWS_BATCH
+            "sql" -> SyntaxConstants.SYNTAX_STYLE_SQL
+            "yaml", "yml" -> SyntaxConstants.SYNTAX_STYLE_YAML
+            "toml" -> SyntaxConstants.SYNTAX_STYLE_NONE
+            "properties" -> SyntaxConstants.SYNTAX_STYLE_PROPERTIES_FILE
+            "cs" -> SyntaxConstants.SYNTAX_STYLE_CSHARP
+            "c", "h" -> SyntaxConstants.SYNTAX_STYLE_C
+            "cpp", "cxx", "hpp" -> SyntaxConstants.SYNTAX_STYLE_CPLUSPLUS
+            "go" -> SyntaxConstants.SYNTAX_STYLE_GO
+            "rs" -> SyntaxConstants.SYNTAX_STYLE_RUST
+            "rb" -> SyntaxConstants.SYNTAX_STYLE_RUBY
+            "md" -> SyntaxConstants.SYNTAX_STYLE_MARKDOWN
+            "gradle" -> SyntaxConstants.SYNTAX_STYLE_GROOVY
+            else -> SyntaxConstants.SYNTAX_STYLE_NONE
+        }
 
     private fun monoFont(): String {
         val os = System.getProperty("os.name", "").lowercase()
         val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
-        val preferred = when {
-            os.contains("win") -> listOf(
-                "Cascadia Mono",       // ships with Windows 11 / Windows Terminal — crisp at all sizes
-                "Cascadia Code",       // ligature variant
-                "JetBrains Mono",      // popular dev font, excellent readability
-                "Fira Code",           // widely installed via dev toolchains
-                "Consolas",            // ClearType-optimised, every Windows since Vista
-                "Lucida Console",
-            )
-            os.contains("mac") -> listOf(
-                "SF Mono",             // Apple's system monospace (macOS 10.15+)
-                "Menlo",               // macOS default monospace
-                "JetBrains Mono",
-                "Fira Code",
-                "Monaco",
-                "Courier New",
-            )
-            else -> listOf(
-                "JetBrains Mono",
-                "Fira Code",
-                "DejaVu Sans Mono",
-                "Liberation Mono",
-                "Noto Mono",
-                "Ubuntu Mono",
-            )
-        }
+        val preferred =
+            when {
+                os.contains("win") ->
+                    listOf(
+                        "Cascadia Mono", // ships with Windows 11 / Windows Terminal — crisp at all sizes
+                        "Cascadia Code", // ligature variant
+                        "JetBrains Mono", // popular dev font, excellent readability
+                        "Fira Code", // widely installed via dev toolchains
+                        "Consolas", // ClearType-optimised, every Windows since Vista
+                        "Lucida Console",
+                    )
+                os.contains("mac") ->
+                    listOf(
+                        "SF Mono", // Apple's system monospace (macOS 10.15+)
+                        "Menlo", // macOS default monospace
+                        "JetBrains Mono",
+                        "Fira Code",
+                        "Monaco",
+                        "Courier New",
+                    )
+                else ->
+                    listOf(
+                        "JetBrains Mono",
+                        "Fira Code",
+                        "DejaVu Sans Mono",
+                        "Liberation Mono",
+                        "Noto Mono",
+                        "Ubuntu Mono",
+                    )
+            }
         return preferred.firstOrNull { it in available } ?: Font.MONOSPACED
     }
 
-    private data class CaretTarget(val line: Int, val column: Int?)
+    private data class CaretTarget(
+        val line: Int,
+        val column: Int?,
+    )
 }

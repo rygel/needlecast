@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DocRegistryTest {
-
     @Test
     fun `targetsFor empty set returns empty list`() {
         val result = DocRegistry.targetsFor(emptySet())
@@ -60,13 +59,26 @@ class DocRegistryTest {
 
     @Test
     fun `each documented build tool has at least one target`() {
-        val documentedTools = setOf(
-            BuildTool.MAVEN, BuildTool.GRADLE, BuildTool.NPM, BuildTool.CARGO,
-            BuildTool.UV, BuildTool.POETRY, BuildTool.PIP,
-            BuildTool.MIX, BuildTool.SBT, BuildTool.BUNDLER, BuildTool.COMPOSER,
-            BuildTool.PUB, BuildTool.FLUTTER, BuildTool.SPM,
-            BuildTool.CMAKE, BuildTool.MAKE, BuildTool.DOTNET,
-        )
+        val documentedTools =
+            setOf(
+                BuildTool.MAVEN,
+                BuildTool.GRADLE,
+                BuildTool.NPM,
+                BuildTool.CARGO,
+                BuildTool.UV,
+                BuildTool.POETRY,
+                BuildTool.PIP,
+                BuildTool.MIX,
+                BuildTool.SBT,
+                BuildTool.BUNDLER,
+                BuildTool.COMPOSER,
+                BuildTool.PUB,
+                BuildTool.FLUTTER,
+                BuildTool.SPM,
+                BuildTool.CMAKE,
+                BuildTool.MAKE,
+                BuildTool.DOTNET,
+            )
         for (tool in documentedTools) {
             val result = DocRegistry.targetsFor(setOf(tool))
             assertTrue(result.isNotEmpty(), "$tool should have at least one doc target")
@@ -75,13 +87,26 @@ class DocRegistryTest {
 
     @Test
     fun `undocumented build tools return empty list`() {
-        val documentedTools = setOf(
-            BuildTool.MAVEN, BuildTool.GRADLE, BuildTool.NPM, BuildTool.CARGO,
-            BuildTool.UV, BuildTool.POETRY, BuildTool.PIP,
-            BuildTool.MIX, BuildTool.SBT, BuildTool.BUNDLER, BuildTool.COMPOSER,
-            BuildTool.PUB, BuildTool.FLUTTER, BuildTool.SPM,
-            BuildTool.CMAKE, BuildTool.MAKE, BuildTool.DOTNET,
-        )
+        val documentedTools =
+            setOf(
+                BuildTool.MAVEN,
+                BuildTool.GRADLE,
+                BuildTool.NPM,
+                BuildTool.CARGO,
+                BuildTool.UV,
+                BuildTool.POETRY,
+                BuildTool.PIP,
+                BuildTool.MIX,
+                BuildTool.SBT,
+                BuildTool.BUNDLER,
+                BuildTool.COMPOSER,
+                BuildTool.PUB,
+                BuildTool.FLUTTER,
+                BuildTool.SPM,
+                BuildTool.CMAKE,
+                BuildTool.MAKE,
+                BuildTool.DOTNET,
+            )
         val undocumentedTools = BuildTool.entries.filter { it !in documentedTools }
         for (tool in undocumentedTools) {
             val result = DocRegistry.targetsFor(setOf(tool))
@@ -91,9 +116,9 @@ class DocRegistryTest {
 
     @Test
     fun `multiple build tools returns union of targets`() {
-        val maven  = DocRegistry.targetsFor(setOf(BuildTool.MAVEN)).size
+        val maven = DocRegistry.targetsFor(setOf(BuildTool.MAVEN)).size
         val gradle = DocRegistry.targetsFor(setOf(BuildTool.GRADLE)).size
-        val both   = DocRegistry.targetsFor(setOf(BuildTool.MAVEN, BuildTool.GRADLE)).size
+        val both = DocRegistry.targetsFor(setOf(BuildTool.MAVEN, BuildTool.GRADLE)).size
         assertEquals(maven + gradle, both)
     }
 
@@ -111,8 +136,10 @@ class DocRegistryTest {
         val allTools = BuildTool.entries.toSet()
         val targets = DocRegistry.targetsFor(allTools)
         for (target in targets) {
-            assertTrue(target.hint.isNotBlank(),
-                "${target.label} (${target.buildTool}) should have a hint")
+            assertTrue(
+                target.hint.isNotBlank(),
+                "${target.label} (${target.buildTool}) should have a hint",
+            )
         }
     }
 

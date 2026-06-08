@@ -15,7 +15,6 @@ import java.nio.file.Path
  * 3. **pip** — fallback when only `pyproject.toml` or `requirements.txt` exists
  */
 class PythonProjectScanner : ProjectScanner {
-
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val pyproject = dir.resolve("pyproject.toml").toFile()
@@ -23,24 +22,33 @@ class PythonProjectScanner : ProjectScanner {
 
         if (!pyproject.exists() && !requirements.exists()) return null
 
-        val pyprojectContent = if (pyproject.exists()) {
-            try { pyproject.readText(Charsets.UTF_8) } catch (_: Exception) { "" }
-        } else ""
+        val pyprojectContent =
+            if (pyproject.exists()) {
+                try {
+                    pyproject.readText(Charsets.UTF_8)
+                } catch (_: Exception) {
+                    ""
+                }
+            } else {
+                ""
+            }
 
         val hasUvLock = dir.resolve("uv.lock").toFile().exists()
         val hasPoetryLock = dir.resolve("poetry.lock").toFile().exists()
 
-        val tool = when {
-            hasUvLock || "[tool.uv]" in pyprojectContent -> PythonTool.UV
-            hasPoetryLock || "[tool.poetry]" in pyprojectContent -> PythonTool.POETRY
-            else -> PythonTool.PIP
-        }
+        val tool =
+            when {
+                hasUvLock || "[tool.uv]" in pyprojectContent -> PythonTool.UV
+                hasPoetryLock || "[tool.poetry]" in pyprojectContent -> PythonTool.POETRY
+                else -> PythonTool.PIP
+            }
 
-        val buildTool = when (tool) {
-            PythonTool.UV -> BuildTool.UV
-            PythonTool.POETRY -> BuildTool.POETRY
-            PythonTool.PIP -> BuildTool.PIP
-        }
+        val buildTool =
+            when (tool) {
+                PythonTool.UV -> BuildTool.UV
+                PythonTool.POETRY -> BuildTool.POETRY
+                PythonTool.PIP -> BuildTool.PIP
+            }
 
         val commands = mutableListOf<CommandDescriptor>()
 
@@ -75,16 +83,18 @@ class PythonProjectScanner : ProjectScanner {
         // Detect scripts in pyproject.toml [project.scripts] or [tool.poetry.scripts]
         if (pyprojectContent.isNotEmpty()) {
             parseScripts(pyprojectContent).forEach { script ->
-                val label = when (tool) {
-                    PythonTool.UV -> "uv run $script"
-                    PythonTool.POETRY -> "poetry run $script"
-                    PythonTool.PIP -> script
-                }
-                val argv = when (tool) {
-                    PythonTool.UV -> shellArgv("uv", "run", script)
-                    PythonTool.POETRY -> shellArgv("poetry", "run", script)
-                    PythonTool.PIP -> shellArgv(script)
-                }
+                val label =
+                    when (tool) {
+                        PythonTool.UV -> "uv run $script"
+                        PythonTool.POETRY -> "poetry run $script"
+                        PythonTool.PIP -> script
+                    }
+                val argv =
+                    when (tool) {
+                        PythonTool.UV -> shellArgv("uv", "run", script)
+                        PythonTool.POETRY -> shellArgv("poetry", "run", script)
+                        PythonTool.PIP -> shellArgv(script)
+                    }
                 commands += CommandDescriptor(label, buildTool, argv, directory.path)
             }
         }
@@ -116,11 +126,14 @@ class PythonProjectScanner : ProjectScanner {
         return scripts
     }
 
-    private fun cmd(label: String, dir: ProjectDirectory, tool: BuildTool, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, tool, shellArgv(*args), dir.path)
+    private fun cmd(
+        label: String,
+        dir: ProjectDirectory,
+        tool: BuildTool,
+        vararg args: String,
+    ): CommandDescriptor = CommandDescriptor(label, tool, shellArgv(*args), dir.path)
 
-    private fun shellArgv(vararg args: String): List<String> =
-        if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList()
+    private fun shellArgv(vararg args: String): List<String> = if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList()
 
     private enum class PythonTool { UV, POETRY, PIP }
 }

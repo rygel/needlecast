@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.config.ConfigMigrator
+import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.WorkspaceSnapshot
 import io.github.rygel.needlecast.model.toWorkspaceSnapshot
 import io.github.rygel.needlecast.model.withWorkspaceSnapshot
@@ -17,11 +17,11 @@ import java.time.Instant
 class JsonConfigStore(
     private val configPath: Path = defaultConfigPath(),
 ) : ConfigStore {
-
-    private val mapper: ObjectMapper = ObjectMapper()
-        .registerKotlinModule()
-        .enable(SerializationFeature.INDENT_OUTPUT)
-        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+    private val mapper: ObjectMapper =
+        ObjectMapper()
+            .registerKotlinModule()
+            .enable(SerializationFeature.INDENT_OUTPUT)
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
 
     override fun load(): AppConfig {
         if (!Files.exists(configPath)) return AppConfig()
@@ -93,16 +93,25 @@ class JsonConfigStore(
         return ConfigMigrator.migrate(raw)
     }
 
-    override fun export(config: AppConfig, path: Path) {
+    override fun export(
+        config: AppConfig,
+        path: Path,
+    ) {
         mapper.writeValue(path.toFile(), config)
     }
 
-    override fun importWorkspace(path: Path, baseConfig: AppConfig): AppConfig {
+    override fun importWorkspace(
+        path: Path,
+        baseConfig: AppConfig,
+    ): AppConfig {
         val snapshot = mapper.readValue(path.toFile(), WorkspaceSnapshot::class.java)
         return baseConfig.withWorkspaceSnapshot(snapshot)
     }
 
-    override fun exportWorkspace(config: AppConfig, path: Path) {
+    override fun exportWorkspace(
+        config: AppConfig,
+        path: Path,
+    ) {
         Files.createDirectories(path.parent)
         mapper.writeValue(path.toFile(), config.toWorkspaceSnapshot())
     }
@@ -110,7 +119,6 @@ class JsonConfigStore(
     companion object {
         const val MAX_BACKUPS = 5
 
-        fun defaultConfigPath(): Path =
-            Path.of(System.getProperty("user.home"), ".needlecast", "config.json")
+        fun defaultConfigPath(): Path = Path.of(System.getProperty("user.home"), ".needlecast", "config.json")
     }
 }

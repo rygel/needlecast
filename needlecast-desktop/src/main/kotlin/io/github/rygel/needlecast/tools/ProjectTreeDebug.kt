@@ -20,33 +20,44 @@ import javax.swing.SwingUtilities
  */
 fun main() {
     val demoRoot = Files.createTempDirectory("needlecast-tree-debug-")
-    val projects = listOf(
-        DebugDemoProject("alpha-service", "alpha-service", listOf("kotlin", "mvn"), "main", dirty = false),
-        DebugDemoProject("beta-ui", "beta-ui", listOf("react", "ts"), "feature/ux-refresh", dirty = true),
-        DebugDemoProject("gamma-ml", "gamma-ml", listOf("python", "ml"), "experiment/ablation", dirty = true),
-        DebugDemoProject("delta-gateway", "delta-gateway", listOf("spring-boot", "kubernetes", "api-gateway"), "hotfix/auth", dirty = false),
-    ).map { it.materialize(demoRoot) }
-
-    val config = AppConfig(
-        theme = "dark-purple",
-        windowWidth = 900,
-        windowHeight = 700,
-        projectTree = listOf(
-            ProjectTreeEntry.Folder(
-                name = "Debug",
-                color = "#7C4DFF",
-                children = projects.map { p ->
-                    ProjectTreeEntry.Project(
-                        directory = ProjectDirectory(
-                            path = p.dir.absolutePath,
-                            displayName = p.displayName,
-                        ),
-                        tags = p.tags,
-                    )
-                },
+    val projects =
+        listOf(
+            DebugDemoProject("alpha-service", "alpha-service", listOf("kotlin", "mvn"), "main", dirty = false),
+            DebugDemoProject("beta-ui", "beta-ui", listOf("react", "ts"), "feature/ux-refresh", dirty = true),
+            DebugDemoProject("gamma-ml", "gamma-ml", listOf("python", "ml"), "experiment/ablation", dirty = true),
+            DebugDemoProject(
+                "delta-gateway",
+                "delta-gateway",
+                listOf("spring-boot", "kubernetes", "api-gateway"),
+                "hotfix/auth",
+                dirty = false,
             ),
-        ),
-    )
+        ).map { it.materialize(demoRoot) }
+
+    val config =
+        AppConfig(
+            theme = "dark-purple",
+            windowWidth = 900,
+            windowHeight = 700,
+            projectTree =
+                listOf(
+                    ProjectTreeEntry.Folder(
+                        name = "Debug",
+                        color = "#7C4DFF",
+                        children =
+                            projects.map { p ->
+                                ProjectTreeEntry.Project(
+                                    directory =
+                                        ProjectDirectory(
+                                            path = p.dir.absolutePath,
+                                            displayName = p.displayName,
+                                        ),
+                                    tags = p.tags,
+                                )
+                            },
+                    ),
+                ),
+        )
 
     ThemeRegistry.apply("dark-purple")
     val ctx = AppContext(configStore = DebugConfigStore(config))
@@ -82,7 +93,11 @@ private data class MaterializedProject(
     val tags: List<String>,
 )
 
-private fun initGitRepo(dir: File, branch: String, dirty: Boolean) {
+private fun initGitRepo(
+    dir: File,
+    branch: String,
+    dirty: Boolean,
+) {
     if (!runGit(dir, "init")) return
     runGit(dir, "config", "user.email", "demo@needlecast.local")
     runGit(dir, "config", "user.name", "Needlecast Demo")
@@ -94,23 +109,37 @@ private fun initGitRepo(dir: File, branch: String, dirty: Boolean) {
     }
 }
 
-private fun runGit(dir: File, vararg args: String): Boolean {
-    return try {
+private fun runGit(
+    dir: File,
+    vararg args: String,
+): Boolean =
+    try {
         val cmd = listOf("git", "-C", dir.absolutePath) + args.toList()
-        val proc = ProcessBuilder(cmd)
-            .redirectErrorStream(true)
-            .start()
+        val proc =
+            ProcessBuilder(cmd)
+                .redirectErrorStream(true)
+                .start()
         proc.inputStream.bufferedReader().use { it.readText() }
         proc.waitFor() == 0
     } catch (_: Exception) {
         false
     }
-}
 
-private class DebugConfigStore(private val initial: AppConfig) : ConfigStore {
+private class DebugConfigStore(
+    private val initial: AppConfig,
+) : ConfigStore {
     private var current = initial
+
     override fun load() = current
-    override fun save(config: AppConfig) { current = config }
+
+    override fun save(config: AppConfig) {
+        current = config
+    }
+
     override fun import(path: Path) = initial
-    override fun export(config: AppConfig, path: Path) {}
+
+    override fun export(
+        config: AppConfig,
+        path: Path,
+    ) {}
 }

@@ -13,13 +13,14 @@ package io.github.rygel.needlecast.ui.logviewer
  * grouped with the preceding log entry.
  */
 object LogParser {
-
-    private val LOGBACK = Regex(
-        """^(\d{2}:\d{2}:\d{2}[.,]\d{3})\s+\[([^\]]+)]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+-\s+(.*)$"""
-    )
-    private val LOG4J2 = Regex(
-        """^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d{3})\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+\[([^\]]+)]\s+(\S+)\s+-\s+(.*)$"""
-    )
+    private val LOGBACK =
+        Regex(
+            """^(\d{2}:\d{2}:\d{2}[.,]\d{3})\s+\[([^\]]+)]\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+(\S+)\s+-\s+(.*)$""",
+        )
+    private val LOG4J2 =
+        Regex(
+            """^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[.,]\d{3})\s+(ERROR|WARN|INFO|DEBUG|TRACE)\s+\[([^\]]+)]\s+(\S+)\s+-\s+(.*)$""",
+        )
     private val STACK_TRACE_LINE = Regex("""^\s+(at\s|\.{3}\s|\.\.\.\s).*|^Caused by:.*|^\s+\.\.\.\s*\d+\s+more""")
     private val JSON_OBJECT = Regex("""^\s*\{.*}$""")
 
@@ -37,16 +38,20 @@ object LogParser {
                 continue
             }
 
-            val entry = parseLogback(line, lineNum)
-                ?: parseLog4j2(line, lineNum)
-                ?: parseJson(line, lineNum)
-                ?: parsePlainText(line, lineNum)
+            val entry =
+                parseLogback(line, lineNum)
+                    ?: parseLog4j2(line, lineNum)
+                    ?: parseJson(line, lineNum)
+                    ?: parsePlainText(line, lineNum)
             entries.add(entry)
         }
         return entries
     }
 
-    private fun parseLogback(line: String, lineNum: Int): LogEntry? {
+    private fun parseLogback(
+        line: String,
+        lineNum: Int,
+    ): LogEntry? {
         val m = LOGBACK.matchEntire(line) ?: return null
         return LogEntry(
             timestamp = m.groupValues[1],
@@ -59,7 +64,10 @@ object LogParser {
         )
     }
 
-    private fun parseLog4j2(line: String, lineNum: Int): LogEntry? {
+    private fun parseLog4j2(
+        line: String,
+        lineNum: Int,
+    ): LogEntry? {
         val m = LOG4J2.matchEntire(line) ?: return null
         return LogEntry(
             timestamp = m.groupValues[1],
@@ -72,10 +80,16 @@ object LogParser {
         )
     }
 
-    private fun parseJson(line: String, lineNum: Int): LogEntry? {
+    private fun parseJson(
+        line: String,
+        lineNum: Int,
+    ): LogEntry? {
         if (!JSON_OBJECT.matches(line)) return null
         return try {
-            val obj = com.fasterxml.jackson.databind.ObjectMapper().readTree(line)
+            val obj =
+                com.fasterxml.jackson.databind
+                    .ObjectMapper()
+                    .readTree(line)
             val level = obj.path("level").asText("").uppercase()
             val message = obj.path("message").asText(obj.path("msg").asText(""))
             if (message.isEmpty()) return null
@@ -88,30 +102,42 @@ object LogParser {
                 raw = line,
                 lineNumber = lineNum,
             )
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
-    private fun parsePlainText(line: String, lineNum: Int): LogEntry {
+    private fun parsePlainText(
+        line: String,
+        lineNum: Int,
+    ): LogEntry {
         val upper = line.uppercase()
-        val level = when {
-            "ERROR" in upper || "FATAL" in upper -> LogLevel.ERROR
-            "WARN" in upper                      -> LogLevel.WARN
-            "DEBUG" in upper                      -> LogLevel.DEBUG
-            "TRACE" in upper                      -> LogLevel.TRACE
-            else                                  -> LogLevel.UNKNOWN
-        }
+        val level =
+            when {
+                "ERROR" in upper || "FATAL" in upper -> LogLevel.ERROR
+                "WARN" in upper -> LogLevel.WARN
+                "DEBUG" in upper -> LogLevel.DEBUG
+                "TRACE" in upper -> LogLevel.TRACE
+                else -> LogLevel.UNKNOWN
+            }
         return LogEntry(
-            timestamp = null, thread = null, level = level, logger = null,
-            message = line, raw = line, lineNumber = lineNum,
+            timestamp = null,
+            thread = null,
+            level = level,
+            logger = null,
+            message = line,
+            raw = line,
+            lineNumber = lineNum,
         )
     }
 
-    private fun parseLevel(s: String): LogLevel = when (s.uppercase()) {
-        "ERROR", "FATAL" -> LogLevel.ERROR
-        "WARN", "WARNING" -> LogLevel.WARN
-        "INFO"  -> LogLevel.INFO
-        "DEBUG" -> LogLevel.DEBUG
-        "TRACE" -> LogLevel.TRACE
-        else    -> LogLevel.UNKNOWN
-    }
+    private fun parseLevel(s: String): LogLevel =
+        when (s.uppercase()) {
+            "ERROR", "FATAL" -> LogLevel.ERROR
+            "WARN", "WARNING" -> LogLevel.WARN
+            "INFO" -> LogLevel.INFO
+            "DEBUG" -> LogLevel.DEBUG
+            "TRACE" -> LogLevel.TRACE
+            else -> LogLevel.UNKNOWN
+        }
 }
