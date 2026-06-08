@@ -35,13 +35,13 @@ internal class ProjectTreeCellRenderer(
         }
     private val nameLabel =
         JLabel().apply {
+            icon = RemixIcons.icon("ri-play-circle-line", 12)
             font = font.deriveFont(Font.BOLD, 12f)
             minimumSize = Dimension(0, 0)
         }
     private val missingIcon =
-        JLabel("\u26A0").apply {
-            font = font.deriveFont(Font.BOLD, 12f)
-            foreground = Color(0xE53935)
+        JLabel().apply {
+            icon = RemixIcons.icon("ri-error-warning-line", 12)
             border = BorderFactory.createEmptyBorder(0, 4, 0, 0)
             toolTipText = "Directory not found"
             isVisible = false
