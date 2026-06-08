@@ -230,14 +230,36 @@ class ProjectTreePanel(
             }
         }
 
+        val clearFilterBtn = JButton(RemixIcons.icon("ri-close-line", 12)).apply {
+            toolTipText = "Clear filter"
+            isFocusable = false
+            isFocusPainted = false
+            isContentAreaFilled = false
+            isBorderPainted = false
+            isVisible = false
+        }
+
         val filterField = JTextField().apply {
-            toolTipText = "Filter projects"
+            toolTipText = "Filter projects by name, path, or tag"
             putClientProperty("JTextField.placeholderText", "Filter\u2026")
             document.addDocumentListener(object : DocumentListener {
-                override fun insertUpdate(e: DocumentEvent) = applyFilter(text)
-                override fun removeUpdate(e: DocumentEvent) = applyFilter(text)
+                override fun insertUpdate(e: DocumentEvent) {
+                    applyFilter(text)
+                    clearFilterBtn.isVisible = text.isNotEmpty()
+                }
+                override fun removeUpdate(e: DocumentEvent) {
+                    applyFilter(text)
+                    clearFilterBtn.isVisible = text.isNotEmpty()
+                }
                 override fun changedUpdate(e: DocumentEvent) {}
             })
+        }
+        clearFilterBtn.addActionListener { filterField.text = "" }
+
+        val filterPanel = JPanel(BorderLayout(2, 0)).apply {
+            isOpaque = false
+            add(filterField, BorderLayout.CENTER)
+            add(clearFilterBtn, BorderLayout.EAST)
         }
 
         val northPanel = JPanel(BorderLayout(4, 2)).apply {
@@ -246,7 +268,7 @@ class ProjectTreePanel(
                 isOpaque = false
                 add(privacyBtn); add(addFolderBtn); add(addProjectBtn); add(rescanBtn)
             }
-            add(filterField, BorderLayout.CENTER)
+            add(filterPanel, BorderLayout.CENTER)
             add(btnPanel,    BorderLayout.EAST)
         }
 
@@ -620,14 +642,14 @@ class ProjectTreePanel(
     // ── Filter ───────────────────────────────────────────────────────────────
 
     private fun applyFilter(text: String) {
-        val filter = text.trim().lowercase()
         rootNode.removeAllChildren()
-        if (filter.isEmpty()) {
-            val entries = migrateOrLoad()
+        val entries = migrateOrLoad()
+        if (text.trim().isEmpty()) {
             entries.forEach { addEntryNode(rootNode, it, scan = false) }
             ensureScans(entries)
         } else {
-            ctx.config.projectTree.forEach { addFilteredEntry(rootNode, it, filter) }
+            val filtered = ProjectTreeFilter.filter(entries, text)
+            filtered.forEach { addEntryNode(rootNode, it, scan = false) }
         }
         treeModel.reload()
         expandAll()
@@ -645,24 +667,6 @@ class ProjectTreePanel(
             }
         }
         entries.forEach { walk(it) }
-    }
-
-    private fun addFilteredEntry(parent: DefaultMutableTreeNode, entry: ProjectTreeEntry, filter: String): Boolean {
-        return when (entry) {
-            is ProjectTreeEntry.Project -> {
-                val matches = entry.directory.label().lowercase().contains(filter) ||
-                    entry.tags.any { it.lowercase().contains(filter) }
-                if (matches) parent.add(DefaultMutableTreeNode(entry))
-                matches
-            }
-            is ProjectTreeEntry.Folder -> {
-                val folderNode = DefaultMutableTreeNode(entry)
-                var anyMatch = false
-                entry.children.forEach { child -> if (addFilteredEntry(folderNode, child, filter)) anyMatch = true }
-                if (anyMatch) parent.add(folderNode)
-                anyMatch
-            }
-        }
     }
 
     // ── Rescan ───────────────────────────────────────────────────────────────
