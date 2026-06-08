@@ -26,7 +26,8 @@ class IconLoadingTest {
         val refs = mutableSetOf<IconRef>()
         val srcDir = File("src/main/kotlin")
         if (!srcDir.isDirectory) return refs
-        srcDir.walkTopDown()
+        srcDir
+            .walkTopDown()
             .filter { it.extension == "kt" }
             .forEach { file ->
                 val text = file.readText()
