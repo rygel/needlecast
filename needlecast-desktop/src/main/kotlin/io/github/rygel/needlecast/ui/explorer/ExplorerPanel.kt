@@ -540,24 +540,29 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         override fun getRowCount() = entries.size
         override fun getColumnCount() = columns.size
         override fun getColumnName(col: Int) = columns[col]
-        override fun getColumnClass(col: Int): Class<*> = String::class.java
+        override fun getColumnClass(col: Int): Class<*> = when (col) {
+            COL_NAME     -> String::class.java
+            COL_SIZE     -> Long::class.java
+            COL_MODIFIED -> Long::class.java
+            else         -> String::class.java
+        }
 
         override fun getValueAt(row: Int, col: Int): Any {
             val entry = entries[row]
             return when (col) {
-                0 -> when (entry) {
+                COL_NAME -> when (entry) {
                     is FileEntry.ParentDir -> ".."
                     is FileEntry.Dir -> entry.file.name
                     is FileEntry.RegularFile -> entry.file.name
                 }
-                1 -> when (entry) {
-                    is FileEntry.RegularFile -> formatSize(entry.file.length())
-                    else -> ""
+                COL_SIZE -> when (entry) {
+                    is FileEntry.RegularFile -> entry.file.length()
+                    else -> -1L
                 }
-                2 -> when (entry) {
-                    is FileEntry.ParentDir -> ""
-                    is FileEntry.Dir -> dateFmt.format(Date(entry.file.lastModified()))
-                    is FileEntry.RegularFile -> dateFmt.format(Date(entry.file.lastModified()))
+                COL_MODIFIED -> when (entry) {
+                    is FileEntry.ParentDir -> -1L
+                    is FileEntry.Dir -> entry.file.lastModified()
+                    is FileEntry.RegularFile -> entry.file.lastModified()
                 }
                 else -> ""
             }
@@ -571,8 +576,21 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             table: JTable, value: Any?, isSelected: Boolean,
             hasFocus: Boolean, row: Int, column: Int,
         ): Component {
-            val c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
             val entry = tableModel.entryAt(row)
+            val displayText = when (column) {
+                COL_SIZE -> when (entry) {
+                    is FileEntry.RegularFile -> formatSize(entry.file.length())
+                    else -> ""
+                }
+                COL_MODIFIED -> when (entry) {
+                    is FileEntry.ParentDir -> ""
+                    is FileEntry.Dir -> dateFmt.format(Date(entry.file.lastModified()))
+                    is FileEntry.RegularFile -> dateFmt.format(Date(entry.file.lastModified()))
+                }
+                else -> value?.toString() ?: ""
+            }
+            val c = super.getTableCellRendererComponent(
+                table, displayText, isSelected, hasFocus, row, column)
             if (c is JLabel) {
                 c.font = when {
                     entry is FileEntry.Dir || entry is FileEntry.ParentDir ->
@@ -580,7 +598,7 @@ class ExplorerPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
                     else -> c.font.deriveFont(Font.PLAIN)
                 }
                 c.horizontalAlignment = when (column) {
-                    1 -> SwingConstants.RIGHT
+                    COL_SIZE -> SwingConstants.RIGHT
                     else -> SwingConstants.LEFT
                 }
             }

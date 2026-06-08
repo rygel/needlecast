@@ -135,6 +135,8 @@ class GitLogPanel(
             return
         }
 
+        logModel.addElement(GitCommit("", "Loading commits\u2026"))
+
         object : SwingWorker<List<GitCommit>, Void>() {
             override fun doInBackground(): List<GitCommit> =
                 gitService.log(path)
@@ -148,6 +150,7 @@ class GitLogPanel(
 
             override fun done() {
                 val commits = try { get() } catch (_: Exception) { return }
+                logModel.clear()
                 commits.forEach { logModel.addElement(it) }
             }
         }.execute()

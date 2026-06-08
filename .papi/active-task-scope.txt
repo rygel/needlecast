@@ -1,0 +1,4 @@
+task-31
+needlecast-desktop/src/main/kotlin/io/github/rygel/needlecast/ui/explorer/ExplorerPanel.kt
+needlecast-desktop/src/main/kotlin/io/github/rygel/needlecast/ui/GitLogPanel.kt
+needlecast-desktop/src/main/kotlin/io/github/rygel/needlecast/ui/SettingsDialog.kt
