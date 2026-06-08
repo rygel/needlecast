@@ -26,7 +26,7 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
-import javax.swing.JTextField
+import javax.swing.KeyStroke
 import javax.swing.JToggleButton
 import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
@@ -59,9 +59,11 @@ class GitLogPanel(
     private val fileListModel = DefaultListModel<ChangedFile>()
     private val checkedFiles  = mutableSetOf<String>()
     private val fileList = JList(fileListModel).apply { name = "changed-files-list" }
-    private val commitMessageField = JTextField().apply {
+    private val commitMessageField = JTextArea().apply {
         name = "commit-message"
-        putClientProperty("JTextField.placeholderText", "Commit message…")
+        rows = 3
+        lineWrap = true
+        wrapStyleWord = true
     }
     private val commitButton = JButton("Commit").apply { name = "btn-commit-ok" }
     private val cancelButton = JButton("Cancel").apply { name = "btn-commit-cancel" }
@@ -186,9 +188,17 @@ class GitLogPanel(
             cardLayout.show(cardPanel, "log")
         }
 
+        commitMessageField.inputMap.put(
+            KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, java.awt.event.InputEvent.CTRL_DOWN_MASK),
+            "submit-commit",
+        )
+        commitMessageField.actionMap.put("submit-commit", object : javax.swing.AbstractAction() {
+            override fun actionPerformed(e: java.awt.event.ActionEvent?) = onCommitClicked()
+        })
+
         val bottomPanel = JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-            add(commitMessageField, BorderLayout.CENTER)
+            add(JScrollPane(commitMessageField), BorderLayout.CENTER)
             add(JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
                 add(commitButton); add(cancelButton)
             }, BorderLayout.EAST)
