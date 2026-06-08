@@ -10,17 +10,20 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class ScriptDirectoryScannerTest {
-
     private val scanner = ScriptDirectoryScanner()
 
     @Test
-    fun `returns null when no scripts bin or extraScanDirs`(@TempDir dir: Path) {
+    fun `returns null when no scripts bin or extraScanDirs`(
+        @TempDir dir: Path,
+    ) {
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         assertNull(result)
     }
 
     @Test
-    fun `auto-detects scripts dir`(@TempDir dir: Path) {
+    fun `auto-detects scripts dir`(
+        @TempDir dir: Path,
+    ) {
         val scriptsDir = File(dir.toFile(), "scripts").also { it.mkdir() }
         val script = File(scriptsDir, "deploy.sh").also { it.writeText("#!/bin/bash") }
 
@@ -35,9 +38,11 @@ class ScriptDirectoryScannerTest {
     }
 
     @Test
-    fun `auto-detects bin dir`(@TempDir dir: Path) {
+    fun `auto-detects bin dir`(
+        @TempDir dir: Path,
+    ) {
         val binDir = File(dir.toFile(), "bin").also { it.mkdir() }
-        File(binDir, "run").writeText("#!/bin/sh")                   // no recognised extension — skipped
+        File(binDir, "run").writeText("#!/bin/sh") // no recognised extension — skipped
         val script = File(binDir, "start.py").also { it.writeText("# python") }
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
@@ -48,7 +53,9 @@ class ScriptDirectoryScannerTest {
     }
 
     @Test
-    fun `unrecognised extension is skipped`(@TempDir dir: Path) {
+    fun `unrecognised extension is skipped`(
+        @TempDir dir: Path,
+    ) {
         val scriptsDir = File(dir.toFile(), "scripts").also { it.mkdir() }
         File(scriptsDir, "README.md").writeText("# docs")
 
@@ -57,7 +64,9 @@ class ScriptDirectoryScannerTest {
     }
 
     @Test
-    fun `ts extension produces npx ts-node argv`(@TempDir dir: Path) {
+    fun `ts extension produces npx ts-node argv`(
+        @TempDir dir: Path,
+    ) {
         val scriptsDir = File(dir.toFile(), "scripts").also { it.mkdir() }
         val script = File(scriptsDir, "build.ts").also { it.writeText("// ts") }
 
@@ -67,13 +76,16 @@ class ScriptDirectoryScannerTest {
     }
 
     @Test
-    fun `extraScanDirs relative path resolves against project root`(@TempDir dir: Path) {
+    fun `extraScanDirs relative path resolves against project root`(
+        @TempDir dir: Path,
+    ) {
         val toolsDir = File(dir.toFile(), "tools").also { it.mkdir() }
         val script = File(toolsDir, "build.sh").also { it.writeText("#!/bin/bash") }
 
-        val result = scanner.scan(
-            ProjectDirectory(dir.toString(), extraScanDirs = listOf("tools"))
-        )!!
+        val result =
+            scanner.scan(
+                ProjectDirectory(dir.toString(), extraScanDirs = listOf("tools")),
+            )!!
 
         assertEquals(1, result.commands.size)
         assertEquals("tools/build.sh", result.commands[0].label)
@@ -81,17 +93,20 @@ class ScriptDirectoryScannerTest {
     }
 
     @Test
-    fun `extraScanDirs absolute path outside project root is accepted`(@TempDir root: Path) {
+    fun `extraScanDirs absolute path outside project root is accepted`(
+        @TempDir root: Path,
+    ) {
         val projectDir = Files.createDirectories(root.resolve("myproject"))
         val externalDir = Files.createDirectories(root.resolve("external"))
         val script = File(externalDir.toFile(), "deploy.rb").also { it.writeText("# ruby") }
 
-        val result = scanner.scan(
-            ProjectDirectory(
-                path = projectDir.toString(),
-                extraScanDirs = listOf(externalDir.toString()),
-            )
-        )!!
+        val result =
+            scanner.scan(
+                ProjectDirectory(
+                    path = projectDir.toString(),
+                    extraScanDirs = listOf(externalDir.toString()),
+                ),
+            )!!
 
         assertEquals(1, result.commands.size)
         assertEquals(script.canonicalPath, result.commands[0].label)
@@ -99,14 +114,17 @@ class ScriptDirectoryScannerTest {
     }
 
     @Test
-    fun `deduplicates dirs when extraScanDirs contains auto-detected dir`(@TempDir dir: Path) {
+    fun `deduplicates dirs when extraScanDirs contains auto-detected dir`(
+        @TempDir dir: Path,
+    ) {
         val scriptsDir = File(dir.toFile(), "scripts").also { it.mkdir() }
         File(scriptsDir, "deploy.sh").writeText("#!/bin/bash")
 
         // "scripts" is also auto-detected — command must appear only once
-        val result = scanner.scan(
-            ProjectDirectory(dir.toString(), extraScanDirs = listOf("scripts"))
-        )!!
+        val result =
+            scanner.scan(
+                ProjectDirectory(dir.toString(), extraScanDirs = listOf("scripts")),
+            )!!
 
         assertEquals(1, result.commands.size)
     }

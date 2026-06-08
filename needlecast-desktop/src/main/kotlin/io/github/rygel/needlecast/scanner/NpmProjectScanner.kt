@@ -8,7 +8,6 @@ import io.github.rygel.needlecast.model.ProjectDirectory
 import java.nio.file.Path
 
 class NpmProjectScanner : ProjectScanner {
-
     private val mapper = ObjectMapper()
 
     // Scripts surfaced first, in this order; anything else follows alphabetically
@@ -26,27 +25,35 @@ class NpmProjectScanner : ProjectScanner {
             val scripts = root.path("scripts")
             if (!scripts.isMissingNode && scripts.isObject) {
                 val all = scripts.fieldNames().asSequence().toList()
-                val ordered = preferredScripts.filter { it in all } +
-                              all.filter { it !in preferredScripts }.sorted()
+                val ordered =
+                    preferredScripts.filter { it in all } +
+                        all.filter { it !in preferredScripts }.sorted()
                 ordered.forEach { script ->
-                    commands += CommandDescriptor(
-                        label = "npm run $script",
-                        buildTool = BuildTool.NPM,
-                        argv = npmRun(script, directory.path),
-                        workingDirectory = directory.path,
-                    )
+                    commands +=
+                        CommandDescriptor(
+                            label = "npm run $script",
+                            buildTool = BuildTool.NPM,
+                            argv = npmRun(script, directory.path),
+                            workingDirectory = directory.path,
+                        )
                 }
             }
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+        }
 
         // Always include install as a fallback command
-        commands += CommandDescriptor(
-            label = "npm install",
-            buildTool = BuildTool.NPM,
-            argv = if (IS_WINDOWS) listOf("cmd", "/c", "npm", "install")
-                   else listOf("npm", "install"),
-            workingDirectory = directory.path,
-        )
+        commands +=
+            CommandDescriptor(
+                label = "npm install",
+                buildTool = BuildTool.NPM,
+                argv =
+                    if (IS_WINDOWS) {
+                        listOf("cmd", "/c", "npm", "install")
+                    } else {
+                        listOf("npm", "install")
+                    },
+                workingDirectory = directory.path,
+            )
 
         return DetectedProject(
             directory = directory,
@@ -55,7 +62,13 @@ class NpmProjectScanner : ProjectScanner {
         )
     }
 
-    private fun npmRun(script: String, dir: String): List<String> =
-        if (IS_WINDOWS) listOf("cmd", "/c", "npm", "run", script)
-        else listOf("npm", "run", script)
+    private fun npmRun(
+        script: String,
+        dir: String,
+    ): List<String> =
+        if (IS_WINDOWS) {
+            listOf("cmd", "/c", "npm", "run", script)
+        } else {
+            listOf("npm", "run", script)
+        }
 }

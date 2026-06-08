@@ -7,7 +7,6 @@ import java.io.File
  * Returns files sorted by last-modified descending (newest first).
  */
 object LogFileScanner {
-
     private val LOG_DIRS = listOf("target", "logs", "log", "build", "out")
     private val LOG_PATTERN = Regex(""".*\.log(\.\d+)?$""", RegexOption.IGNORE_CASE)
 
@@ -24,7 +23,11 @@ object LogFileScanner {
         for (dirName in LOG_DIRS) {
             val dir = File(root, dirName)
             if (!dir.isDirectory) continue
-            dir.walkTopDown().maxDepth(2).filter { it.isFile && LOG_PATTERN.matches(it.name) }.forEach { found.add(it) }
+            dir
+                .walkTopDown()
+                .maxDepth(2)
+                .filter { it.isFile && LOG_PATTERN.matches(it.name) }
+                .forEach { found.add(it) }
         }
 
         return found.sortedByDescending { it.lastModified() }

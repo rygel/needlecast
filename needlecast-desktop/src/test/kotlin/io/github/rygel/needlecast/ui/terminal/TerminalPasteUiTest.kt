@@ -26,7 +26,6 @@ import javax.swing.JFrame
  * Never run locally without a virtual display.
  */
 class TerminalPasteUiTest {
-
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
     private lateinit var terminal: TerminalPanel
@@ -34,13 +33,14 @@ class TerminalPasteUiTest {
     @BeforeEach
     fun setUp() {
         robot = BasicRobot.robotWithNewAwtHierarchy()
-        val frame = GuiActionRunner.execute<JFrame> {
-            val f = JFrame("Terminal Paste Test")
-            terminal = TerminalPanel()
-            f.contentPane.add(terminal)
-            f.setSize(800, 600)
-            f
-        }
+        val frame =
+            GuiActionRunner.execute<JFrame> {
+                val f = JFrame("Terminal Paste Test")
+                terminal = TerminalPanel()
+                f.contentPane.add(terminal)
+                f.setSize(800, 600)
+                f
+            }
         fixture = FrameFixture(robot, frame)
         fixture.show()
         // Allow shell process to start and the terminal to settle
@@ -68,10 +68,13 @@ class TerminalPasteUiTest {
             pasteField.isAccessible = true
             @Suppress("UNCHECKED_CAST")
             val original = pasteField.get(widget) as? Function0<Unit>
-            pasteField.set(widget, {
-                original?.invoke()
-                pasteTriggered.countDown()
-            } as () -> Unit)
+            pasteField.set(
+                widget,
+                {
+                    original?.invoke()
+                    pasteTriggered.countDown()
+                } as () -> Unit,
+            )
         }
 
         // Put a known marker on the system clipboard
@@ -90,7 +93,7 @@ class TerminalPasteUiTest {
 
         assertTrue(
             pasteTriggered.await(5, TimeUnit.SECONDS),
-            "Ctrl+V must trigger the paste callback — the key event did not reach the paste handler"
+            "Ctrl+V must trigger the paste callback — the key event did not reach the paste handler",
         )
     }
 }

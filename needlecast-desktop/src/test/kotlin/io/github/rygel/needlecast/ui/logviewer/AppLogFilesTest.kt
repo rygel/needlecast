@@ -7,7 +7,6 @@ import kotlin.io.path.createFile
 import kotlin.io.path.name
 
 class AppLogFilesTest {
-
     @TempDir
     lateinit var dir: Path
 

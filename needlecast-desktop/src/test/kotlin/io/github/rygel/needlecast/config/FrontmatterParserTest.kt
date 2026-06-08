@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class FrontmatterParserTest {
-
     @Test
     fun `parses simple frontmatter`() {
         val raw = "---\nname: Hello\ndescription: A test\n---\nBody content here."

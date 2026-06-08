@@ -8,23 +8,23 @@ class SynchronizedScrollListener(
     private val source: JScrollPane,
     private val target: JScrollPane,
 ) : ChangeListener {
-
     @Volatile
     private var isSyncing = false
 
-    private val targetListener = ChangeListener { e ->
-        if (isSyncing) return@ChangeListener
-        isSyncing = true
-        try {
-            val targetBar = target.verticalScrollBar
-            val sourceBar = source.verticalScrollBar
-            if (targetBar.maximum == targetBar.minimum) return@ChangeListener
-            val ratio = targetBar.value.toDouble() / (targetBar.maximum - targetBar.visibleAmount).coerceAtLeast(1)
-            sourceBar.value = (ratio * (sourceBar.maximum - sourceBar.visibleAmount)).toInt()
-        } finally {
-            isSyncing = false
+    private val targetListener =
+        ChangeListener { e ->
+            if (isSyncing) return@ChangeListener
+            isSyncing = true
+            try {
+                val targetBar = target.verticalScrollBar
+                val sourceBar = source.verticalScrollBar
+                if (targetBar.maximum == targetBar.minimum) return@ChangeListener
+                val ratio = targetBar.value.toDouble() / (targetBar.maximum - targetBar.visibleAmount).coerceAtLeast(1)
+                sourceBar.value = (ratio * (sourceBar.maximum - sourceBar.visibleAmount)).toInt()
+            } finally {
+                isSyncing = false
+            }
         }
-    }
 
     override fun stateChanged(e: ChangeEvent?) {
         if (isSyncing) return

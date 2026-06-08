@@ -8,13 +8,16 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class SkillLibraryStoreTest {
-
     @Test
-    fun `loadLibrary reads skill directories`(@TempDir base: Path) {
+    fun `loadLibrary reads skill directories`(
+        @TempDir base: Path,
+    ) {
         val skillsDir = base.resolve("skills")
         val skillDir = skillsDir.resolve("kotlin-java")
         Files.createDirectories(skillDir)
-        Files.writeString(skillDir.resolve("SKILL.md"), """
+        Files.writeString(
+            skillDir.resolve("SKILL.md"),
+            """
             ---
             name: kotlin-java
             description: Use when writing Kotlin/Java code.
@@ -22,7 +25,8 @@ class SkillLibraryStoreTest {
             # Kotlin & Java
             
             Follow existing patterns.
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val store = SkillLibraryStore(skillsDir)
         val skills = store.loadLibrary()
@@ -34,23 +38,30 @@ class SkillLibraryStoreTest {
     }
 
     @Test
-    fun `loadLibrary returns empty when dir does not exist`(@TempDir base: Path) {
+    fun `loadLibrary returns empty when dir does not exist`(
+        @TempDir base: Path,
+    ) {
         val store = SkillLibraryStore(base.resolve("nonexistent"))
         assertTrue(store.loadLibrary().isEmpty())
     }
 
     @Test
-    fun `loadLibrary skips dirs without SKILL md`(@TempDir base: Path) {
+    fun `loadLibrary skips dirs without SKILL md`(
+        @TempDir base: Path,
+    ) {
         val skillsDir = base.resolve("skills")
         Files.createDirectories(skillsDir.resolve("no-skill-file"))
         Files.createDirectories(skillsDir.resolve("has-skill"))
-        Files.writeString(skillsDir.resolve("has-skill/SKILL.md"), """
+        Files.writeString(
+            skillsDir.resolve("has-skill/SKILL.md"),
+            """
             ---
             name: has-skill
             description: A skill.
             ---
             Body.
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val store = SkillLibraryStore(skillsDir)
         val skills = store.loadLibrary()
@@ -59,14 +70,17 @@ class SkillLibraryStoreTest {
     }
 
     @Test
-    fun `save creates skill directory and SKILL md`(@TempDir base: Path) {
+    fun `save creates skill directory and SKILL md`(
+        @TempDir base: Path,
+    ) {
         val skillsDir = base.resolve("skills")
         val store = SkillLibraryStore(skillsDir)
-        val entry = SkillEntry(
-            name = "cicd",
-            description = "Configure CI/CD pipelines.",
-            skillDir = skillsDir.resolve("cicd"),
-        )
+        val entry =
+            SkillEntry(
+                name = "cicd",
+                description = "Configure CI/CD pipelines.",
+                skillDir = skillsDir.resolve("cicd"),
+            )
         store.save(entry, "CI/CD instructions here.")
 
         val file = skillsDir.resolve("cicd/SKILL.md")
@@ -78,7 +92,9 @@ class SkillLibraryStoreTest {
     }
 
     @Test
-    fun `delete removes entire skill directory`(@TempDir base: Path) {
+    fun `delete removes entire skill directory`(
+        @TempDir base: Path,
+    ) {
         val skillsDir = base.resolve("skills")
         val skillDir = skillsDir.resolve("to-delete")
         Files.createDirectories(skillDir)
@@ -92,7 +108,9 @@ class SkillLibraryStoreTest {
     }
 
     @Test
-    fun `deploy creates symlink and undeploy removes it`(@TempDir base: Path) {
+    fun `deploy creates symlink and undeploy removes it`(
+        @TempDir base: Path,
+    ) {
         val skillsDir = base.resolve("skills")
         val skillDir = skillsDir.resolve("my-skill")
         Files.createDirectories(skillDir)
@@ -115,7 +133,9 @@ class SkillLibraryStoreTest {
     }
 
     @Test
-    fun `deployedSkills lists only links pointing to skills dir`(@TempDir base: Path) {
+    fun `deployedSkills lists only links pointing to skills dir`(
+        @TempDir base: Path,
+    ) {
         val skillsDir = base.resolve("skills")
         val skillA = skillsDir.resolve("skill-a")
         val skillB = skillsDir.resolve("skill-b")
@@ -136,7 +156,9 @@ class SkillLibraryStoreTest {
     }
 
     @Test
-    fun `deploy is idempotent`(@TempDir base: Path) {
+    fun `deploy is idempotent`(
+        @TempDir base: Path,
+    ) {
         val skillsDir = base.resolve("skills")
         val skillDir = skillsDir.resolve("s")
         Files.createDirectories(skillDir)

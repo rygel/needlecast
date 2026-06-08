@@ -27,49 +27,58 @@ class VariableResolutionDialog(
     variables: List<String>,
     private val onConfirm: (Map<String, String>) -> Unit,
 ) : JDialog(owner, "Fill in Placeholders", ModalityType.APPLICATION_MODAL) {
-
     private val fields: Map<String, JTextField> = variables.associateWith { JTextField(24) }
 
     init {
         defaultCloseOperation = DISPOSE_ON_CLOSE
 
-        val grid = JPanel(GridBagLayout()).apply {
-            border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-        }
+        val grid =
+            JPanel(GridBagLayout()).apply {
+                border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
+            }
         val gc = GridBagConstraints().apply { insets = Insets(4, 4, 4, 4) }
 
         fields.entries.forEachIndexed { row, (name, field) ->
             gc.gridy = row
 
-            gc.gridx = 0; gc.weightx = 0.0; gc.fill = GridBagConstraints.NONE
+            gc.gridx = 0
+            gc.weightx = 0.0
+            gc.fill = GridBagConstraints.NONE
             gc.anchor = GridBagConstraints.WEST
             grid.add(JLabel("$name:"), gc)
 
-            gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL
+            gc.gridx = 1
+            gc.weightx = 1.0
+            gc.fill = GridBagConstraints.HORIZONTAL
             grid.add(field, gc)
         }
 
-        val insertButton = JButton("Insert").apply {
-            addActionListener { confirm() }
-        }
-        val cancelButton = JButton("Cancel").apply {
-            addActionListener { dispose() }
-        }
+        val insertButton =
+            JButton("Insert").apply {
+                addActionListener { confirm() }
+            }
+        val cancelButton =
+            JButton("Cancel").apply {
+                addActionListener { dispose() }
+            }
 
-        val buttonBar = JPanel(FlowLayout(FlowLayout.RIGHT, 8, 6)).apply {
-            add(insertButton)
-            add(cancelButton)
-        }
+        val buttonBar =
+            JPanel(FlowLayout(FlowLayout.RIGHT, 8, 6)).apply {
+                add(insertButton)
+                add(cancelButton)
+            }
 
-        val hint = JLabel(
-            "<html><i>These placeholders were found in the prompt body. Fill them in to continue.</i></html>"
-        ).apply { border = BorderFactory.createEmptyBorder(0, 0, 4, 0) }
+        val hint =
+            JLabel(
+                "<html><i>These placeholders were found in the prompt body. Fill them in to continue.</i></html>",
+            ).apply { border = BorderFactory.createEmptyBorder(0, 0, 4, 0) }
 
-        val center = JPanel(BorderLayout(0, 8)).apply {
-            border = BorderFactory.createEmptyBorder(12, 12, 4, 12)
-            add(hint, BorderLayout.NORTH)
-            add(JScrollPane(grid).apply { border = BorderFactory.createEmptyBorder() }, BorderLayout.CENTER)
-        }
+        val center =
+            JPanel(BorderLayout(0, 8)).apply {
+                border = BorderFactory.createEmptyBorder(12, 12, 4, 12)
+                add(hint, BorderLayout.NORTH)
+                add(JScrollPane(grid).apply { border = BorderFactory.createEmptyBorder() }, BorderLayout.CENTER)
+            }
 
         add(center, BorderLayout.CENTER)
         add(buttonBar, BorderLayout.SOUTH)

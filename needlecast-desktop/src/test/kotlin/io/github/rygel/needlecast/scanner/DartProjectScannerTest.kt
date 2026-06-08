@@ -9,16 +9,19 @@ import java.io.File
 import java.nio.file.Path
 
 class DartProjectScannerTest {
-
     private val scanner = DartProjectScanner()
 
     @Test
-    fun `returns null when no pubspec_yaml`(@TempDir dir: Path) {
+    fun `returns null when no pubspec_yaml`(
+        @TempDir dir: Path,
+    ) {
         assertNull(scanner.scan(ProjectDirectory(dir.toString())))
     }
 
     @Test
-    fun `detects pure dart project`(@TempDir dir: Path) {
+    fun `detects pure dart project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "pubspec.yaml").writeText("name: my_app\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(setOf(BuildTool.PUB), result.buildTools)
@@ -28,13 +31,17 @@ class DartProjectScannerTest {
     }
 
     @Test
-    fun `detects flutter project`(@TempDir dir: Path) {
-        File(dir.toFile(), "pubspec.yaml").writeText("""
+    fun `detects flutter project`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "pubspec.yaml").writeText(
+            """
             name: my_app
             dependencies:
               flutter:
                 sdk: flutter
-        """.trimIndent())
+            """.trimIndent(),
+        )
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(setOf(BuildTool.FLUTTER), result.buildTools)
         assertTrue(result.commands.any { it.label == "flutter run" })

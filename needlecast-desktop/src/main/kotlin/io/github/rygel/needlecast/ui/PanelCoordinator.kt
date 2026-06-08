@@ -7,7 +7,6 @@ import io.github.rygel.needlecast.ui.settings.SettingsCallbacks
 import io.github.rygel.needlecast.ui.terminal.ClaudeHookServer
 import io.github.rygel.needlecast.ui.terminal.ClaudeUsageService
 import java.io.File
-import javax.swing.SwingUtilities
 import javax.swing.Timer
 
 class PanelCoordinator(
@@ -19,9 +18,10 @@ class PanelCoordinator(
     private var claudeUsageService: ClaudeUsageService? = null
 
     private var pendingProjectSelection: DetectedProject? = null
-    private val projectSelectionTimer = Timer(75) {
-        propagateProjectSelection(pendingProjectSelection)
-    }.apply { isRepeats = false }
+    private val projectSelectionTimer =
+        Timer(75) {
+            propagateProjectSelection(pendingProjectSelection)
+        }.apply { isRepeats = false }
 
     private var lastSelectedPath: String? = null
     private var lastSelectedCommandsKey: String? = null
@@ -42,7 +42,10 @@ class PanelCoordinator(
 
         registry.gitLogPanel.onCommitSelected = { result ->
             registry.diffViewerPanel.display(result)
-            if (docking.isEnabled() && !io.github.andrewauclair.moderndocking.app.Docking.isDocked(registry.diffDockable)) {
+            if (docking.isEnabled() &&
+                !io.github.andrewauclair.moderndocking.app.Docking
+                    .isDocked(registry.diffDockable)
+            ) {
                 docking.toggleDiff(true)
             }
         }
@@ -59,17 +62,24 @@ class PanelCoordinator(
         }
 
         if (ctx.config.claudeHooksEnabled) {
-            val server = ClaudeHookServer { cwd, status ->
-                terminalPanel.onHookEvent(cwd, status)
-            }
+            val server =
+                ClaudeHookServer { cwd, status ->
+                    terminalPanel.onHookEvent(cwd, status)
+                }
             claudeHookServer = server
             server.start()
             Thread({ ClaudeHookServer.installHooks(server.port) }, "claude-hooks-installer")
-                .apply { isDaemon = true; start() }
+                .apply {
+                    isDaemon = true
+                    start()
+                }
             terminalPanel.setUseHooksForStatus(true)
         } else {
             Thread({ ClaudeHookServer.uninstallHooks() }, "claude-hooks-cleanup")
-                .apply { isDaemon = true; start() }
+                .apply {
+                    isDaemon = true
+                    start()
+                }
         }
 
         if (ctx.config.claudeQuotaEnabled) {
@@ -120,19 +130,20 @@ class PanelCoordinator(
     fun createSettingsCallbacks(
         reloadShortcuts: () -> Unit,
         applyUiFont: () -> Unit,
-    ): SettingsCallbacks = SettingsCallbacks(
-        onShortcutsChanged      = { reloadShortcuts() },
-        onLayoutChanged         = { docking.resetLayout { registry.statusBar.setStatus(it) } },
-        onTerminalColorsChanged = { fg, bg -> registry.terminalPanel.applyTerminalColors(fg, bg) },
-        onFontSizeChanged       = { size -> registry.terminalPanel.applyFontSize(size) },
-        onUiFontChanged         = { _, _ -> applyUiFont() },
-        onEditorFontChanged     = { family, size -> registry.explorerPanel.applyEditorFont(family, size) },
-        onTerminalFontChanged   = { family -> registry.terminalPanel.applyFontFamily(family) },
-        onSyntaxThemeChanged    = { registry.explorerPanel.applyTheme(ThemeRegistry.isDark(ctx.config.theme)) },
-        onClaudeQuotaToggled    = { enabled ->
-            if (enabled) startUsageService() else stopUsageService()
-        },
-    )
+    ): SettingsCallbacks =
+        SettingsCallbacks(
+            onShortcutsChanged = { reloadShortcuts() },
+            onLayoutChanged = { docking.resetLayout { registry.statusBar.setStatus(it) } },
+            onTerminalColorsChanged = { fg, bg -> registry.terminalPanel.applyTerminalColors(fg, bg) },
+            onFontSizeChanged = { size -> registry.terminalPanel.applyFontSize(size) },
+            onUiFontChanged = { _, _ -> applyUiFont() },
+            onEditorFontChanged = { family, size -> registry.explorerPanel.applyEditorFont(family, size) },
+            onTerminalFontChanged = { family -> registry.terminalPanel.applyFontFamily(family) },
+            onSyntaxThemeChanged = { registry.explorerPanel.applyTheme(ThemeRegistry.isDark(ctx.config.theme)) },
+            onClaudeQuotaToggled = { enabled ->
+                if (enabled) startUsageService() else stopUsageService()
+            },
+        )
 
     fun triggerProjectSelection(project: DetectedProject?) {
         pendingProjectSelection = project
@@ -147,9 +158,10 @@ class PanelCoordinator(
     }
 
     fun startUsageService() {
-        val svc = ClaudeUsageService { data ->
-            registry.statusBar.updateQuota(data)
-        }
+        val svc =
+            ClaudeUsageService { data ->
+                registry.statusBar.updateQuota(data)
+            }
         claudeUsageService = svc
         svc.start()
     }

@@ -8,10 +8,10 @@ import io.github.rygel.needlecast.model.CommandOverride
 import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProcessResult
 import io.github.rygel.needlecast.process.ProcessOutputListener
-import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.service.CommandHistoryManager
 import io.github.rygel.needlecast.service.CommandQueue
 import io.github.rygel.needlecast.service.QueuedCommand
+import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
@@ -56,42 +56,64 @@ class CommandPanel(
     /** Returns true when the owning window is focused; used to suppress tray notifications. */
     private val isWindowFocused: () -> Boolean = { true },
 ) : JPanel(BorderLayout()) {
-
     private val commandModel = DefaultListModel<CommandDescriptor>()
     private val historyModel = DefaultListModel<CommandHistoryEntry>()
 
     private val commandQueue = CommandQueue()
     private val queueModel = DefaultListModel<String>()
 
-    private val commandList = JList(commandModel).apply {
-        selectionMode = ListSelectionModel.SINGLE_SELECTION
-        setCellRenderer(CommandCellRenderer())
-    }
-    private val historyList = JList(historyModel).apply {
-        selectionMode = ListSelectionModel.SINGLE_SELECTION
-        setCellRenderer(HistoryCellRenderer())
-    }
+    private val commandList =
+        JList(commandModel).apply {
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+            setCellRenderer(CommandCellRenderer())
+        }
+    private val historyList =
+        JList(historyModel).apply {
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+            setCellRenderer(HistoryCellRenderer())
+        }
 
-    private val runButton    = JButton(" Run").apply    { icon = RemixIcons.icon("ri-play-line", 16); isEnabled = false }
-    private val cancelButton = JButton(" Cancel").apply { icon = RemixIcons.icon("ri-stop-line", 16); isEnabled = false }
-    private val queueButton  = JButton(" Queue").apply  { icon = RemixIcons.icon("ri-play-circle-line", 16); isEnabled = false; toolTipText = "Add selected command to queue" }
-    private val historyToggle = JToggleButton(" History").apply { icon = RemixIcons.icon("ri-history-line", 16); isSelected = false }
-    private val queueToggle   = JToggleButton("\u25B6\u25B6 Queue").apply   { isSelected = false }
+    private val runButton =
+        JButton(" Run").apply {
+            icon = RemixIcons.icon("ri-play-line", 16)
+            isEnabled = false
+        }
+    private val cancelButton =
+        JButton(" Cancel").apply {
+            icon = RemixIcons.icon("ri-stop-line", 16)
+            isEnabled = false
+        }
+    private val queueButton =
+        JButton(" Queue").apply {
+            icon = RemixIcons.icon("ri-play-circle-line", 16)
+            isEnabled = false
+            toolTipText =
+                "Add selected command to queue"
+        }
+    private val historyToggle =
+        JToggleButton(" History").apply {
+            icon = RemixIcons.icon("ri-history-line", 16)
+            isSelected = false
+        }
+    private val queueToggle = JToggleButton("\u25B6\u25B6 Queue").apply { isSelected = false }
 
-    private val queueList = JList(queueModel).apply {
-        selectionMode = ListSelectionModel.SINGLE_SELECTION
-        font = Font(Font.MONOSPACED, Font.PLAIN, 10)
-        visibleRowCount = 4
-    }
-    private val clearQueueButton = JButton("Clear Queue").apply {
-        toolTipText = "Remove all queued commands"
-    }
-    private val queuePanel: JPanel = JPanel(BorderLayout(0, 2)).apply {
-        border = BorderFactory.createEmptyBorder(2, 0, 0, 0)
-        add(JScrollPane(queueList), BorderLayout.CENTER)
-        add(clearQueueButton, BorderLayout.SOUTH)
-        isVisible = false
-    }
+    private val queueList =
+        JList(queueModel).apply {
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+            font = Font(Font.MONOSPACED, Font.PLAIN, 10)
+            visibleRowCount = 4
+        }
+    private val clearQueueButton =
+        JButton("Clear Queue").apply {
+            toolTipText = "Remove all queued commands"
+        }
+    private val queuePanel: JPanel =
+        JPanel(BorderLayout(0, 2)).apply {
+            border = BorderFactory.createEmptyBorder(2, 0, 0, 0)
+            add(JScrollPane(queueList), BorderLayout.CENTER)
+            add(clearQueueButton, BorderLayout.SOUTH)
+            isVisible = false
+        }
 
     private val historyManager = CommandHistoryManager(ctx)
 
@@ -102,23 +124,26 @@ class CommandPanel(
     private val commandScroll = JScrollPane(commandList)
     private val historyScroll = JScrollPane(historyList).apply { isVisible = false }
 
-    private val readmeArea = JTextArea().apply {
-        isEditable = false
-        lineWrap = false
-        font = Font(Font.MONOSPACED, Font.PLAIN, 10)
-        border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
-    }
-    private val readmeScroll = JScrollPane(readmeArea).apply {
-        preferredSize = Dimension(0, 120)   // ~8 lines at 10pt mono; width is flexible
-        isVisible = false
-    }
+    private val readmeArea =
+        JTextArea().apply {
+            isEditable = false
+            lineWrap = false
+            font = Font(Font.MONOSPACED, Font.PLAIN, 10)
+            border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
+        }
+    private val readmeScroll =
+        JScrollPane(readmeArea).apply {
+            preferredSize = Dimension(0, 120) // ~8 lines at 10pt mono; width is flexible
+            isVisible = false
+        }
 
     init {
         if (showTitle) {
-            val header = JLabel("Commands").apply {
-                border = BorderFactory.createEmptyBorder(4, 6, 2, 6)
-                font = font.deriveFont(Font.BOLD)
-            }
+            val header =
+                JLabel("Commands").apply {
+                    border = BorderFactory.createEmptyBorder(4, 6, 2, 6)
+                    font = font.deriveFont(Font.BOLD)
+                }
             add(header, BorderLayout.NORTH)
         }
 
@@ -132,67 +157,78 @@ class CommandPanel(
         }
 
         // Double-click command to run it; right-click shows context menu
-        commandList.addMouseListener(object : java.awt.event.MouseAdapter() {
-            override fun mouseClicked(e: java.awt.event.MouseEvent) {
-                if (e.clickCount == 2 && SwingUtilities.isLeftMouseButton(e)) runSelected()
-            }
-            override fun mousePressed(e: java.awt.event.MouseEvent) {
-                if (SwingUtilities.isRightMouseButton(e)) {
-                    val idx = commandList.locationToIndex(e.point)
-                    if (idx >= 0) commandList.selectedIndex = idx
-                    showCommandContextMenu(e)
+        commandList.addMouseListener(
+            object : java.awt.event.MouseAdapter() {
+                override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                    if (e.clickCount == 2 && SwingUtilities.isLeftMouseButton(e)) runSelected()
                 }
-            }
-        })
+
+                override fun mousePressed(e: java.awt.event.MouseEvent) {
+                    if (SwingUtilities.isRightMouseButton(e)) {
+                        val idx = commandList.locationToIndex(e.point)
+                        if (idx >= 0) commandList.selectedIndex = idx
+                        showCommandContextMenu(e)
+                    }
+                }
+            },
+        )
 
         // Double-click history entry to re-run
-        historyList.addMouseListener(object : java.awt.event.MouseAdapter() {
-            override fun mouseClicked(e: java.awt.event.MouseEvent) {
-                if (e.clickCount == 2) rerunHistoryEntry()
+        historyList.addMouseListener(
+            object : java.awt.event.MouseAdapter() {
+                override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                    if (e.clickCount == 2) rerunHistoryEntry()
+                }
+            },
+        )
+
+        val buttonBar =
+            JToolBar().apply {
+                isFloatable = false
+                add(runButton)
+                add(cancelButton)
+                add(queueButton)
+                addSeparator()
+                add(historyToggle)
+                add(queueToggle)
             }
-        })
 
-        val buttonBar = JToolBar().apply {
-            isFloatable = false
-            add(runButton)
-            add(cancelButton)
-            add(queueButton)
-            addSeparator()
-            add(historyToggle)
-            add(queueToggle)
-        }
+        val listPanel =
+            JPanel(BorderLayout()).apply {
+                add(commandScroll, BorderLayout.CENTER)
+                add(historyScroll, BorderLayout.SOUTH)
+            }
 
-        val listPanel = JPanel(BorderLayout()).apply {
-            add(commandScroll, BorderLayout.CENTER)
-            add(historyScroll, BorderLayout.SOUTH)
-        }
+        val centerPanel =
+            JPanel(BorderLayout()).apply {
+                add(listPanel, BorderLayout.CENTER)
+                add(readmeScroll, BorderLayout.SOUTH)
+            }
 
-        val centerPanel = JPanel(BorderLayout()).apply {
-            add(listPanel, BorderLayout.CENTER)
-            add(readmeScroll, BorderLayout.SOUTH)
-        }
-
-        val southPanel = JPanel(BorderLayout()).apply {
-            add(buttonBar, BorderLayout.NORTH)
-            add(queuePanel, BorderLayout.SOUTH)
-        }
+        val southPanel =
+            JPanel(BorderLayout()).apply {
+                add(buttonBar, BorderLayout.NORTH)
+                add(queuePanel, BorderLayout.SOUTH)
+            }
 
         add(centerPanel, BorderLayout.CENTER)
         add(southPanel, BorderLayout.SOUTH)
 
-        runButton.addActionListener    { runSelected() }
+        runButton.addActionListener { runSelected() }
         cancelButton.addActionListener { cancelRunning() }
-        queueButton.addActionListener  { enqueueSelected() }
+        queueButton.addActionListener { enqueueSelected() }
         clearQueueButton.addActionListener { clearQueue() }
 
         historyToggle.addActionListener {
             historyScroll.isVisible = historyToggle.isSelected
-            revalidate(); repaint()
+            revalidate()
+            repaint()
         }
 
         queueToggle.addActionListener {
             queuePanel.isVisible = queueToggle.isSelected
-            revalidate(); repaint()
+            revalidate()
+            repaint()
         }
     }
 
@@ -214,7 +250,8 @@ class CommandPanel(
         if (commandModel.size > 0) commandList.selectedIndex = 0
 
         // Load saved history for this project
-        historyManager.getHistory(project.directory.path)
+        historyManager
+            .getHistory(project.directory.path)
             .forEach { historyModel.addElement(it) }
     }
 
@@ -224,14 +261,21 @@ class CommandPanel(
         if (projectPath == null) return
         object : SwingWorker<String?, Void>() {
             override fun doInBackground(): String? {
-                val file = listOf("README.md", "readme.md", "README.txt", "readme.txt")
-                    .map { File(projectPath, it) }
-                    .firstOrNull { it.exists() && it.isFile } ?: return null
+                val file =
+                    listOf("README.md", "readme.md", "README.txt", "readme.txt")
+                        .map { File(projectPath, it) }
+                        .firstOrNull { it.exists() && it.isFile } ?: return null
                 return file.bufferedReader().useLines { it.take(20).joinToString("\n") }
             }
+
             override fun done() {
-                if (currentProjectPath != projectPath) return  // user switched away
-                val preview = try { get() } catch (_: Exception) { return }
+                if (currentProjectPath != projectPath) return // user switched away
+                val preview =
+                    try {
+                        get()
+                    } catch (_: Exception) {
+                        return
+                    }
                 if (preview != null) {
                     readmeArea.text = preview
                     readmeArea.caretPosition = 0
@@ -254,7 +298,11 @@ class CommandPanel(
         executeCommand(entry.label, entry.argv, entry.workingDirectory)
     }
 
-    private fun executeCommand(label: String, argv: List<String>, workingDir: String) {
+    private fun executeCommand(
+        label: String,
+        argv: List<String>,
+        workingDir: String,
+    ) {
         consolePanel.clear()
         consolePanel.appendLine("> ${argv.joinToString(" ")}")
         consolePanel.appendLine("")
@@ -265,28 +313,30 @@ class CommandPanel(
 
         val startTime = System.currentTimeMillis()
 
-        val listener = object : ProcessOutputListener {
-            override fun onLine(line: String) {
-                SwingUtilities.invokeLater { consolePanel.appendLine(line) }
-            }
-            override fun onExit(exitCode: Int) {
-                SwingUtilities.invokeLater {
-                    consolePanel.appendLine("")
-                    consolePanel.appendLine("[Process exited with code $exitCode]")
-                    statusBar.setFinished(exitCode)
-                    processResult = ProcessResult.Finished(exitCode)
-                    runButton.isEnabled = commandList.selectedValue?.isSupported == true
-                    cancelButton.isEnabled = false
-                    recordHistory(CommandHistoryEntry(label, argv, workingDir, exitCode, startTime))
-                    if (!isWindowFocused()) {
-                        val msg = if (exitCode == 0) "'$label' finished successfully" else "'$label' failed (exit $exitCode)"
-                        val type = if (exitCode == 0) TrayIcon.MessageType.INFO else TrayIcon.MessageType.ERROR
-                        TrayNotifier.notify("QuickLaunch", msg, type)
+        val listener =
+            object : ProcessOutputListener {
+                override fun onLine(line: String) {
+                    SwingUtilities.invokeLater { consolePanel.appendLine(line) }
+                }
+
+                override fun onExit(exitCode: Int) {
+                    SwingUtilities.invokeLater {
+                        consolePanel.appendLine("")
+                        consolePanel.appendLine("[Process exited with code $exitCode]")
+                        statusBar.setFinished(exitCode)
+                        processResult = ProcessResult.Finished(exitCode)
+                        runButton.isEnabled = commandList.selectedValue?.isSupported == true
+                        cancelButton.isEnabled = false
+                        recordHistory(CommandHistoryEntry(label, argv, workingDir, exitCode, startTime))
+                        if (!isWindowFocused()) {
+                            val msg = if (exitCode == 0) "'$label' finished successfully" else "'$label' failed (exit $exitCode)"
+                            val type = if (exitCode == 0) TrayIcon.MessageType.INFO else TrayIcon.MessageType.ERROR
+                            TrayNotifier.notify("QuickLaunch", msg, type)
+                        }
+                        drainQueue()
                     }
-                    drainQueue()
                 }
             }
-        }
 
         val descriptor = CommandDescriptor(label, BuildTool.MAVEN, argv, workingDir, currentProjectEnv)
         val running = ctx.commandRunner.run(descriptor, listener)
@@ -319,7 +369,8 @@ class CommandPanel(
         if (!queueToggle.isSelected) {
             queueToggle.isSelected = true
             queuePanel.isVisible = true
-            revalidate(); repaint()
+            revalidate()
+            repaint()
         }
     }
 
@@ -339,21 +390,27 @@ class CommandPanel(
         val supported = cmd?.isSupported == true
         val notRunning = processResult !is ProcessResult.Running
         val menu = JPopupMenu()
-        menu.add(JMenuItem("\u25B6  Run").apply {
-            icon = RemixIcons.icon("ri-play-line", 12)
-            isEnabled = supported && notRunning
-            addActionListener { runSelected() }
-        })
-        menu.add(JMenuItem("\u25B6\u25B6  Queue").apply {
-            icon = RemixIcons.icon("ri-play-circle-line", 12)
-            isEnabled = supported
-            addActionListener { enqueueSelected() }
-        })
+        menu.add(
+            JMenuItem("\u25B6  Run").apply {
+                icon = RemixIcons.icon("ri-play-line", 12)
+                isEnabled = supported && notRunning
+                addActionListener { runSelected() }
+            },
+        )
+        menu.add(
+            JMenuItem("\u25B6\u25B6  Queue").apply {
+                icon = RemixIcons.icon("ri-play-circle-line", 12)
+                isEnabled = supported
+                addActionListener { enqueueSelected() }
+            },
+        )
         menu.addSeparator()
-        menu.add(JMenuItem("Edit\u2026").apply {
-            isEnabled = cmd != null
-            addActionListener { editSelectedCommand() }
-        })
+        menu.add(
+            JMenuItem("Edit\u2026").apply {
+                isEnabled = cmd != null
+                addActionListener { editSelectedCommand() }
+            },
+        )
         menu.show(commandList, e.x, e.y)
     }
 
@@ -370,22 +427,25 @@ class CommandPanel(
         val workDir = currentProjectPath ?: return
         // Resolve the true originalArgv: if this command was already overridden,
         // find the stored override whose .argv matches the current commandModel argv
-        val trueOriginalArgv = ctx.config.commandOverrides[workDir]
-            ?.firstOrNull { it.argv == original.argv }
-            ?.originalArgv
-            ?: original.argv
-        val newOverride = CommandOverride(
-            originalArgv = trueOriginalArgv,
-            label = updated.label,
-            argv = updated.argv,
-        )
-        val existing = ctx.config.commandOverrides[workDir]
-            ?.filterNot { it.originalArgv == trueOriginalArgv }
-            ?: emptyList()
+        val trueOriginalArgv =
+            ctx.config.commandOverrides[workDir]
+                ?.firstOrNull { it.argv == original.argv }
+                ?.originalArgv
+                ?: original.argv
+        val newOverride =
+            CommandOverride(
+                originalArgv = trueOriginalArgv,
+                label = updated.label,
+                argv = updated.argv,
+            )
+        val existing =
+            ctx.config.commandOverrides[workDir]
+                ?.filterNot { it.originalArgv == trueOriginalArgv }
+                ?: emptyList()
         ctx.updateConfig(
             ctx.config.copy(
-                commandOverrides = ctx.config.commandOverrides + (workDir to (existing + newOverride))
-            )
+                commandOverrides = ctx.config.commandOverrides + (workDir to (existing + newOverride)),
+            ),
         )
     }
 }
@@ -395,13 +455,14 @@ class CommandPanel(
  * The edited command is session-only — scanners will regenerate the original on next project load.
  * [result] is non-null only when the user clicks OK with a non-empty label.
  */
-private class EditCommandDialog(owner: Window?, private val cmd: CommandDescriptor) :
-    JDialog(owner, "Edit Command", ModalityType.APPLICATION_MODAL) {
-
+private class EditCommandDialog(
+    owner: Window?,
+    private val cmd: CommandDescriptor,
+) : JDialog(owner, "Edit Command", ModalityType.APPLICATION_MODAL) {
     var result: CommandDescriptor? = null
         private set
 
-    private val labelField   = JTextField(cmd.label, 30)
+    private val labelField = JTextField(cmd.label, 30)
     private val commandField = JTextField(cmd.argv.joinToString(" "), 40)
 
     init {
@@ -409,32 +470,45 @@ private class EditCommandDialog(owner: Window?, private val cmd: CommandDescript
         minimumSize = Dimension(480, 160)
         setLocationRelativeTo(owner)
 
-        val grid = JPanel(GridBagLayout()).apply {
-            border = BorderFactory.createEmptyBorder(12, 12, 8, 12)
-        }
+        val grid =
+            JPanel(GridBagLayout()).apply {
+                border = BorderFactory.createEmptyBorder(12, 12, 8, 12)
+            }
         val gc = GridBagConstraints().apply { insets = Insets(4, 4, 4, 4) }
 
-        fun row(r: Int, labelText: String, field: Component) {
-            gc.gridy = r; gc.gridx = 0; gc.weightx = 0.0
-            gc.anchor = GridBagConstraints.WEST; gc.fill = GridBagConstraints.NONE
+        fun row(
+            r: Int,
+            labelText: String,
+            field: Component,
+        ) {
+            gc.gridy = r
+            gc.gridx = 0
+            gc.weightx = 0.0
+            gc.anchor = GridBagConstraints.WEST
+            gc.fill = GridBagConstraints.NONE
             grid.add(JLabel(labelText), gc)
-            gc.gridx = 1; gc.weightx = 1.0; gc.fill = GridBagConstraints.HORIZONTAL
+            gc.gridx = 1
+            gc.weightx = 1.0
+            gc.fill = GridBagConstraints.HORIZONTAL
             grid.add(field, gc)
         }
 
-        row(0, "Label:",   labelField)
+        row(0, "Label:", labelField)
         row(1, "Command:", commandField)
 
-        val ok     = JButton("OK").apply     { addActionListener { onOk() } }
+        val ok = JButton("OK").apply { addActionListener { onOk() } }
         val cancel = JButton("Cancel").apply { addActionListener { dispose() } }
-        val buttons = JPanel(FlowLayout(FlowLayout.RIGHT, 6, 4)).apply {
-            add(ok); add(cancel)
-        }
+        val buttons =
+            JPanel(FlowLayout(FlowLayout.RIGHT, 6, 4)).apply {
+                add(ok)
+                add(cancel)
+            }
 
-        contentPane = JPanel(BorderLayout()).apply {
-            add(grid,    BorderLayout.CENTER)
-            add(buttons, BorderLayout.SOUTH)
-        }
+        contentPane =
+            JPanel(BorderLayout()).apply {
+                add(grid, BorderLayout.CENTER)
+                add(buttons, BorderLayout.SOUTH)
+            }
         pack()
         rootPane.defaultButton = ok
     }
@@ -445,7 +519,11 @@ private class EditCommandDialog(owner: Window?, private val cmd: CommandDescript
             JOptionPane.showMessageDialog(this, "Label must not be empty.", "Validation", JOptionPane.WARNING_MESSAGE)
             return
         }
-        val argv = commandField.text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val argv =
+            commandField.text
+                .trim()
+                .split(Regex("\\s+"))
+                .filter { it.isNotEmpty() }
         if (argv.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Command must not be empty.", "Validation", JOptionPane.WARNING_MESSAGE)
             return
@@ -479,37 +557,61 @@ private object TrayNotifier {
     private val trayIcon: TrayIcon? by lazy {
         if (!SystemTray.isSupported()) return@lazy null
         try {
-            val img = TrayNotifier::class.java.getResource("/icons/needlecast.png")
-                ?.let { javax.imageio.ImageIO.read(it).getScaledInstance(16, 16, java.awt.Image.SCALE_SMOOTH) }
-                ?: BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
+            val img =
+                TrayNotifier::class.java
+                    .getResource("/icons/needlecast.png")
+                    ?.let {
+                        javax.imageio.ImageIO
+                            .read(it)
+                            .getScaledInstance(16, 16, java.awt.Image.SCALE_SMOOTH)
+                    }
+                    ?: BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
             val icon = TrayIcon(img, "Needlecast")
             SystemTray.getSystemTray().add(icon)
             icon
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
-    fun notify(caption: String, text: String, type: TrayIcon.MessageType) {
-        try { trayIcon?.displayMessage(caption, text, type) } catch (_: Exception) {}
+    fun notify(
+        caption: String,
+        text: String,
+        type: TrayIcon.MessageType,
+    ) {
+        try {
+            trayIcon?.displayMessage(caption, text, type)
+        } catch (_: Exception) {
+        }
     }
 }
 
 private class CommandCellRenderer : ListCellRenderer<CommandDescriptor> {
-    private val label = JLabel().apply {
-        border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
-    }
+    private val label =
+        JLabel().apply {
+            border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
+        }
 
     override fun getListCellRendererComponent(
-        list: JList<out CommandDescriptor>, value: CommandDescriptor?,
-        index: Int, isSelected: Boolean, cellHasFocus: Boolean,
+        list: JList<out CommandDescriptor>,
+        value: CommandDescriptor?,
+        index: Int,
+        isSelected: Boolean,
+        cellHasFocus: Boolean,
     ): Component {
         label.text = (value?.label ?: "").toHtmlLabel()
-        label.toolTipText = if (value?.isSupported == true) value.argv.joinToString(" ")
-                            else "This run configuration type is not directly executable"
-        label.foreground = when {
-            isSelected -> list.selectionForeground
-            value?.isSupported == false -> Color.GRAY
-            else -> list.foreground
-        }
+        label.toolTipText =
+            if (value?.isSupported == true) {
+                value.argv.joinToString(" ")
+            } else {
+                "This run configuration type is not directly executable"
+            }
+        label.foreground =
+            when {
+                isSelected -> list.selectionForeground
+                value?.isSupported == false -> Color.GRAY
+                else -> list.foreground
+            }
         label.background = if (isSelected) list.selectionBackground else list.background
         label.isOpaque = true
         return label
@@ -519,17 +621,24 @@ private class CommandCellRenderer : ListCellRenderer<CommandDescriptor> {
 private val timeFmt = SimpleDateFormat("HH:mm")
 
 private class HistoryCellRenderer : ListCellRenderer<CommandHistoryEntry> {
-    private val panel     = JPanel(BorderLayout(6, 0)).apply {
-        border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
-    }
+    private val panel =
+        JPanel(BorderLayout(6, 0)).apply {
+            border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
+        }
     private val nameLabel = JLabel().apply { font = font.deriveFont(Font.PLAIN, 11f) }
-    private val metaLabel = JLabel().apply { font = font.deriveFont(Font.PLAIN,  9f) }
+    private val metaLabel = JLabel().apply { font = font.deriveFont(Font.PLAIN, 9f) }
 
-    init { panel.add(nameLabel, BorderLayout.CENTER); panel.add(metaLabel, BorderLayout.EAST) }
+    init {
+        panel.add(nameLabel, BorderLayout.CENTER)
+        panel.add(metaLabel, BorderLayout.EAST)
+    }
 
     override fun getListCellRendererComponent(
-        list: JList<out CommandHistoryEntry>, value: CommandHistoryEntry?,
-        index: Int, isSelected: Boolean, cellHasFocus: Boolean,
+        list: JList<out CommandHistoryEntry>,
+        value: CommandHistoryEntry?,
+        index: Int,
+        isSelected: Boolean,
+        cellHasFocus: Boolean,
     ): Component {
         nameLabel.text = (value?.label ?: "").toHtmlLabel()
         metaLabel.text = value?.let {
@@ -539,12 +648,13 @@ private class HistoryCellRenderer : ListCellRenderer<CommandHistoryEntry> {
         } ?: ""
         val bg = if (isSelected) list.selectionBackground else list.background
         nameLabel.foreground = if (isSelected) list.selectionForeground else list.foreground
-        panel.background = bg; nameLabel.background = bg; metaLabel.background = bg
+        panel.background = bg
+        nameLabel.background = bg
+        metaLabel.background = bg
         panel.isOpaque = true
         return panel
     }
 }
 
 /** Wraps text in HTML so Java's platform font-fallback chain (incl. emoji) is active. */
-private fun String.toHtmlLabel(): String =
-    "<html>${replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}</html>"
+private fun String.toHtmlLabel(): String = "<html>${replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}</html>"

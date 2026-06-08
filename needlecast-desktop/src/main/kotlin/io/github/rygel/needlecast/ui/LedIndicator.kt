@@ -19,7 +19,6 @@ import javax.swing.JComponent
  * before each render call, no repaint() needed.
  */
 class LedIndicator : JComponent() {
-
     var status: AgentStatus = AgentStatus.NONE
     var blinkOn: Boolean = true
 
@@ -29,15 +28,16 @@ class LedIndicator : JComponent() {
     }
 
     override fun getPreferredSize(): Dimension = Dimension(SIZE, SIZE)
-    override fun getMinimumSize():   Dimension = Dimension(SIZE, SIZE)
+
+    override fun getMinimumSize(): Dimension = Dimension(SIZE, SIZE)
 
     override fun paintComponent(g: Graphics) {
         val g2 = g.create() as Graphics2D
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
 
-        val cx = width  / 2
+        val cx = width / 2
         val cy = height / 2
-        val r  = LED_R
+        val r = LED_R
 
         when (status) {
             AgentStatus.NONE -> { /* hidden — caller sets isVisible = false */ }
@@ -58,8 +58,8 @@ class LedIndicator : JComponent() {
             }
 
             AgentStatus.THINKING -> {
-                val body      = if (blinkOn) GREEN_BRIGHT else GREEN_DIM
-                val glow      = if (blinkOn) GREEN_GLOW_ON else GREEN_GLOW_OFF
+                val body = if (blinkOn) GREEN_BRIGHT else GREEN_DIM
+                val glow = if (blinkOn) GREEN_GLOW_ON else GREEN_GLOW_OFF
                 val shineAlpha = if (blinkOn) 170 else 70
                 // Outer glow
                 g2.color = glow
@@ -80,17 +80,17 @@ class LedIndicator : JComponent() {
     }
 
     companion object {
-        const val SIZE  = 12          // component footprint (px)
-        const val LED_R =  4          // LED radius (px)
+        const val SIZE = 12 // component footprint (px)
+        const val LED_R = 4 // LED radius (px)
 
-        private val AMBER       = Color(0xFF, 0xA0, 0x00)
-        private val AMBER_DARK  = Color(0xCC, 0x70, 0x00)
-        private val AMBER_GLOW  = Color(0xFF, 0xA0, 0x00, 50)
+        private val AMBER = Color(0xFF, 0xA0, 0x00)
+        private val AMBER_DARK = Color(0xCC, 0x70, 0x00)
+        private val AMBER_GLOW = Color(0xFF, 0xA0, 0x00, 50)
 
-        private val GREEN_BRIGHT   = Color(0x4C, 0xAF, 0x50)
-        private val GREEN_DIM      = Color(0x2E, 0x7D, 0x32)
-        private val GREEN_DARK     = Color(0x1B, 0x5E, 0x20)
-        private val GREEN_GLOW_ON  = Color(0x4C, 0xAF, 0x50, 70)
+        private val GREEN_BRIGHT = Color(0x4C, 0xAF, 0x50)
+        private val GREEN_DIM = Color(0x2E, 0x7D, 0x32)
+        private val GREEN_DARK = Color(0x1B, 0x5E, 0x20)
+        private val GREEN_GLOW_ON = Color(0x4C, 0xAF, 0x50, 70)
         private val GREEN_GLOW_OFF = Color(0x4C, 0xAF, 0x50, 15)
 
         private val SHINE = Color(255, 255, 255, 140)

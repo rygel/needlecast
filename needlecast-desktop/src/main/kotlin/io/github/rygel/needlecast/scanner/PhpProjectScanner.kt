@@ -13,7 +13,6 @@ import java.nio.file.Path
  * Extracts Composer scripts and detects Laravel (artisan).
  */
 class PhpProjectScanner : ProjectScanner {
-
     private val mapper = ObjectMapper()
 
     override fun scan(directory: ProjectDirectory): DetectedProject? {
@@ -32,14 +31,17 @@ class PhpProjectScanner : ProjectScanner {
             val root = mapper.readTree(composerJson)
             val scripts = root.path("scripts")
             if (!scripts.isMissingNode && scripts.isObject) {
-                scripts.fieldNames().asSequence()
+                scripts
+                    .fieldNames()
+                    .asSequence()
                     .filter { !it.startsWith("pre-") && !it.startsWith("post-") }
                     .sorted()
                     .forEach { script ->
                         commands += cmd("composer run $script", directory, "composer", "run", script)
                     }
             }
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+        }
 
         // Laravel detection
         if (hasArtisan) {
@@ -58,8 +60,15 @@ class PhpProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, BuildTool.COMPOSER,
+    private fun cmd(
+        label: String,
+        dir: ProjectDirectory,
+        vararg args: String,
+    ): CommandDescriptor =
+        CommandDescriptor(
+            label,
+            BuildTool.COMPOSER,
             if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path)
+            dir.path,
+        )
 }

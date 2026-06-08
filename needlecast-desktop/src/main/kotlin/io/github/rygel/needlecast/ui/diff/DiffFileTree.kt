@@ -16,7 +16,6 @@ import javax.swing.tree.DefaultTreeModel
 import javax.swing.tree.TreeSelectionModel
 
 class DiffFileTree : JTree() {
-
     private val rootNode = DefaultMutableTreeNode("Changed Files")
     private val treeModel = DefaultTreeModel(rootNode)
 
@@ -38,17 +37,19 @@ class DiffFileTree : JTree() {
             onFileSelected?.invoke(index)
         }
 
-        addMouseListener(object : MouseAdapter() {
-            override fun mouseClicked(e: MouseEvent) {
-                if (e.clickCount != 2) return
-                val path = getPathForLocation(e.x, e.y) ?: return
-                val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return
-                val index = node.userObject as? Int ?: return
-                if (index < fileDiffs.size) {
-                    onFileDoubleClicked?.invoke(fileDiffs[index].filePath)
+        addMouseListener(
+            object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) {
+                    if (e.clickCount != 2) return
+                    val path = getPathForLocation(e.x, e.y) ?: return
+                    val node = path.lastPathComponent as? DefaultMutableTreeNode ?: return
+                    val index = node.userObject as? Int ?: return
+                    if (index < fileDiffs.size) {
+                        onFileDoubleClicked?.invoke(fileDiffs[index].filePath)
+                    }
                 }
-            }
-        })
+            },
+        )
     }
 
     fun setFiles(files: List<FileDiff>) {
@@ -72,16 +73,22 @@ class DiffFileTree : JTree() {
     private inner class FileNodeRenderer : DefaultTreeCellRenderer() {
         private val nameLabel = JLabel().apply { font = Font(Font.SANS_SERIF, Font.PLAIN, 11) }
         private val statsLabel = JLabel().apply { font = Font(Font.MONOSPACED, Font.PLAIN, 10) }
-        private val panel = JPanel(BorderLayout(4, 0)).apply {
-            border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
-            isOpaque = true
-            add(nameLabel, BorderLayout.CENTER)
-            add(statsLabel, BorderLayout.EAST)
-        }
+        private val panel =
+            JPanel(BorderLayout(4, 0)).apply {
+                border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
+                isOpaque = true
+                add(nameLabel, BorderLayout.CENTER)
+                add(statsLabel, BorderLayout.EAST)
+            }
 
         override fun getTreeCellRendererComponent(
-            tree: JTree, value: Any, sel: Boolean, expanded: Boolean,
-            leaf: Boolean, row: Int, hasFocus: Boolean,
+            tree: JTree,
+            value: Any,
+            sel: Boolean,
+            expanded: Boolean,
+            leaf: Boolean,
+            row: Int,
+            hasFocus: Boolean,
         ): Component {
             val index = (value as? DefaultMutableTreeNode)?.userObject as? Int
             if (index == null || index >= fileDiffs.size) return panel
@@ -90,11 +97,12 @@ class DiffFileTree : JTree() {
             val slashIdx = file.filePath.lastIndexOf('/')
             nameLabel.text = if (slashIdx >= 0) file.filePath.substring(slashIdx + 1) else file.filePath
 
-            val stats = buildString {
-                if (file.additions > 0) append("+${file.additions}")
-                if (file.additions > 0 && file.deletions > 0) append(" ")
-                if (file.deletions > 0) append("-${file.deletions}")
-            }
+            val stats =
+                buildString {
+                    if (file.additions > 0) append("+${file.additions}")
+                    if (file.additions > 0 && file.deletions > 0) append(" ")
+                    if (file.deletions > 0) append("-${file.deletions}")
+                }
             statsLabel.text = stats
 
             val selFg = javax.swing.UIManager.getColor("Tree.selectionForeground")

@@ -24,11 +24,17 @@ class GitAutoSync(
         return ChronoUnit.MINUTES.between(last, Instant.now()) >= intervalMinutes
     }
 
-    fun recordFetch(projectPath: String, time: Instant = Instant.now()) {
+    fun recordFetch(
+        projectPath: String,
+        time: Instant = Instant.now(),
+    ) {
         lastFetch[projectPath] = time
     }
 
-    fun fetchIfNeeded(projectPath: String, onLine: (String) -> Unit = {}) {
+    fun fetchIfNeeded(
+        projectPath: String,
+        onLine: (String) -> Unit = {},
+    ) {
         if (!shouldFetch(projectPath)) return
         recordFetch(projectPath)
         val service = _gitService ?: return

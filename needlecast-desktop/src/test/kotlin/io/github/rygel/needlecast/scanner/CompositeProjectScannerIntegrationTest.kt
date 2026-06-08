@@ -9,18 +9,21 @@ import java.io.File
 import java.nio.file.Path
 
 class CompositeProjectScannerIntegrationTest {
-
     private val scanner = CompositeProjectScanner()
 
     @Test
-    fun `returns empty project for unrecognised directory`(@TempDir dir: Path) {
+    fun `returns empty project for unrecognised directory`(
+        @TempDir dir: Path,
+    ) {
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         assertTrue(result.buildTools.isEmpty())
         assertTrue(result.commands.isEmpty())
     }
 
     @Test
-    fun `detects Maven project`(@TempDir dir: Path) {
+    fun `detects Maven project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "pom.xml").writeText("<project/>")
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         assertTrue(BuildTool.MAVEN in result.buildTools)
@@ -28,21 +31,27 @@ class CompositeProjectScannerIntegrationTest {
     }
 
     @Test
-    fun `detects Gradle project`(@TempDir dir: Path) {
+    fun `detects Gradle project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "build.gradle").writeText("")
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         assertTrue(BuildTool.GRADLE in result.buildTools)
     }
 
     @Test
-    fun `detects npm project`(@TempDir dir: Path) {
+    fun `detects npm project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "package.json").writeText("""{"scripts":{"dev":"vite"}}""")
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         assertTrue(BuildTool.NPM in result.buildTools)
     }
 
     @Test
-    fun `merges build tools and commands for Maven and npm monorepo`(@TempDir dir: Path) {
+    fun `merges build tools and commands for Maven and npm monorepo`(
+        @TempDir dir: Path,
+    ) {
         // Root has both pom.xml and package.json (e.g. a full-stack monorepo)
         File(dir.toFile(), "pom.xml").writeText("<project/>")
         File(dir.toFile(), "package.json").writeText("""{"scripts":{"build":"webpack"}}""")
@@ -56,14 +65,18 @@ class CompositeProjectScannerIntegrationTest {
     }
 
     @Test
-    fun `detects DotNet project`(@TempDir dir: Path) {
+    fun `detects DotNet project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "App.csproj").writeText("<Project/>")
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         assertTrue(BuildTool.DOTNET in result.buildTools)
     }
 
     @Test
-    fun `all commands have correct working directory`(@TempDir dir: Path) {
+    fun `all commands have correct working directory`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "pom.xml").writeText("<project/>")
         File(dir.toFile(), "package.json").writeText("""{"scripts":{"start":"node ."}}""")
         val result = scanner.scan(ProjectDirectory(dir.toString()))
@@ -71,14 +84,17 @@ class CompositeProjectScannerIntegrationTest {
     }
 
     @Test
-    fun `one scanner throwing does not suppress other scanners results`(@TempDir dir: Path) {
-        val bombScanner = object : ProjectScanner {
-            override fun scan(directory: ProjectDirectory): io.github.rygel.needlecast.model.DetectedProject? =
-                throw RuntimeException("Simulated scanner failure")
-        }
-        val mavenOnly = CompositeProjectScanner(
-            scanners = listOf(bombScanner, MavenProjectScanner()),
-        )
+    fun `one scanner throwing does not suppress other scanners results`(
+        @TempDir dir: Path,
+    ) {
+        val bombScanner =
+            object : ProjectScanner {
+                override fun scan(directory: ProjectDirectory): io.github.rygel.needlecast.model.DetectedProject? = throw RuntimeException("Simulated scanner failure")
+            }
+        val mavenOnly =
+            CompositeProjectScanner(
+                scanners = listOf(bombScanner, MavenProjectScanner()),
+            )
         File(dir.toFile(), "pom.xml").writeText("<project/>")
 
         val result = mavenOnly.scan(ProjectDirectory(dir.toString()))

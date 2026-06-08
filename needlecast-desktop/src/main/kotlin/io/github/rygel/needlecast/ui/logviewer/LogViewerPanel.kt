@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui.logviewer
 
+import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -11,10 +12,7 @@ import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import java.io.File
 import java.io.RandomAccessFile
-import io.github.rygel.needlecast.ui.RemixIcons
-import javax.swing.BorderFactory
 import javax.swing.DefaultComboBoxModel
-import javax.swing.JButton
 import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JPanel
@@ -34,16 +32,15 @@ import javax.swing.text.StyleConstants
  * Returns the Needlecast app log and its rotation archives (`.log.1`–`.log.5`)
  * from [logDir], in order, filtering to files that actually exist.
  */
-internal fun appLogFiles(
-    logDir: File = File(System.getProperty("user.home"), ".needlecast"),
-): List<File> = buildList {
-    val base = File(logDir, "needlecast.log")
-    if (base.exists()) add(base)
-    for (i in 1..5) {
-        val rotated = File(logDir, "needlecast.log.$i")
-        if (rotated.exists()) add(rotated)
+internal fun appLogFiles(logDir: File = File(System.getProperty("user.home"), ".needlecast")): List<File> =
+    buildList {
+        val base = File(logDir, "needlecast.log")
+        if (base.exists()) add(base)
+        for (i in 1..5) {
+            val rotated = File(logDir, "needlecast.log.$i")
+            if (rotated.exists()) add(rotated)
+        }
     }
-}
 
 /**
  * Dockable panel that discovers and displays log files from the selected project.
@@ -52,7 +49,6 @@ internal fun appLogFiles(
  * follow mode, and search.
  */
 class LogViewerPanel : JPanel(BorderLayout()) {
-
     // ── State ────────────────────────────────────────────────────────────────
 
     private var currentProjectPath: String? = null
@@ -74,49 +70,67 @@ class LogViewerPanel : JPanel(BorderLayout()) {
 
     // ── UI components ────────────────────────────────────────────────────────
 
-    private val fileCombo = JComboBox<File>().apply {
-        renderer = object : javax.swing.DefaultListCellRenderer() {
-            override fun getListCellRendererComponent(
-                list: javax.swing.JList<*>?, value: Any?, index: Int,
-                isSelected: Boolean, cellHasFocus: Boolean,
-            ) = super.getListCellRendererComponent(list, (value as? File)?.let { f ->
-                if (f.parentFile == appLogDir) "${f.name} (app)"
-                else f.toRelativeString(File(currentProjectPath ?: ""))
-            } ?: "", index, isSelected, cellHasFocus)
+    private val fileCombo =
+        JComboBox<File>().apply {
+            renderer =
+                object : javax.swing.DefaultListCellRenderer() {
+                    override fun getListCellRendererComponent(
+                        list: javax.swing.JList<*>?,
+                        value: Any?,
+                        index: Int,
+                        isSelected: Boolean,
+                        cellHasFocus: Boolean,
+                    ) = super.getListCellRendererComponent(
+                        list,
+                        (value as? File)?.let { f ->
+                            if (f.parentFile == appLogDir) {
+                                "${f.name} (app)"
+                            } else {
+                                f.toRelativeString(File(currentProjectPath ?: ""))
+                            }
+                        } ?: "",
+                        index,
+                        isSelected,
+                        cellHasFocus,
+                    )
+                }
+            addActionListener { onFileSelected() }
         }
-        addActionListener { onFileSelected() }
-    }
 
-    private val levelButtons = LogLevel.entries.filter { it != LogLevel.UNKNOWN }.map { level ->
-        JToggleButton(level.label).apply {
-            isSelected = true
-            font = Font(Font.SANS_SERIF, Font.BOLD, 9)
-            isFocusPainted = false
-            margin = java.awt.Insets(2, 6, 2, 6)
-            toolTipText = "Toggle ${level.label} entries"
-            addActionListener {
-                if (isSelected) visibleLevels.add(level) else visibleLevels.remove(level)
-                rebuildDisplay()
+    private val levelButtons =
+        LogLevel.entries.filter { it != LogLevel.UNKNOWN }.map { level ->
+            JToggleButton(level.label).apply {
+                isSelected = true
+                font = Font(Font.SANS_SERIF, Font.BOLD, 9)
+                isFocusPainted = false
+                margin = java.awt.Insets(2, 6, 2, 6)
+                toolTipText = "Toggle ${level.label} entries"
+                addActionListener {
+                    if (isSelected) visibleLevels.add(level) else visibleLevels.remove(level)
+                    rebuildDisplay()
+                }
             }
         }
-    }
 
-    private val followButton = JToggleButton(RemixIcons.icon("ri-arrow-down-line", 16)).apply {
-        isSelected = true
-        toolTipText = "Follow (auto-scroll to newest)"
-        isFocusPainted = false
-        addActionListener { following = isSelected }
-    }
+    private val followButton =
+        JToggleButton(RemixIcons.icon("ri-arrow-down-line", 16)).apply {
+            isSelected = true
+            toolTipText = "Follow (auto-scroll to newest)"
+            isFocusPainted = false
+            addActionListener { following = isSelected }
+        }
 
-    private val textPane = JTextPane().apply {
-        isEditable = false
-        font = Font(monoFont(), Font.PLAIN, 11)
-    }
-    private val scrollPane = JScrollPane(textPane).apply {
-        minimumSize = Dimension(0, 0)
-        verticalScrollBar.unitIncrement = 16
-        verticalScrollBar.blockIncrement = 64
-    }
+    private val textPane =
+        JTextPane().apply {
+            isEditable = false
+            font = Font(monoFont(), Font.PLAIN, 11)
+        }
+    private val scrollPane =
+        JScrollPane(textPane).apply {
+            minimumSize = Dimension(0, 0)
+            verticalScrollBar.unitIncrement = 16
+            verticalScrollBar.blockIncrement = 64
+        }
 
     // Search
     private val searchField = JTextField(16)
@@ -130,15 +144,26 @@ class LogViewerPanel : JPanel(BorderLayout()) {
 
     private fun levelAttrs(level: LogLevel): SimpleAttributeSet {
         val attrs = SimpleAttributeSet()
-        val fg = when (level) {
-            LogLevel.ERROR -> Color(0xF44336)
-            LogLevel.WARN  -> Color(0xFFA726)
-            LogLevel.DEBUG, LogLevel.TRACE ->
-                UIManager.getColor("Label.disabledForeground") ?: Color(0x888888)
-            else -> UIManager.getColor("TextPane.foreground")
-                ?: UIManager.getColor("TextArea.foreground")
-                ?: textPane.foreground
-        }
+        val fg =
+            when (level) {
+                LogLevel.ERROR -> {
+                    Color(0xF44336)
+                }
+
+                LogLevel.WARN -> {
+                    Color(0xFFA726)
+                }
+
+                LogLevel.DEBUG, LogLevel.TRACE -> {
+                    UIManager.getColor("Label.disabledForeground") ?: Color(0x888888)
+                }
+
+                else -> {
+                    UIManager.getColor("TextPane.foreground")
+                        ?: UIManager.getColor("TextArea.foreground")
+                        ?: textPane.foreground
+                }
+            }
         StyleConstants.setForeground(attrs, fg)
         if (level == LogLevel.ERROR) StyleConstants.setBold(attrs, true)
         if (level == LogLevel.TRACE) StyleConstants.setItalic(attrs, true)
@@ -159,17 +184,18 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         minimumSize = Dimension(0, 0)
 
         // Toolbar
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
-            add(JLabel("Log:"))
-            add(fileCombo)
-            add(JLabel("  "))
-            levelButtons.forEach { add(it) }
-            add(JLabel("  "))
-            add(followButton)
-            add(JLabel("  Find:"))
-            add(searchField)
-            add(searchStatus)
-        }
+        val toolbar =
+            JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+                add(JLabel("Log:"))
+                add(fileCombo)
+                add(JLabel("  "))
+                levelButtons.forEach { add(it) }
+                add(JLabel("  "))
+                add(followButton)
+                add(JLabel("  Find:"))
+                add(searchField)
+                add(searchStatus)
+            }
 
         add(toolbar, BorderLayout.NORTH)
         add(scrollPane, BorderLayout.CENTER)
@@ -186,30 +212,54 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         }
 
         // Search field listeners
-        searchField.addKeyListener(object : KeyAdapter() {
-            override fun keyPressed(e: KeyEvent) {
-                when {
-                    e.keyCode == KeyEvent.VK_ESCAPE                 -> { searchField.text = ""; rebuildSearchMatches() }
-                    e.keyCode == KeyEvent.VK_ENTER && e.isShiftDown -> stepMatch(-1)
-                    e.keyCode == KeyEvent.VK_ENTER                  -> stepMatch(+1)
+        searchField.addKeyListener(
+            object : KeyAdapter() {
+                override fun keyPressed(e: KeyEvent) {
+                    when {
+                        e.keyCode == KeyEvent.VK_ESCAPE -> {
+                            searchField.text = ""
+                            rebuildSearchMatches()
+                        }
+
+                        e.keyCode == KeyEvent.VK_ENTER && e.isShiftDown -> {
+                            stepMatch(-1)
+                        }
+
+                        e.keyCode == KeyEvent.VK_ENTER -> {
+                            stepMatch(+1)
+                        }
+                    }
                 }
-            }
-        })
-        searchField.document.addDocumentListener(object : javax.swing.event.DocumentListener {
-            override fun insertUpdate(e: javax.swing.event.DocumentEvent) = rebuildSearchMatches()
-            override fun removeUpdate(e: javax.swing.event.DocumentEvent) = rebuildSearchMatches()
-            override fun changedUpdate(e: javax.swing.event.DocumentEvent) {}
-        })
+            },
+        )
+        searchField.document.addDocumentListener(
+            object : javax.swing.event.DocumentListener {
+                override fun insertUpdate(e: javax.swing.event.DocumentEvent) = rebuildSearchMatches()
+
+                override fun removeUpdate(e: javax.swing.event.DocumentEvent) = rebuildSearchMatches()
+
+                override fun changedUpdate(e: javax.swing.event.DocumentEvent) {}
+            },
+        )
 
         // Ctrl+F focuses search
-        val ctrlF = javax.swing.KeyStroke.getKeyStroke(KeyEvent.VK_F, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
+        val ctrlF =
+            javax.swing.KeyStroke.getKeyStroke(
+                KeyEvent.VK_F,
+                java.awt.Toolkit
+                    .getDefaultToolkit()
+                    .menuShortcutKeyMaskEx,
+            )
         textPane.inputMap.put(ctrlF, "focus-search")
-        textPane.actionMap.put("focus-search", object : javax.swing.AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent) {
-                searchField.requestFocusInWindow()
-                searchField.selectAll()
-            }
-        })
+        textPane.actionMap.put(
+            "focus-search",
+            object : javax.swing.AbstractAction() {
+                override fun actionPerformed(e: java.awt.event.ActionEvent) {
+                    searchField.requestFocusInWindow()
+                    searchField.selectAll()
+                }
+            },
+        )
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -232,8 +282,14 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         // Discover project log files in background
         object : SwingWorker<List<File>, Void>() {
             override fun doInBackground(): List<File> = LogFileScanner.scan(path)
+
             override fun done() {
-                val projectFiles = try { get() } catch (_: Exception) { emptyList() }
+                val projectFiles =
+                    try {
+                        get()
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
                 val allFiles = appLogFiles() + projectFiles
                 fileCombo.model = DefaultComboBoxModel(allFiles.toTypedArray())
                 if (allFiles.isNotEmpty()) {
@@ -266,8 +322,14 @@ class LogViewerPanel : JPanel(BorderLayout()) {
                 val lines = file.readLines(Charsets.UTF_8)
                 return LogParser.parse(lines)
             }
+
             override fun done() {
-                val parsed = try { get() } catch (_: Exception) { emptyList() }
+                val parsed =
+                    try {
+                        get()
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
                 entries.addAll(parsed)
                 tailOffset = (tailFile?.length() ?: 0)
                 rebuildDisplay()
@@ -322,7 +384,8 @@ class LogViewerPanel : JPanel(BorderLayout()) {
                     }
                 }
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 
     // ── Display ──────────────────────────────────────────────────────────────
@@ -372,7 +435,10 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         }
     }
 
-    private fun appendEntry(entry: LogEntry, doc: javax.swing.text.StyledDocument) {
+    private fun appendEntry(
+        entry: LogEntry,
+        doc: javax.swing.text.StyledDocument,
+    ) {
         val attrs = levelAttrs(entry.level)
         doc.insertString(doc.length, entry.raw + "\n", attrs)
         entry.stackTrace?.let { st ->
@@ -444,11 +510,12 @@ class LogViewerPanel : JPanel(BorderLayout()) {
     private fun monoFont(): String {
         val os = System.getProperty("os.name", "").lowercase()
         val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
-        val preferred = when {
-            os.contains("win") -> listOf("Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", "Consolas")
-            os.contains("mac") -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Fira Code", "Monaco")
-            else -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono", "Noto Mono")
-        }
+        val preferred =
+            when {
+                os.contains("win") -> listOf("Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", "Consolas")
+                os.contains("mac") -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Fira Code", "Monaco")
+                else -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono", "Noto Mono")
+            }
         return preferred.firstOrNull { it in available } ?: Font.MONOSPACED
     }
 }

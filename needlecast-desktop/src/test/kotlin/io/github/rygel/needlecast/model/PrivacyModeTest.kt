@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class PrivacyModeTest {
-
     @Test
     fun `label returns display name when not private and privacy mode off`() {
         val dir = ProjectDirectory(path = "/home/user/my-project", displayName = "My Project")

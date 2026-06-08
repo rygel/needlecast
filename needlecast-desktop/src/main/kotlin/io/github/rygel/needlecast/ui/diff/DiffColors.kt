@@ -4,7 +4,6 @@ import java.awt.Color
 import javax.swing.UIManager
 
 object DiffColors {
-
     val addedBackground: Color
         get() = resolveColor("Diff.addedBackground") { Color(0xD4, 0xF4, 0xDD) }
 
@@ -47,7 +46,8 @@ object DiffColors {
     val contextForeground: Color
         get() = UIManager.getColor("TextPane.foreground") ?: Color(0xA9, 0xB7, 0xC6)
 
-    private inline fun resolveColor(key: String, fallback: () -> Color): Color {
-        return UIManager.getColor(key) ?: fallback()
-    }
+    private inline fun resolveColor(
+        key: String,
+        fallback: () -> Color,
+    ): Color = UIManager.getColor(key) ?: fallback()
 }

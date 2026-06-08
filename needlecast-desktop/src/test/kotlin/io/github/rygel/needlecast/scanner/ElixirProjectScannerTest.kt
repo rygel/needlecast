@@ -9,16 +9,19 @@ import java.io.File
 import java.nio.file.Path
 
 class ElixirProjectScannerTest {
-
     private val scanner = ElixirProjectScanner()
 
     @Test
-    fun `returns null when no mix_exs`(@TempDir dir: Path) {
+    fun `returns null when no mix_exs`(
+        @TempDir dir: Path,
+    ) {
         assertNull(scanner.scan(ProjectDirectory(dir.toString())))
     }
 
     @Test
-    fun `detects elixir project`(@TempDir dir: Path) {
+    fun `detects elixir project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "mix.exs").writeText("defmodule MyApp.MixProject do\nend\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(setOf(BuildTool.MIX), result.buildTools)
@@ -27,7 +30,9 @@ class ElixirProjectScannerTest {
     }
 
     @Test
-    fun `detects phoenix project`(@TempDir dir: Path) {
+    fun `detects phoenix project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "mix.exs").writeText("defmodule MyApp do\n  {:phoenix, \"~> 1.7\"}\nend\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertTrue(result.commands.any { it.label == "mix phx.server" })

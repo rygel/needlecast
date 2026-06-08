@@ -10,8 +10,9 @@ import javax.swing.text.SimpleAttributeSet
 import javax.swing.text.StyleConstants
 import javax.swing.text.StyledDocument
 
-class DiffEditorPane(val side: Side) : JTextPane() {
-
+class DiffEditorPane(
+    val side: Side,
+) : JTextPane() {
     enum class Side { OLD, NEW, UNIFIED }
 
     private val lineTypes = mutableListOf<DiffLineType>()
@@ -45,10 +46,12 @@ class DiffEditorPane(val side: Side) : JTextPane() {
                     StyleConstants.setBackground(lineAttrs, DiffColors.addedBackground)
                     StyleConstants.setForeground(lineAttrs, DiffColors.addedForeground)
                 }
+
                 DiffLineType.REMOVED -> {
                     StyleConstants.setBackground(lineAttrs, DiffColors.removedBackground)
                     StyleConstants.setForeground(lineAttrs, DiffColors.removedForeground)
                 }
+
                 DiffLineType.CONTEXT -> {
                     StyleConstants.setForeground(lineAttrs, DiffColors.contextForeground)
                 }
@@ -59,18 +62,24 @@ class DiffEditorPane(val side: Side) : JTextPane() {
             } else {
                 try {
                     doc.insertString(doc.length, line.content, lineAttrs)
-                } catch (_: BadLocationException) {}
+                } catch (_: BadLocationException) {
+                }
             }
 
             if (index < lines.size - 1) {
                 try {
                     doc.insertString(doc.length, "\n", attrs)
-                } catch (_: BadLocationException) {}
+                } catch (_: BadLocationException) {
+                }
             }
         }
     }
 
-    private fun appendWithWordDiffs(doc: StyledDocument, line: DiffLine, baseAttrs: MutableAttributeSet) {
+    private fun appendWithWordDiffs(
+        doc: StyledDocument,
+        line: DiffLine,
+        baseAttrs: MutableAttributeSet,
+    ) {
         val content = line.content
         val isAdded = line.type == DiffLineType.ADDED
         val inlineColor = if (isAdded) DiffColors.addedInline else DiffColors.removedInline
@@ -92,7 +101,8 @@ class DiffEditorPane(val side: Side) : JTextPane() {
             }
             try {
                 doc.insertString(doc.length, sb.toString(), baseAttrs)
-            } catch (_: BadLocationException) {}
+            } catch (_: BadLocationException) {
+            }
             sb.clear()
 
             val diffAttrs = SimpleAttributeSet(baseAttrs)
@@ -100,7 +110,8 @@ class DiffEditorPane(val side: Side) : JTextPane() {
 
             try {
                 doc.insertString(doc.length, diffTexts[diffIdx], diffAttrs)
-            } catch (_: BadLocationException) {}
+            } catch (_: BadLocationException) {
+            }
 
             pos = nextDiff + diffTexts[diffIdx].length
             diffIdx++
@@ -112,7 +123,8 @@ class DiffEditorPane(val side: Side) : JTextPane() {
         if (sb.isNotEmpty()) {
             try {
                 doc.insertString(doc.length, sb.toString(), baseAttrs)
-            } catch (_: BadLocationException) {}
+            } catch (_: BadLocationException) {
+            }
         }
     }
 
@@ -128,9 +140,7 @@ class DiffEditorPane(val side: Side) : JTextPane() {
         }
     }
 
-    fun getLineTypeAt(lineIndex: Int): DiffLineType? {
-        return lineTypes.getOrNull(lineIndex)
-    }
+    fun getLineTypeAt(lineIndex: Int): DiffLineType? = lineTypes.getOrNull(lineIndex)
 
     fun scrollToLine(lineIndex: Int) {
         val bounds = getLineBounds(lineIndex) ?: return

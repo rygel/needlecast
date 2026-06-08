@@ -13,12 +13,12 @@ import java.nio.file.Path
  * Makefile-only projects get standard make targets.
  */
 class CMakeProjectScanner : ProjectScanner {
-
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val hasCMake = dir.resolve("CMakeLists.txt").toFile().exists()
-        val hasMakefile = dir.resolve("Makefile").toFile().exists() ||
-            dir.resolve("makefile").toFile().exists()
+        val hasMakefile =
+            dir.resolve("Makefile").toFile().exists() ||
+                dir.resolve("makefile").toFile().exists()
 
         if (!hasCMake && !hasMakefile) return null
 
@@ -27,8 +27,17 @@ class CMakeProjectScanner : ProjectScanner {
         if (hasCMake) {
             commands += cmd("cmake -B build", directory, BuildTool.CMAKE, "cmake", "-B", "build")
             commands += cmd("cmake --build build", directory, BuildTool.CMAKE, "cmake", "--build", "build")
-            commands += cmd("cmake --build build --config Release", directory, BuildTool.CMAKE,
-                "cmake", "--build", "build", "--config", "Release")
+            commands +=
+                cmd(
+                    "cmake --build build --config Release",
+                    directory,
+                    BuildTool.CMAKE,
+                    "cmake",
+                    "--build",
+                    "build",
+                    "--config",
+                    "Release",
+                )
             commands += cmd("ctest --test-dir build", directory, BuildTool.CMAKE, "ctest", "--test-dir", "build")
             commands += cmd("cmake --install build", directory, BuildTool.CMAKE, "cmake", "--install", "build")
         }
@@ -51,8 +60,16 @@ class CMakeProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(label: String, dir: ProjectDirectory, tool: BuildTool, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, tool,
+    private fun cmd(
+        label: String,
+        dir: ProjectDirectory,
+        tool: BuildTool,
+        vararg args: String,
+    ): CommandDescriptor =
+        CommandDescriptor(
+            label,
+            tool,
             if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path)
+            dir.path,
+        )
 }

@@ -8,20 +8,24 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class PromptLibraryStoreTest {
-
     @Test
-    fun `loadPrompts reads markdown files from category directories`(@TempDir base: Path) {
+    fun `loadPrompts reads markdown files from category directories`(
+        @TempDir base: Path,
+    ) {
         val promptsDir = base.resolve("prompts")
         val commandsDir = base.resolve("commands")
         Files.createDirectories(promptsDir.resolve("Explore"))
-        Files.writeString(promptsDir.resolve("Explore/onboarding.md"), """
+        Files.writeString(
+            promptsDir.resolve("Explore/onboarding.md"),
+            """
             ---
             name: Onboard me to this repo
             description: Quick orientation for an unfamiliar codebase.
             ---
             Give me a 2-minute developer onboarding:
             1. What does this project do?
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val store = PromptLibraryStore(promptsDir, commandsDir)
         val prompts = store.loadPrompts()
@@ -35,31 +39,41 @@ class PromptLibraryStoreTest {
     }
 
     @Test
-    fun `loadPrompts returns empty list when directory does not exist`(@TempDir base: Path) {
+    fun `loadPrompts returns empty list when directory does not exist`(
+        @TempDir base: Path,
+    ) {
         val store = PromptLibraryStore(base.resolve("nonexistent-prompts"), base.resolve("nonexistent-commands"))
         assertTrue(store.loadPrompts().isEmpty())
         assertTrue(store.loadCommands().isEmpty())
     }
 
     @Test
-    fun `loadPrompts handles multiple categories`(@TempDir base: Path) {
+    fun `loadPrompts handles multiple categories`(
+        @TempDir base: Path,
+    ) {
         val promptsDir = base.resolve("prompts")
         Files.createDirectories(promptsDir.resolve("Explore"))
         Files.createDirectories(promptsDir.resolve("Fix"))
-        Files.writeString(promptsDir.resolve("Explore/onboarding.md"), """
+        Files.writeString(
+            promptsDir.resolve("Explore/onboarding.md"),
+            """
             ---
             name: Onboard me
             description: Orientation.
             ---
             Onboard text.
-        """.trimIndent())
-        Files.writeString(promptsDir.resolve("Fix/fix-error.md"), """
+            """.trimIndent(),
+        )
+        Files.writeString(
+            promptsDir.resolve("Fix/fix-error.md"),
+            """
             ---
             name: Fix this error
             description: Diagnose and fix.
             ---
             Fix text.
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val store = PromptLibraryStore(promptsDir, base.resolve("commands"))
         val prompts = store.loadPrompts()
@@ -69,16 +83,19 @@ class PromptLibraryStoreTest {
     }
 
     @Test
-    fun `ID is deterministic from relative path`(@TempDir base: Path) {
+    fun `ID is deterministic from relative path`(
+        @TempDir base: Path,
+    ) {
         val promptsDir = base.resolve("prompts")
         Files.createDirectories(promptsDir.resolve("Explore"))
-        val content = """
+        val content =
+            """
             ---
             name: Onboard me
             description: desc
             ---
             Body.
-        """.trimIndent()
+            """.trimIndent()
         Files.writeString(promptsDir.resolve("Explore/onboarding.md"), content)
 
         val store1 = PromptLibraryStore(promptsDir, base.resolve("commands"))
@@ -88,16 +105,21 @@ class PromptLibraryStoreTest {
     }
 
     @Test
-    fun `loadCommands reads from commands directory`(@TempDir base: Path) {
+    fun `loadCommands reads from commands directory`(
+        @TempDir base: Path,
+    ) {
         val commandsDir = base.resolve("commands")
         Files.createDirectories(commandsDir.resolve("Git"))
-        Files.writeString(commandsDir.resolve("Git/status.md"), """
+        Files.writeString(
+            commandsDir.resolve("Git/status.md"),
+            """
             ---
             name: Status
             description: Short status with branch name.
             ---
             git status -sb
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val store = PromptLibraryStore(base.resolve("prompts"), commandsDir)
         val commands = store.loadCommands()
@@ -109,15 +131,18 @@ class PromptLibraryStoreTest {
     }
 
     @Test
-    fun `save creates file in category directory`(@TempDir base: Path) {
+    fun `save creates file in category directory`(
+        @TempDir base: Path,
+    ) {
         val promptsDir = base.resolve("prompts")
         val store = PromptLibraryStore(promptsDir, base.resolve("commands"))
-        val template = PromptTemplate(
-            name = "Fix this error",
-            category = "Fix",
-            description = "Diagnose and fix.",
-            body = "Find the root cause.",
-        )
+        val template =
+            PromptTemplate(
+                name = "Fix this error",
+                category = "Fix",
+                description = "Diagnose and fix.",
+                body = "Find the root cause.",
+            )
 
         store.save(template, isCommand = false)
 
@@ -130,7 +155,9 @@ class PromptLibraryStoreTest {
     }
 
     @Test
-    fun `save moves file when category changes`(@TempDir base: Path) {
+    fun `save moves file when category changes`(
+        @TempDir base: Path,
+    ) {
         val promptsDir = base.resolve("prompts")
         val store = PromptLibraryStore(promptsDir, base.resolve("commands"))
         val original = PromptTemplate(name = "Test", category = "Old", description = "", body = "body")
@@ -150,7 +177,9 @@ class PromptLibraryStoreTest {
     }
 
     @Test
-    fun `delete removes file and empty directory`(@TempDir base: Path) {
+    fun `delete removes file and empty directory`(
+        @TempDir base: Path,
+    ) {
         val promptsDir = base.resolve("prompts")
         val store = PromptLibraryStore(promptsDir, base.resolve("commands"))
         val template = PromptTemplate(name = "Test", category = "Solo", description = "", body = "body")

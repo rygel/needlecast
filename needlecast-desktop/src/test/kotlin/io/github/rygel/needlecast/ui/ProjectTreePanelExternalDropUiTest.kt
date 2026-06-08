@@ -6,8 +6,8 @@ import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
-import io.github.rygel.needlecast.scanner.ProjectScanner
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
+import io.github.rygel.needlecast.scanner.ProjectScanner
 import org.assertj.swing.edt.GuiActionRunner
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -45,16 +45,16 @@ import javax.swing.tree.DefaultMutableTreeNode
  * Run via: `mvn verify -Ptest-desktop` (Xvfb inside Dockerfile.uitest).
  */
 class ProjectTreePanelExternalDropUiTest {
-
     @TempDir
     lateinit var tempDir: Path
 
     private lateinit var ctx: AppContext
     private var droppedFiles: List<File> = emptyList()
 
-    private val noopScanner = object : ProjectScanner {
-        override fun scan(directory: ProjectDirectory): DetectedProject? = null
-    }
+    private val noopScanner =
+        object : ProjectScanner {
+            override fun scan(directory: ProjectDirectory): DetectedProject? = null
+        }
 
     @AfterEach
     fun tearDown() {
@@ -74,17 +74,15 @@ class ProjectTreePanelExternalDropUiTest {
         }
     }
 
-    private fun newDir(name: String): File =
-        Files.createDirectory(tempDir.resolve(name)).toFile()
+    private fun newDir(name: String): File = Files.createDirectory(tempDir.resolve(name)).toFile()
 
-    private fun newFile(name: String): File =
-        Files.createFile(tempDir.resolve(name)).toFile()
+    private fun newFile(name: String): File = Files.createFile(tempDir.resolve(name)).toFile()
 
     private fun projectPaths(tree: List<ProjectTreeEntry>): List<String> =
         tree.flatMap {
             when (it) {
                 is ProjectTreeEntry.Project -> listOf(it.directory.path)
-                is ProjectTreeEntry.Folder  -> projectPaths(it.children)
+                is ProjectTreeEntry.Folder -> projectPaths(it.children)
             }
         }
 
@@ -95,9 +93,10 @@ class ProjectTreePanelExternalDropUiTest {
         val panel = buildPanel()
         val dir = newDir("alpha")
 
-        val changed = GuiActionRunner.execute<Boolean> {
-            panel.simulateExternalDropForTest(listOf(dir))
-        }
+        val changed =
+            GuiActionRunner.execute<Boolean> {
+                panel.simulateExternalDropForTest(listOf(dir))
+            }
 
         assertTrue(changed, "drop should report a change")
         val paths = projectPaths(ctx.config.projectTree)
@@ -118,16 +117,19 @@ class ProjectTreePanelExternalDropUiTest {
     @Test
     fun `dropping a directory into an existing folder appends it there`() {
         val existing = newDir("existing")
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Folder(
-                    name = "Work",
-                    children = listOf(
-                        ProjectTreeEntry.Project(directory = ProjectDirectory(path = existing.absolutePath)),
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Folder(
+                            name = "Work",
+                            children =
+                                listOf(
+                                    ProjectTreeEntry.Project(directory = ProjectDirectory(path = existing.absolutePath)),
+                                ),
+                        ),
                     ),
-                ),
-            ),
-        )
+            )
         val panel = buildPanel(config)
         val dropped = newDir("dropped")
 
@@ -147,11 +149,13 @@ class ProjectTreePanelExternalDropUiTest {
     fun `dropping a directory already in the tree is skipped`() {
         val existing = newDir("existing")
         val fresh = newDir("fresh")
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Project(directory = ProjectDirectory(path = existing.absolutePath)),
-            ),
-        )
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Project(directory = ProjectDirectory(path = existing.absolutePath)),
+                    ),
+            )
         val panel = buildPanel(config)
 
         GuiActionRunner.execute<Boolean> {
@@ -172,9 +176,10 @@ class ProjectTreePanelExternalDropUiTest {
         val f1 = newFile("a.txt")
         val f2 = newFile("b.txt")
 
-        val changed = GuiActionRunner.execute<Boolean> {
-            panel.simulateExternalDropForTest(listOf(f1, f2))
-        }
+        val changed =
+            GuiActionRunner.execute<Boolean> {
+                panel.simulateExternalDropForTest(listOf(f1, f2))
+            }
 
         assertTrue(changed, "drop with files-only should still report a change")
         assertEquals(listOf(f1, f2), droppedFiles)
@@ -202,16 +207,19 @@ class ProjectTreePanelExternalDropUiTest {
     fun `findMissingMatch returns node when name matches missing project`() {
         // Use a path that doesn't exist on disk so it becomes a missing project
         val missingPath = tempDir.resolve("ghost").resolve("myapp").toString()
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Project(directory = ProjectDirectory(path = missingPath))
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Project(directory = ProjectDirectory(path = missingPath)),
+                    ),
             )
-        )
         val panel = buildPanel(config)
 
-        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
-            panel.findMissingMatch("myapp")
-        }
+        val match =
+            GuiActionRunner.execute<DefaultMutableTreeNode?> {
+                panel.findMissingMatch("myapp")
+            }
 
         assertNotNull(match, "should find the missing node")
         val entry = (match!!.userObject as ProjectTreeEntry.Project)
@@ -220,17 +228,20 @@ class ProjectTreePanelExternalDropUiTest {
 
     @Test
     fun `findMissingMatch returns null when name matches a present project`() {
-        val presentDir = newDir("myapp")   // exists on disk
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Project(directory = ProjectDirectory(path = presentDir.absolutePath))
+        val presentDir = newDir("myapp") // exists on disk
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Project(directory = ProjectDirectory(path = presentDir.absolutePath)),
+                    ),
             )
-        )
         val panel = buildPanel(config)
 
-        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
-            panel.findMissingMatch("myapp")
-        }
+        val match =
+            GuiActionRunner.execute<DefaultMutableTreeNode?> {
+                panel.findMissingMatch("myapp")
+            }
 
         assertNull(match, "present projects should not be candidates for repair")
     }
@@ -238,16 +249,19 @@ class ProjectTreePanelExternalDropUiTest {
     @Test
     fun `findMissingMatch returns null when no project name matches`() {
         val missingPath = tempDir.resolve("ghost").resolve("myapp").toString()
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Project(directory = ProjectDirectory(path = missingPath))
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Project(directory = ProjectDirectory(path = missingPath)),
+                    ),
             )
-        )
         val panel = buildPanel(config)
 
-        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
-            panel.findMissingMatch("different-name")
-        }
+        val match =
+            GuiActionRunner.execute<DefaultMutableTreeNode?> {
+                panel.findMissingMatch("different-name")
+            }
 
         assertNull(match, "no match expected for unrelated name")
     }
@@ -256,35 +270,41 @@ class ProjectTreePanelExternalDropUiTest {
     fun `findMissingMatch is case-insensitive on Windows`() {
         assumeTrue(IS_WINDOWS, "Windows-only: case-insensitive name matching")
         val missingPath = tempDir.resolve("ghost").resolve("MyApp").toString()
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Project(directory = ProjectDirectory(path = missingPath))
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Project(directory = ProjectDirectory(path = missingPath)),
+                    ),
             )
-        )
         val panel = buildPanel(config)
 
-        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
-            panel.findMissingMatch("myapp")
-        }
+        val match =
+            GuiActionRunner.execute<DefaultMutableTreeNode?> {
+                panel.findMissingMatch("myapp")
+            }
 
         assertNotNull(match, "Windows: 'myapp' should match 'MyApp'")
     }
 
     @Test
     fun `findMissingMatch returns first match in tree order when two missing projects share a name`() {
-        val firstPath  = tempDir.resolve("first").resolve("myapp").toString()
+        val firstPath = tempDir.resolve("first").resolve("myapp").toString()
         val secondPath = tempDir.resolve("second").resolve("myapp").toString()
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Project(directory = ProjectDirectory(path = firstPath)),
-                ProjectTreeEntry.Project(directory = ProjectDirectory(path = secondPath)),
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Project(directory = ProjectDirectory(path = firstPath)),
+                        ProjectTreeEntry.Project(directory = ProjectDirectory(path = secondPath)),
+                    ),
             )
-        )
         val panel = buildPanel(config)
 
-        val match = GuiActionRunner.execute<DefaultMutableTreeNode?> {
-            panel.findMissingMatch("myapp")
-        }
+        val match =
+            GuiActionRunner.execute<DefaultMutableTreeNode?> {
+                panel.findMissingMatch("myapp")
+            }
 
         assertNotNull(match)
         val entry = (match!!.userObject as ProjectTreeEntry.Project)

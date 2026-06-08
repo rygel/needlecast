@@ -11,3 +11,7 @@ trim_trailing_whitespace = true
 [*.{kt,kts}]
 ij_kotlin_allow_trailing_comma = true
 ij_kotlin_allow_trailing_comma_on_call_site = true
+# Rules not enforced by ktlint 0.50.x (C3 baseline); disabled to avoid non-auto-correctable churn.
+ktlint_standard_no-wildcard-imports = disabled
+ktlint_standard_max-line-length = disabled
+ktlint_standard_backing-property-naming = disabled

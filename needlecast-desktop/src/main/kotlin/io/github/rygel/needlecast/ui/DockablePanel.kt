@@ -25,8 +25,8 @@ class DockablePanel(
     private val id: String,
     private val title: String,
     private val closable: Boolean = true,
-) : JPanel(BorderLayout()), Dockable {
-
+) : JPanel(BorderLayout()),
+    Dockable {
     init {
         add(content)
         // Allow docking framework to shrink panels as small as needed
@@ -37,19 +37,24 @@ class DockablePanel(
     val dockableId: String get() = id
 
     override fun getPersistentID(): String = id
+
     override fun getTabText(): String = title
+
     override fun isClosable(): Boolean = closable
+
     override fun isWrappableInScrollpane(): Boolean = false
 
     fun setHoverHighlight(on: Boolean) {
-        border = if (on) {
-            val color = UIManager.getColor("Component.focusColor")
-                ?: UIManager.getColor("TabbedPane.focusColor")
-                ?: java.awt.Color(0x4A90D9)
-            BorderFactory.createLineBorder(color, 2)
-        } else {
-            null
-        }
+        border =
+            if (on) {
+                val color =
+                    UIManager.getColor("Component.focusColor")
+                        ?: UIManager.getColor("TabbedPane.focusColor")
+                        ?: java.awt.Color(0x4A90D9)
+                BorderFactory.createLineBorder(color, 2)
+            } else {
+                null
+            }
         repaint()
     }
 }

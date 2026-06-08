@@ -1,7 +1,7 @@
 package io.github.rygel.needlecast.ui.settings
 
-import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.scanner.IS_MAC
+import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import java.awt.Font
 import java.awt.GraphicsEnvironment
 import java.awt.image.BufferedImage
@@ -10,13 +10,17 @@ import javax.swing.SwingWorker
 import javax.swing.UIManager
 
 fun monoFont(): String {
-    val available = GraphicsEnvironment.getLocalGraphicsEnvironment()
-        .availableFontFamilyNames.toHashSet()
-    val preferred = when {
-        IS_WINDOWS -> listOf("Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Consolas")
-        IS_MAC     -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Monaco")
-        else       -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono")
-    }
+    val available =
+        GraphicsEnvironment
+            .getLocalGraphicsEnvironment()
+            .availableFontFamilyNames
+            .toHashSet()
+    val preferred =
+        when {
+            IS_WINDOWS -> listOf("Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Consolas")
+            IS_MAC -> listOf("SF Mono", "Menlo", "JetBrains Mono", "Monaco")
+            else -> listOf("JetBrains Mono", "Fira Code", "DejaVu Sans Mono", "Liberation Mono")
+        }
     return preferred.firstOrNull { it in available } ?: Font.MONOSPACED
 }
 
@@ -26,11 +30,13 @@ fun uiBaseFont(): Font =
         ?: Font(Font.SANS_SERIF, Font.PLAIN, 12)
 
 fun availableFontFamilies(): List<String> =
-    GraphicsEnvironment.getLocalGraphicsEnvironment()
-        .availableFontFamilyNames.toList().sorted()
+    GraphicsEnvironment
+        .getLocalGraphicsEnvironment()
+        .availableFontFamilyNames
+        .toList()
+        .sorted()
 
-fun availableMonospaceFamilies(): List<String> =
-    availableFontFamilies().filter { isMonospaced(it) }
+fun availableMonospaceFamilies(): List<String> = availableFontFamilies().filter { isMonospaced(it) }
 
 fun isMonospaced(name: String): Boolean {
     val font = Font(name, Font.PLAIN, 12)
@@ -44,13 +50,14 @@ fun isMonospaced(name: String): Boolean {
     return w1 > 0 && w1 == w2 && w2 == w3
 }
 
-fun buildOutputArea(): JTextArea = JTextArea().apply {
-    isEditable = false
-    font = Font(monoFont(), Font.PLAIN, 11)
-    lineWrap = true
-    wrapStyleWord = false
-    rows = 8
-}
+fun buildOutputArea(): JTextArea =
+    JTextArea().apply {
+        isEditable = false
+        font = Font(monoFont(), Font.PLAIN, 11)
+        lineWrap = true
+        wrapStyleWord = false
+        rows = 8
+    }
 
 /**
  * Runs [command] via the OS shell and streams stdout+stderr line-by-line into [outputArea].
@@ -87,12 +94,18 @@ fun runCommandStreaming(
         }
 
         override fun done() {
-            val exitCode = try { get() } catch (e: Exception) {
-                outputArea.append("\nError: ${e.cause?.message ?: e.message}\n")
-                -1
+            val exitCode =
+                try {
+                    get()
+                } catch (e: Exception) {
+                    outputArea.append("\nError: ${e.cause?.message ?: e.message}\n")
+                    -1
+                }
+            if (exitCode == 0) {
+                outputArea.append("\nCompleted successfully.\n")
+            } else if (exitCode > 0) {
+                outputArea.append("\nCommand failed (exit code $exitCode).\n")
             }
-            if (exitCode == 0) outputArea.append("\nCompleted successfully.\n")
-            else if (exitCode > 0) outputArea.append("\nCommand failed (exit code $exitCode).\n")
             outputArea.caretPosition = outputArea.document.length
             onFinished()
         }

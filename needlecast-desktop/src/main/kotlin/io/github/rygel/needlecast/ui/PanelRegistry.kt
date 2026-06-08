@@ -9,43 +9,49 @@ class PanelRegistry(
     val ctx: AppContext,
     private val isWindowFocused: () -> Boolean = { true },
 ) {
-
     val statusBar = StatusBar()
     val consolePanel = ConsolePanel(ctx)
     val terminalPanel = TerminalManager(ctx)
     val explorerPanel = ExplorerPanel(ctx)
 
-    val searchPanel = SearchPanel { file, line, column ->
-        explorerPanel.openFileAt(file, line, column)
-    }
+    val searchPanel =
+        SearchPanel { file, line, column ->
+            explorerPanel.openFileAt(file, line, column)
+        }
 
-    val promptInputPanel = PromptInputPanel(
-        ctx,
-        sendToTerminal = { terminalPanel.sendInput(it) },
-    )
+    val promptInputPanel =
+        PromptInputPanel(
+            ctx,
+            sendToTerminal = { terminalPanel.sendInput(it) },
+        )
 
-    val commandInputPanel = PromptInputPanel(
-        ctx,
-        sendToTerminal = { terminalPanel.sendInput(it) },
-        sendButtonLabel = "Run in Terminal",
-        itemLabel = "Command",
-        isCommand = true,
-    )
+    val commandInputPanel =
+        PromptInputPanel(
+            ctx,
+            sendToTerminal = { terminalPanel.sendInput(it) },
+            sendButtonLabel = "Run in Terminal",
+            itemLabel = "Command",
+            isCommand = true,
+        )
 
-    val commandPanel = CommandPanel(
-        ctx,
-        consolePanel,
-        statusBar,
-        showTitle = false,
-        isWindowFocused = isWindowFocused,
-    )
+    val commandPanel =
+        CommandPanel(
+            ctx,
+            consolePanel,
+            statusBar,
+            showTitle = false,
+            isWindowFocused = isWindowFocused,
+        )
 
     val gitLogPanel = GitLogPanel(ctx.gitService, ctx)
-    val diffViewerPanel = DiffViewerPanel(
-        fileOpener = { path -> explorerPanel.openFile(java.io.File(path)) },
-        ctx = ctx,
-    )
-    val logViewerPanel = io.github.rygel.needlecast.ui.logviewer.LogViewerPanel()
+    val diffViewerPanel =
+        DiffViewerPanel(
+            fileOpener = { path -> explorerPanel.openFile(java.io.File(path)) },
+            ctx = ctx,
+        )
+    val logViewerPanel =
+        io.github.rygel.needlecast.ui.logviewer
+            .LogViewerPanel()
     val renovatePanel = RenovatePanel(ctx)
     val docsPanel = DocsPanel(ctx)
     val skillsPanel = SkillsPanel(ctx)
@@ -70,9 +76,23 @@ class PanelRegistry(
     val docViewerDockable = DockablePanel(docViewerPanel, "doc-viewer", "Doc Viewer")
     val skillsDockable = DockablePanel(skillsPanel, "skills", "Skills")
 
-    val allDockables: List<DockablePanel> get() = listOf(
-        projectTreeDockable, terminalDockable, commandsDockable, gitLogDockable,
-        diffDockable, logViewerDockable, searchDockable, renovateDockable, explorerDockable, editorDockable, consoleDockable,
-        promptInputDockable, commandInputDockable, docsDockable, docViewerDockable, skillsDockable,
-    )
+    val allDockables: List<DockablePanel> get() =
+        listOf(
+            projectTreeDockable,
+            terminalDockable,
+            commandsDockable,
+            gitLogDockable,
+            diffDockable,
+            logViewerDockable,
+            searchDockable,
+            renovateDockable,
+            explorerDockable,
+            editorDockable,
+            consoleDockable,
+            promptInputDockable,
+            commandInputDockable,
+            docsDockable,
+            docViewerDockable,
+            skillsDockable,
+        )
 }

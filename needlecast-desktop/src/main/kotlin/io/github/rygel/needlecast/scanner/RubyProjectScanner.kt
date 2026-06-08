@@ -12,15 +12,15 @@ import java.nio.file.Path
  * Detects Rails projects (bin/rails or Rakefile with Rails references).
  */
 class RubyProjectScanner : ProjectScanner {
-
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val gemfile = dir.resolve("Gemfile").toFile()
         if (!gemfile.exists()) return null
 
         val commands = mutableListOf<CommandDescriptor>()
-        val hasRails = dir.resolve("bin/rails").toFile().exists() ||
-            dir.resolve("bin\\rails").toFile().exists()
+        val hasRails =
+            dir.resolve("bin/rails").toFile().exists() ||
+                dir.resolve("bin\\rails").toFile().exists()
         val hasRakefile = dir.resolve("Rakefile").toFile().exists()
 
         commands += cmd("bundle install", directory, "bundle", "install")
@@ -48,8 +48,15 @@ class RubyProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, BuildTool.BUNDLER,
+    private fun cmd(
+        label: String,
+        dir: ProjectDirectory,
+        vararg args: String,
+    ): CommandDescriptor =
+        CommandDescriptor(
+            label,
+            BuildTool.BUNDLER,
             if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path)
+            dir.path,
+        )
 }

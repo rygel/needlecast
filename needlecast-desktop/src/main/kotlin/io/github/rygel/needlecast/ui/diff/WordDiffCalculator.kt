@@ -1,7 +1,6 @@
 package io.github.rygel.needlecast.ui.diff
 
 object WordDiffCalculator {
-
     data class WordDiffResult(
         val removed: List<WordDiff>,
         val added: List<WordDiff>,
@@ -9,7 +8,10 @@ object WordDiffCalculator {
 
     private val TOKEN_REGEX = Regex("""(\s+|\w+|[^\s\w]+)""")
 
-    fun compute(removedLine: String, addedLine: String): WordDiffResult {
+    fun compute(
+        removedLine: String,
+        addedLine: String,
+    ): WordDiffResult {
         if (removedLine.isEmpty() && addedLine.isEmpty()) return WordDiffResult(emptyList(), emptyList())
         if (removedLine.isEmpty()) return WordDiffResult(emptyList(), tokenize(addedLine).map { WordDiff(WordDiffType.ADDED, it) })
         if (addedLine.isEmpty()) return WordDiffResult(tokenize(removedLine).map { WordDiff(WordDiffType.REMOVED, it) }, emptyList())
@@ -23,8 +25,14 @@ object WordDiffCalculator {
 
         for (op in ops) {
             when (op.type) {
-                DiffLineType.REMOVED -> removedDiffs.add(WordDiff(WordDiffType.REMOVED, oldTokens[op.index]))
-                DiffLineType.ADDED -> addedDiffs.add(WordDiff(WordDiffType.ADDED, newTokens[op.index]))
+                DiffLineType.REMOVED -> {
+                    removedDiffs.add(WordDiff(WordDiffType.REMOVED, oldTokens[op.index]))
+                }
+
+                DiffLineType.ADDED -> {
+                    addedDiffs.add(WordDiff(WordDiffType.ADDED, newTokens[op.index]))
+                }
+
                 DiffLineType.CONTEXT -> { }
             }
         }
@@ -34,9 +42,15 @@ object WordDiffCalculator {
 
     private fun tokenize(line: String): List<String> = TOKEN_REGEX.findAll(line).map { it.value }.toList()
 
-    private data class Op(val type: DiffLineType, val index: Int)
+    private data class Op(
+        val type: DiffLineType,
+        val index: Int,
+    )
 
-    private fun myersDiff(old: List<String>, new: List<String>): List<Op> {
+    private fun myersDiff(
+        old: List<String>,
+        new: List<String>,
+    ): List<Op> {
         val n = old.size
         val m = new.size
         val max = n + m

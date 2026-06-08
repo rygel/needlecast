@@ -1,5 +1,8 @@
 package io.github.rygel.needlecast.ui
 
+import io.github.rygel.needlecast.AppContext
+import io.github.rygel.needlecast.ui.RemixIcons
+import io.github.rygel.needlecast.ui.components.DynamicHelpPopup
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.FlowLayout
@@ -18,38 +21,53 @@ import javax.swing.JTextField
 import javax.swing.KeyStroke
 import javax.swing.SwingUtilities
 import javax.swing.text.DefaultHighlighter
-import io.github.rygel.needlecast.ui.RemixIcons
-import io.github.rygel.needlecast.AppContext
-import io.github.rygel.needlecast.ui.components.DynamicHelpPopup
 
 class ConsolePanel(
     private val ctx: AppContext? = null,
 ) : JPanel(BorderLayout()) {
-
-    private val textArea = JTextArea().apply {
-        isEditable = false
-        font = Font(monoFont(), Font.PLAIN, 12)
-        lineWrap = true
-        wrapStyleWord = false
-    }
+    private val textArea =
+        JTextArea().apply {
+            isEditable = false
+            font = Font(monoFont(), Font.PLAIN, 12)
+            lineWrap = true
+            wrapStyleWord = false
+        }
     private val outputQueue = java.util.concurrent.ConcurrentLinkedQueue<String>()
     private val outputTimer = javax.swing.Timer(50) { flushOutput() }.apply { isRepeats = false }
 
     private fun buildOutputContextMenu(): javax.swing.JPopupMenu {
         val area = textArea
         return javax.swing.JPopupMenu().apply {
-            add(javax.swing.JMenuItem("Copy").apply {
-                accelerator = KeyStroke.getKeyStroke(KeyEvent.VK_C, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
-                addActionListener { area.copy() }
-            })
-            add(javax.swing.JMenuItem("Select All").apply {
-                accelerator = KeyStroke.getKeyStroke(KeyEvent.VK_A, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
-                addActionListener { area.selectAll() }
-            })
+            add(
+                javax.swing.JMenuItem("Copy").apply {
+                    accelerator =
+                        KeyStroke.getKeyStroke(
+                            KeyEvent.VK_C,
+                            java.awt.Toolkit
+                                .getDefaultToolkit()
+                                .menuShortcutKeyMaskEx,
+                        )
+                    addActionListener { area.copy() }
+                },
+            )
+            add(
+                javax.swing.JMenuItem("Select All").apply {
+                    accelerator =
+                        KeyStroke.getKeyStroke(
+                            KeyEvent.VK_A,
+                            java.awt.Toolkit
+                                .getDefaultToolkit()
+                                .menuShortcutKeyMaskEx,
+                        )
+                    addActionListener { area.selectAll() }
+                },
+            )
             addSeparator()
-            add(javax.swing.JMenuItem("Clear").apply {
-                addActionListener { clear() }
-            })
+            add(
+                javax.swing.JMenuItem("Clear").apply {
+                    addActionListener { clear() }
+                },
+            )
         }
     }
 
@@ -59,26 +77,37 @@ class ConsolePanel(
         minimumSize = java.awt.Dimension(0, 0)
         textArea.componentPopupMenu = buildOutputContextMenu()
 
-        val header = JLabel("Output").apply {
-            border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
-            font = font.deriveFont(Font.BOLD)
-        }
-        val scrollPane = JScrollPane(textArea).apply {
-            minimumSize = java.awt.Dimension(0, 0)
-            verticalScrollBar.unitIncrement = 16
-            verticalScrollBar.blockIncrement = 64
-        }
+        val header =
+            JLabel("Output").apply {
+                border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
+                font = font.deriveFont(Font.BOLD)
+            }
+        val scrollPane =
+            JScrollPane(textArea).apply {
+                minimumSize = java.awt.Dimension(0, 0)
+                verticalScrollBar.unitIncrement = 16
+                verticalScrollBar.blockIncrement = 64
+            }
         add(header, BorderLayout.NORTH)
         add(scrollPane, BorderLayout.CENTER)
         searchBar.isVisible = false
         add(searchBar, BorderLayout.SOUTH)
 
         // Ctrl+F opens the search bar
-        val ctrlF = KeyStroke.getKeyStroke(KeyEvent.VK_F, java.awt.Toolkit.getDefaultToolkit().menuShortcutKeyMaskEx)
+        val ctrlF =
+            KeyStroke.getKeyStroke(
+                KeyEvent.VK_F,
+                java.awt.Toolkit
+                    .getDefaultToolkit()
+                    .menuShortcutKeyMaskEx,
+            )
         textArea.inputMap.put(ctrlF, "show-search")
-        textArea.actionMap.put("show-search", object : javax.swing.AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent) = searchBar.showBar()
-        })
+        textArea.actionMap.put(
+            "show-search",
+            object : javax.swing.AbstractAction() {
+                override fun actionPerformed(e: java.awt.event.ActionEvent) = searchBar.showBar()
+            },
+        )
     }
 
     fun appendLine(text: String) {
@@ -106,14 +135,20 @@ class ConsolePanel(
     }
 
     private fun monoFont(): String {
-        val available = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
+        val available =
+            java.awt.GraphicsEnvironment
+                .getLocalGraphicsEnvironment()
+                .availableFontFamilyNames
+                .toHashSet()
         return listOf("JetBrains Mono", "Cascadia Code", "Consolas", "Courier New").firstOrNull { it in available }
             ?: Font.MONOSPACED
     }
 }
 
-private class ConsoleSearchBar(private val textArea: JTextArea, private val ctx: AppContext?) : JPanel(BorderLayout()) {
-
+private class ConsoleSearchBar(
+    private val textArea: JTextArea,
+    private val ctx: AppContext?,
+) : JPanel(BorderLayout()) {
     private val searchField = JTextField(20)
     private val statusLabel = JLabel(" ")
     private val matchPainter = DefaultHighlighter.DefaultHighlightPainter(Color(0xFFD700).also { })
@@ -125,35 +160,58 @@ private class ConsoleSearchBar(private val textArea: JTextArea, private val ctx:
     private var searchHelpShown = false
 
     init {
-        border = BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY),
-            BorderFactory.createEmptyBorder(3, 6, 3, 6),
-        )
+        border =
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY),
+                BorderFactory.createEmptyBorder(3, 6, 3, 6),
+            )
 
-        val row = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
-            add(JLabel("Find:"))
-            add(searchField)
-            add(JButton(RemixIcons.icon("ri-arrow-up-s-line", 12)).apply { toolTipText = "Previous (Shift+Enter)"; addActionListener { step(-1) } })
-            add(JButton(RemixIcons.icon("ri-arrow-down-s-line", 12)).apply { toolTipText = "Next (Enter)";           addActionListener { step(+1) } })
-            add(statusLabel)
-            add(JButton(RemixIcons.icon("ri-close-line", 12)).apply { toolTipText = "Close (Escape)"; addActionListener { hideBar() } })
-        }
+        val row =
+            JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+                add(JLabel("Find:"))
+                add(searchField)
+                add(
+                    JButton(RemixIcons.icon("ri-arrow-up-s-line", 12)).apply {
+                        toolTipText = "Previous (Shift+Enter)"
+                        addActionListener { step(-1) }
+                    },
+                )
+                add(
+                    JButton(RemixIcons.icon("ri-arrow-down-s-line", 12)).apply {
+                        toolTipText = "Next (Enter)"
+                        addActionListener { step(+1) }
+                    },
+                )
+                add(statusLabel)
+                add(
+                    JButton(RemixIcons.icon("ri-close-line", 12)).apply {
+                        toolTipText = "Close (Escape)"
+                        addActionListener { hideBar() }
+                    },
+                )
+            }
         add(row, BorderLayout.CENTER)
 
-        searchField.addKeyListener(object : KeyAdapter() {
-            override fun keyPressed(e: KeyEvent) {
-                when {
-                    e.keyCode == VK_ESCAPE              -> hideBar()
-                    e.keyCode == VK_ENTER && e.isShiftDown -> step(-1)
-                    e.keyCode == VK_ENTER               -> step(+1)
+        searchField.addKeyListener(
+            object : KeyAdapter() {
+                override fun keyPressed(e: KeyEvent) {
+                    when {
+                        e.keyCode == VK_ESCAPE -> hideBar()
+                        e.keyCode == VK_ENTER && e.isShiftDown -> step(-1)
+                        e.keyCode == VK_ENTER -> step(+1)
+                    }
                 }
-            }
-        })
-        searchField.document.addDocumentListener(object : javax.swing.event.DocumentListener {
-            override fun insertUpdate(e: javax.swing.event.DocumentEvent) = rebuildMatches()
-            override fun removeUpdate(e: javax.swing.event.DocumentEvent) = rebuildMatches()
-            override fun changedUpdate(e: javax.swing.event.DocumentEvent) {}
-        })
+            },
+        )
+        searchField.document.addDocumentListener(
+            object : javax.swing.event.DocumentListener {
+                override fun insertUpdate(e: javax.swing.event.DocumentEvent) = rebuildMatches()
+
+                override fun removeUpdate(e: javax.swing.event.DocumentEvent) = rebuildMatches()
+
+                override fun changedUpdate(e: javax.swing.event.DocumentEvent) {}
+            },
+        )
     }
 
     fun showBar() {

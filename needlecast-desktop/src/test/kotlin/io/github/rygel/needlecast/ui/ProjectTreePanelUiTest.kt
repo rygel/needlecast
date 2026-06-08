@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import java.awt.Dimension
 import java.awt.Point
 import java.awt.Rectangle
 import java.nio.file.Path
@@ -38,7 +37,6 @@ import javax.swing.tree.DefaultMutableTreeNode
  * Run via: mvn verify -Ptest-desktop (requires Xvfb — use Dockerfile.uitest).
  */
 class ProjectTreePanelUiTest {
-
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
     private lateinit var ctx: AppContext
@@ -61,9 +59,10 @@ class ProjectTreePanelUiTest {
 
     private fun buildCtxAndPanel(
         config: AppConfig,
-        scanner: ProjectScanner = object : ProjectScanner {
-            override fun scan(directory: ProjectDirectory): DetectedProject? = null
-        },
+        scanner: ProjectScanner =
+            object : ProjectScanner {
+                override fun scan(directory: ProjectDirectory): DetectedProject? = null
+            },
     ): ProjectTreePanel {
         val store = JsonConfigStore(tempDir.resolve("config.json"))
         ctx = AppContext(configStore = store, scanner = scanner)
@@ -71,13 +70,18 @@ class ProjectTreePanelUiTest {
         return GuiActionRunner.execute<ProjectTreePanel> { ProjectTreePanel(ctx, {}) }
     }
 
-    private fun showInFrame(panel: ProjectTreePanel, width: Int = 400, height: Int = 600): FrameFixture {
-        val frame = GuiActionRunner.execute<JFrame> {
-            JFrame("ProjectTree Test").apply {
-                contentPane.add(panel)
-                setSize(width, height)
+    private fun showInFrame(
+        panel: ProjectTreePanel,
+        width: Int = 400,
+        height: Int = 600,
+    ): FrameFixture {
+        val frame =
+            GuiActionRunner.execute<JFrame> {
+                JFrame("ProjectTree Test").apply {
+                    contentPane.add(panel)
+                    setSize(width, height)
+                }
             }
-        }
         val fix = FrameFixture(robot, frame)
         fix.show()
         robot.waitForIdle()
@@ -86,22 +90,31 @@ class ProjectTreePanelUiTest {
     }
 
     private fun rowCenter(row: Int): Point? {
-        val bounds = GuiActionRunner.execute(object : GuiQuery<Rectangle?>() {
-            override fun executeInEDT(): Rectangle? = tree.getRowBounds(row)
-        }) ?: return null
+        val bounds =
+            GuiActionRunner.execute(
+                object : GuiQuery<Rectangle?>() {
+                    override fun executeInEDT(): Rectangle? = tree.getRowBounds(row)
+                },
+            ) ?: return null
         val loc = tree.locationOnScreen
         return Point(loc.x + bounds.centerX.toInt(), loc.y + bounds.centerY.toInt())
     }
 
     private fun rowTopEdge(row: Int): Point? {
-        val bounds = GuiActionRunner.execute(object : GuiQuery<Rectangle?>() {
-            override fun executeInEDT(): Rectangle? = tree.getRowBounds(row)
-        }) ?: return null
+        val bounds =
+            GuiActionRunner.execute(
+                object : GuiQuery<Rectangle?>() {
+                    override fun executeInEDT(): Rectangle? = tree.getRowBounds(row)
+                },
+            ) ?: return null
         val loc = tree.locationOnScreen
         return Point(loc.x + bounds.centerX.toInt(), loc.y + bounds.y + (bounds.height * 0.15).toInt())
     }
 
-    private fun dragTo(src: Point, dst: Point) {
+    private fun dragTo(
+        src: Point,
+        dst: Point,
+    ) {
         robot.pressMouse(src, MouseButton.LEFT_BUTTON)
         robot.waitForIdle()
         val steps = 8
@@ -116,7 +129,10 @@ class ProjectTreePanelUiTest {
         robot.waitForIdle()
     }
 
-    private fun dragToSlow(src: Point, dst: Point) {
+    private fun dragToSlow(
+        src: Point,
+        dst: Point,
+    ) {
         robot.pressMouse(src, MouseButton.LEFT_BUTTON)
         robot.waitForIdle()
         Thread.sleep(40)
@@ -138,31 +154,40 @@ class ProjectTreePanelUiTest {
     @Test
     fun `projects are visible under folders on initial render`() {
         val projectPath = tempDir.resolve("my-project").also { it.toFile().mkdirs() }.toString()
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Folder(
-                    name = "Work",
-                    children = listOf(
-                        ProjectTreeEntry.Project(
-                            directory = ProjectDirectory(path = projectPath, displayName = "My Project"),
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Folder(
+                            name = "Work",
+                            children =
+                                listOf(
+                                    ProjectTreeEntry.Project(
+                                        directory = ProjectDirectory(path = projectPath, displayName = "My Project"),
+                                    ),
+                                ),
                         ),
                     ),
-                ),
-            ),
-        )
+            )
         val panel = buildCtxAndPanel(config)
         fixture = showInFrame(panel)
 
         // Row 0 = Work folder, Row 1 = My Project
-        val rowCount = GuiActionRunner.execute(object : GuiQuery<Int>() {
-            override fun executeInEDT() = tree.rowCount
-        })
+        val rowCount =
+            GuiActionRunner.execute(
+                object : GuiQuery<Int>() {
+                    override fun executeInEDT() = tree.rowCount
+                },
+            )
         assertEquals(2, rowCount, "Expected folder + project = 2 rows")
 
         // Project row must have non-zero bounds (visible)
-        val bounds = GuiActionRunner.execute(object : GuiQuery<Rectangle?>() {
-            override fun executeInEDT() = tree.getRowBounds(1)
-        })
+        val bounds =
+            GuiActionRunner.execute(
+                object : GuiQuery<Rectangle?>() {
+                    override fun executeInEDT() = tree.getRowBounds(1)
+                },
+            )
         assertNotNull(bounds, "Project row bounds should not be null")
         assertTrue(bounds!!.width > 50, "Project row width should be > 50px, was ${bounds.width}")
         assertTrue(bounds.height > 10, "Project row height should be > 10px, was ${bounds.height}")
@@ -171,31 +196,37 @@ class ProjectTreePanelUiTest {
     @Test
     fun `project with null displayName shows directory name`() {
         val projectPath = tempDir.resolve("cool-app").also { it.toFile().mkdirs() }.toString()
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Folder(
-                    name = "Apps",
-                    children = listOf(
-                        ProjectTreeEntry.Project(
-                            directory = ProjectDirectory(path = projectPath, displayName = null),
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Folder(
+                            name = "Apps",
+                            children =
+                                listOf(
+                                    ProjectTreeEntry.Project(
+                                        directory = ProjectDirectory(path = projectPath, displayName = null),
+                                    ),
+                                ),
                         ),
                     ),
-                ),
-            ),
-        )
+            )
         val panel = buildCtxAndPanel(config)
         fixture = showInFrame(panel)
 
         // Verify the node's userObject has the right label
-        val label = GuiActionRunner.execute(object : GuiQuery<String>() {
-            override fun executeInEDT(): String {
-                val root = tree.model.root as DefaultMutableTreeNode
-                val folder = root.getChildAt(0) as DefaultMutableTreeNode
-                val project = folder.getChildAt(0) as DefaultMutableTreeNode
-                val entry = project.userObject as ProjectTreeEntry.Project
-                return entry.directory.label()
-            }
-        })
+        val label =
+            GuiActionRunner.execute(
+                object : GuiQuery<String>() {
+                    override fun executeInEDT(): String {
+                        val root = tree.model.root as DefaultMutableTreeNode
+                        val folder = root.getChildAt(0) as DefaultMutableTreeNode
+                        val project = folder.getChildAt(0) as DefaultMutableTreeNode
+                        val entry = project.userObject as ProjectTreeEntry.Project
+                        return entry.directory.label()
+                    }
+                },
+            )
         assertEquals("cool-app", label, "Should show directory name when displayName is null")
     }
 
@@ -206,23 +237,26 @@ class ProjectTreePanelUiTest {
         val alphaPath = tempDir.resolve("alpha").also { it.toFile().mkdirs() }.toString()
         val betaPath = tempDir.resolve("beta").also { it.toFile().mkdirs() }.toString()
 
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Folder(
-                    name = "Work",
-                    children = listOf(
-                        ProjectTreeEntry.Project(
-                            directory = ProjectDirectory(path = alphaPath, displayName = "Alpha"),
-                            tags = listOf("kotlin", "backend"),
-                        ),
-                        ProjectTreeEntry.Project(
-                            directory = ProjectDirectory(path = betaPath, displayName = "Beta"),
-                            tags = listOf("react", "frontend"),
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Folder(
+                            name = "Work",
+                            children =
+                                listOf(
+                                    ProjectTreeEntry.Project(
+                                        directory = ProjectDirectory(path = alphaPath, displayName = "Alpha"),
+                                        tags = listOf("kotlin", "backend"),
+                                    ),
+                                    ProjectTreeEntry.Project(
+                                        directory = ProjectDirectory(path = betaPath, displayName = "Beta"),
+                                        tags = listOf("react", "frontend"),
+                                    ),
+                                ),
                         ),
                     ),
-                ),
-            ),
-        )
+            )
         val panel = buildCtxAndPanel(config)
         fixture = showInFrame(panel)
 
@@ -247,23 +281,26 @@ class ProjectTreePanelUiTest {
     fun `tags are preserved after cross-folder drag`() {
         val alphaPath = tempDir.resolve("alpha").also { it.toFile().mkdirs() }.toString()
 
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Folder(
-                    name = "Source",
-                    children = listOf(
-                        ProjectTreeEntry.Project(
-                            directory = ProjectDirectory(path = alphaPath, displayName = "Alpha"),
-                            tags = listOf("important", "v2"),
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Folder(
+                            name = "Source",
+                            children =
+                                listOf(
+                                    ProjectTreeEntry.Project(
+                                        directory = ProjectDirectory(path = alphaPath, displayName = "Alpha"),
+                                        tags = listOf("important", "v2"),
+                                    ),
+                                ),
+                        ),
+                        ProjectTreeEntry.Folder(
+                            name = "Target",
+                            children = emptyList(),
                         ),
                     ),
-                ),
-                ProjectTreeEntry.Folder(
-                    name = "Target",
-                    children = emptyList(),
-                ),
-            ),
-        )
+            )
         val panel = buildCtxAndPanel(config)
         fixture = showInFrame(panel)
 
@@ -271,12 +308,13 @@ class ProjectTreePanelUiTest {
         val src = rowCenter(1) ?: error("Alpha row not visible")
         val dst = rowCenter(2) ?: error("Target folder not visible")
         dragTo(src, dst)
-        val moved = runCatching { waitForProjectInFolder("Target", alphaPath, 1_500) }.getOrNull()
-            ?: run {
-                // Retry once with a slower drag to reduce CI flakiness.
-                dragToSlow(src, dst)
-                waitForProjectInFolder("Target", alphaPath, 4_000)
-            }
+        val moved =
+            runCatching { waitForProjectInFolder("Target", alphaPath, 1_500) }.getOrNull()
+                ?: run {
+                    // Retry once with a slower drag to reduce CI flakiness.
+                    dragToSlow(src, dst)
+                    waitForProjectInFolder("Target", alphaPath, 4_000)
+                }
         assertEquals(listOf("important", "v2"), moved.tags, "Tags should survive cross-folder drag")
     }
 
@@ -285,37 +323,46 @@ class ProjectTreePanelUiTest {
     @Test
     fun `clicking lower half and empty row space selects the project`() {
         val projectPath = tempDir.resolve("clicky-app").also { it.toFile().mkdirs() }.toString()
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Folder(
-                    name = "Apps",
-                    children = listOf(
-                        ProjectTreeEntry.Project(
-                            directory = ProjectDirectory(path = projectPath, displayName = "Clicky App"),
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Folder(
+                            name = "Apps",
+                            children =
+                                listOf(
+                                    ProjectTreeEntry.Project(
+                                        directory = ProjectDirectory(path = projectPath, displayName = "Clicky App"),
+                                    ),
+                                ),
                         ),
                     ),
-                ),
-            ),
-        )
+            )
         val panel = buildCtxAndPanel(config)
         fixture = showInFrame(panel)
 
-        val clickPoint = GuiActionRunner.execute(object : GuiQuery<Point>() {
-            override fun executeInEDT(): Point {
-                val bounds = tree.getRowBounds(1) ?: error("Project row not visible")
-                val loc = tree.locationOnScreen
-                val x = loc.x + (tree.width - 6).coerceAtLeast(1)
-                val y = loc.y + bounds.y + (bounds.height * 0.85).toInt()
-                return Point(x, y)
-            }
-        })
+        val clickPoint =
+            GuiActionRunner.execute(
+                object : GuiQuery<Point>() {
+                    override fun executeInEDT(): Point {
+                        val bounds = tree.getRowBounds(1) ?: error("Project row not visible")
+                        val loc = tree.locationOnScreen
+                        val x = loc.x + (tree.width - 6).coerceAtLeast(1)
+                        val y = loc.y + bounds.y + (bounds.height * 0.85).toInt()
+                        return Point(x, y)
+                    }
+                },
+            )
         robot.pressMouse(clickPoint, MouseButton.LEFT_BUTTON)
         robot.releaseMouse(MouseButton.LEFT_BUTTON)
         robot.waitForIdle()
 
-        val selectedRow = GuiActionRunner.execute(object : GuiQuery<Int?>() {
-            override fun executeInEDT(): Int? = tree.selectionRows?.firstOrNull()
-        })
+        val selectedRow =
+            GuiActionRunner.execute(
+                object : GuiQuery<Int?>() {
+                    override fun executeInEDT(): Int? = tree.selectionRows?.firstOrNull()
+                },
+            )
         assertEquals(1, selectedRow, "Clicking the lower-right area of a row should select it")
     }
 
@@ -323,20 +370,22 @@ class ProjectTreePanelUiTest {
 
     @Test
     fun `selection latency stays low under load`() {
-        val children = (1..120).map { i ->
-            val path = tempDir.resolve("project-$i").also { it.toFile().mkdirs() }.toString()
-            ProjectTreeEntry.Project(
-                directory = ProjectDirectory(path = path, displayName = "Project $i"),
-                tags = listOf("tag-$i", "longer-tag-$i"),
+        val children =
+            (1..120).map { i ->
+                val path = tempDir.resolve("project-$i").also { it.toFile().mkdirs() }.toString()
+                ProjectTreeEntry.Project(
+                    directory = ProjectDirectory(path = path, displayName = "Project $i"),
+                    tags = listOf("tag-$i", "longer-tag-$i"),
+                )
+            }
+        val config =
+            AppConfig(
+                projectTree = listOf(ProjectTreeEntry.Folder(name = "Work", children = children)),
             )
-        }
-        val config = AppConfig(
-            projectTree = listOf(ProjectTreeEntry.Folder(name = "Work", children = children)),
-        )
-        val scanner = object : ProjectScanner {
-            override fun scan(directory: ProjectDirectory): DetectedProject =
-                DetectedProject(directory, emptySet(), emptyList())
-        }
+        val scanner =
+            object : ProjectScanner {
+                override fun scan(directory: ProjectDirectory): DetectedProject = DetectedProject(directory, emptySet(), emptyList())
+            }
         val panel = buildCtxAndPanel(config, scanner)
         fixture = showInFrame(panel, width = 500, height = 700)
 
@@ -367,12 +416,18 @@ class ProjectTreePanelUiTest {
         assertTrue(max < 350, "Selection latency too high: max=${max}ms")
     }
 
-    private fun waitForSelectionRow(row: Int, timeoutMs: Long) {
+    private fun waitForSelectionRow(
+        row: Int,
+        timeoutMs: Long,
+    ) {
         val deadline = System.nanoTime() + (timeoutMs * 1_000_000)
         while (System.nanoTime() < deadline) {
-            val selected = GuiActionRunner.execute(object : GuiQuery<Int?>() {
-                override fun executeInEDT(): Int? = tree.selectionRows?.firstOrNull()
-            })
+            val selected =
+                GuiActionRunner.execute(
+                    object : GuiQuery<Int?>() {
+                        override fun executeInEDT(): Int? = tree.selectionRows?.firstOrNull()
+                    },
+                )
             if (selected == row) return
             Thread.sleep(5)
         }
@@ -386,23 +441,29 @@ class ProjectTreePanelUiTest {
     ): ProjectTreeEntry.Project {
         val deadline = System.nanoTime() + (timeoutMs * 1_000_000)
         while (System.nanoTime() < deadline) {
-            val moved = ctx.config.projectTree
-                .filterIsInstance<ProjectTreeEntry.Folder>()
-                .firstOrNull { it.name == folderName }
-                ?.children
-                ?.filterIsInstance<ProjectTreeEntry.Project>()
-                ?.firstOrNull { it.directory.path == projectPath }
-            val inTree = GuiActionRunner.execute(object : GuiQuery<Boolean>() {
-                override fun executeInEDT(): Boolean =
-                    findProjectNode(folderName, projectPath) != null
-            })
+            val moved =
+                ctx.config.projectTree
+                    .filterIsInstance<ProjectTreeEntry.Folder>()
+                    .firstOrNull { it.name == folderName }
+                    ?.children
+                    ?.filterIsInstance<ProjectTreeEntry.Project>()
+                    ?.firstOrNull { it.directory.path == projectPath }
+            val inTree =
+                GuiActionRunner.execute(
+                    object : GuiQuery<Boolean>() {
+                        override fun executeInEDT(): Boolean = findProjectNode(folderName, projectPath) != null
+                    },
+                )
             if (moved != null && inTree) return moved
             Thread.sleep(20)
         }
         throw AssertionError("Timed out waiting for project $projectPath to appear in folder $folderName")
     }
 
-    private fun findProjectNode(folderName: String, projectPath: String): DefaultMutableTreeNode? {
+    private fun findProjectNode(
+        folderName: String,
+        projectPath: String,
+    ): DefaultMutableTreeNode? {
         val root = tree.model.root as? DefaultMutableTreeNode ?: return null
         for (i in 0 until root.childCount) {
             val folderNode = root.getChildAt(i) as? DefaultMutableTreeNode ?: continue
@@ -421,41 +482,50 @@ class ProjectTreePanelUiTest {
 
     @Test
     fun `tree width does not grow when projects are added`() {
-        val config = AppConfig(
-            projectTree = listOf(
-                ProjectTreeEntry.Folder(name = "Work", children = emptyList()),
-            ),
-        )
+        val config =
+            AppConfig(
+                projectTree =
+                    listOf(
+                        ProjectTreeEntry.Folder(name = "Work", children = emptyList()),
+                    ),
+            )
         val panel = buildCtxAndPanel(config)
         fixture = showInFrame(panel, width = 300, height = 400)
 
-        val initialWidth = GuiActionRunner.execute(object : GuiQuery<Int>() {
-            override fun executeInEDT() = tree.width
-        })
+        val initialWidth =
+            GuiActionRunner.execute(
+                object : GuiQuery<Int>() {
+                    override fun executeInEDT() = tree.width
+                },
+            )
 
         // Add 5 projects programmatically
         for (i in 1..5) {
             val path = tempDir.resolve("project-$i").also { it.toFile().mkdirs() }.toString()
             val current = ctx.config
             val folder = current.projectTree.first() as ProjectTreeEntry.Folder
-            val newProject = ProjectTreeEntry.Project(
-                directory = ProjectDirectory(path = path, displayName = "Project $i"),
-                tags = listOf("tag-$i"),
-            )
+            val newProject =
+                ProjectTreeEntry.Project(
+                    directory = ProjectDirectory(path = path, displayName = "Project $i"),
+                    tags = listOf("tag-$i"),
+                )
             val updated = folder.copy(children = folder.children + newProject)
             ctx.updateConfig(current.copy(projectTree = listOf(updated)))
         }
         robot.waitForIdle()
         Thread.sleep(500) // let layout settle
 
-        val finalWidth = GuiActionRunner.execute(object : GuiQuery<Int>() {
-            override fun executeInEDT() = tree.width
-        })
+        val finalWidth =
+            GuiActionRunner.execute(
+                object : GuiQuery<Int>() {
+                    override fun executeInEDT() = tree.width
+                },
+            )
 
         // Width should not have grown (allow 2px tolerance for border/scrollbar)
         assertTrue(
             finalWidth <= initialWidth + 2,
-            "Tree width should not grow after adding projects: initial=$initialWidth, final=$finalWidth"
+            "Tree width should not grow after adding projects: initial=$initialWidth, final=$finalWidth",
         )
     }
 }

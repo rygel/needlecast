@@ -16,8 +16,10 @@ private val IS_WINDOWS: Boolean = System.getProperty("os.name").lowercase().cont
  * timeout-aware implementation.
  */
 object ProcessExecutor {
-
-    data class Result(val output: String, val exitCode: Int)
+    data class Result(
+        val output: String,
+        val exitCode: Int,
+    )
 
     /**
      * Runs [argv] and returns the combined stdout+stderr output and exit code,
@@ -35,17 +37,24 @@ object ProcessExecutor {
 
             // Read output on a daemon thread so the timeout can be enforced concurrently.
             var output = ""
-            val reader = Thread({ output = proc.inputStream.bufferedReader().readText() }, "process-output-reader")
-                .apply { isDaemon = true; start() }
+            val reader =
+                Thread({ output = proc.inputStream.bufferedReader().readText() }, "process-output-reader")
+                    .apply {
+                        isDaemon = true
+                        start()
+                    }
 
             if (!proc.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
                 proc.destroyForcibly()
-                try { proc.inputStream.close() } catch (_: Exception) {}
+                try {
+                    proc.inputStream.close()
+                } catch (_: Exception) {
+                }
                 reader.interrupt()
                 reader.join(1_000L)
                 return null
             }
-            reader.join(1_000L)  // brief wait for the reader to drain any remaining bytes
+            reader.join(1_000L) // brief wait for the reader to drain any remaining bytes
             Result(output.trimEnd(), proc.exitValue())
         } catch (_: Exception) {
             null

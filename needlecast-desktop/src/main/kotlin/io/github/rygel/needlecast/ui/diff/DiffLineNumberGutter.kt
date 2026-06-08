@@ -7,7 +7,6 @@ import java.awt.RenderingHints
 import javax.swing.JComponent
 import javax.swing.JScrollPane
 import javax.swing.SwingUtilities
-import javax.swing.event.ChangeEvent
 import javax.swing.event.ChangeListener
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
@@ -17,8 +16,10 @@ class DiffLineNumberGutter(
     private val textPane: DiffEditorPane,
     private val scrollPane: JScrollPane,
 ) : JComponent() {
-
-    data class LineInfo(val number: Int?, val type: DiffLineType)
+    data class LineInfo(
+        val number: Int?,
+        val type: DiffLineType,
+    )
 
     private var lineInfos = listOf<LineInfo>()
     private var maxDigits = 4
@@ -26,11 +27,14 @@ class DiffLineNumberGutter(
     private val gutterWidth get() = maxDigits * charWidth + PADDING * 2
     private val charWidth: Int get() = textPane.getFontMetrics(textPane.font).charWidth('0')
 
-    private val docListener = object : DocumentListener {
-        override fun insertUpdate(e: DocumentEvent?) = updateFromDocument()
-        override fun removeUpdate(e: DocumentEvent?) = updateFromDocument()
-        override fun changedUpdate(e: DocumentEvent?) = updateFromDocument()
-    }
+    private val docListener =
+        object : DocumentListener {
+            override fun insertUpdate(e: DocumentEvent?) = updateFromDocument()
+
+            override fun removeUpdate(e: DocumentEvent?) = updateFromDocument()
+
+            override fun changedUpdate(e: DocumentEvent?) = updateFromDocument()
+        }
 
     private val viewportListener = ChangeListener { repaint() }
 
@@ -64,7 +68,14 @@ class DiffLineNumberGutter(
         for (i in lineInfos.indices) {
             if (i >= root.elementCount) break
             val elem = root.getElement(i)
-            val y = yOffset + (try { textPane.modelToView(elem.startOffset).y.toInt() } catch (_: Exception) { continue })
+            val y =
+                yOffset + (
+                    try {
+                        textPane.modelToView(elem.startOffset).y.toInt()
+                    } catch (_: Exception) {
+                        continue
+                    }
+                )
 
             if (y + fm.height < 0 || y > height) continue
 
@@ -79,7 +90,10 @@ class DiffLineNumberGutter(
     }
 
     private fun updateFromDocument() {
-        SwingUtilities.invokeLater { revalidate(); repaint() }
+        SwingUtilities.invokeLater {
+            revalidate()
+            repaint()
+        }
     }
 
     companion object {

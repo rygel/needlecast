@@ -17,7 +17,6 @@ import java.nio.file.Path
 import javax.swing.JFrame
 
 class EditorPanelUiTest {
-
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
     private lateinit var panel: EditorPanel
@@ -38,13 +37,18 @@ class EditorPanelUiTest {
         robot.cleanUp()
     }
 
-    private fun showInFrame(panel: EditorPanel, width: Int = 700, height: Int = 500): FrameFixture {
-        val frame = GuiActionRunner.execute<JFrame> {
-            JFrame("Editor Test").apply {
-                contentPane.add(panel)
-                setSize(width, height)
+    private fun showInFrame(
+        panel: EditorPanel,
+        width: Int = 700,
+        height: Int = 500,
+    ): FrameFixture {
+        val frame =
+            GuiActionRunner.execute<JFrame> {
+                JFrame("Editor Test").apply {
+                    contentPane.add(panel)
+                    setSize(width, height)
+                }
             }
-        }
         val fix = FrameFixture(robot, frame)
         fix.show()
         robot.waitForIdle()
@@ -60,32 +64,42 @@ class EditorPanelUiTest {
         fixture = showInFrame(panel)
 
         val file = tempDir.resolve("big.txt").toFile()
-        val content = buildString {
-            repeat(100_000) { append("line ").append(it).append('\n') }
-        }
+        val content =
+            buildString {
+                repeat(100_000) { append("line ").append(it).append('\n') }
+            }
         file.writeText(content)
 
         GuiActionRunner.execute { panel.openFile(file) }
 
         Thread.sleep(50)
-        val partialLength = GuiActionRunner.execute(object : GuiQuery<Int>() {
-            override fun executeInEDT(): Int = editor.document.length
-        })
+        val partialLength =
+            GuiActionRunner.execute(
+                object : GuiQuery<Int>() {
+                    override fun executeInEDT(): Int = editor.document.length
+                },
+            )
         val totalLength = content.length
         org.junit.jupiter.api.Assertions.assertTrue(
             partialLength in 1 until totalLength,
-            "Expected incremental load; length=$partialLength total=$totalLength"
+            "Expected incremental load; length=$partialLength total=$totalLength",
         )
 
         waitForDocLength(totalLength, 5_000)
     }
 
-    private fun waitForDocLength(expected: Int, timeoutMs: Long) {
+    private fun waitForDocLength(
+        expected: Int,
+        timeoutMs: Long,
+    ) {
         val deadline = System.nanoTime() + (timeoutMs * 1_000_000)
         while (System.nanoTime() < deadline) {
-            val len = GuiActionRunner.execute(object : GuiQuery<Int>() {
-                override fun executeInEDT(): Int = editor.document.length
-            })
+            val len =
+                GuiActionRunner.execute(
+                    object : GuiQuery<Int>() {
+                        override fun executeInEDT(): Int = editor.document.length
+                    },
+                )
             if (len == expected) return
             Thread.sleep(20)
         }

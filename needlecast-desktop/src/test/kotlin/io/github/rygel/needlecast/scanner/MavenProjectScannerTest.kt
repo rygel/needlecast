@@ -9,17 +9,20 @@ import java.io.File
 import java.nio.file.Path
 
 class MavenProjectScannerTest {
-
     private val scanner = MavenProjectScanner()
 
     @Test
-    fun `returns null when no pom_xml present`(@TempDir dir: Path) {
+    fun `returns null when no pom_xml present`(
+        @TempDir dir: Path,
+    ) {
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         assertNull(result)
     }
 
     @Test
-    fun `detects Maven project and returns six standard lifecycle commands`(@TempDir dir: Path) {
+    fun `detects Maven project and returns six standard lifecycle commands`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "pom.xml").writeText("<project/>")
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
@@ -33,22 +36,29 @@ class MavenProjectScannerTest {
     }
 
     @Test
-    fun `all commands have working directory set to scanned dir`(@TempDir dir: Path) {
+    fun `all commands have working directory set to scanned dir`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "pom.xml").writeText("<project/>")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         result.commands.forEach { assertEquals(dir.toString(), it.workingDirectory) }
     }
 
     @Test
-    fun `all commands reference MAVEN build tool`(@TempDir dir: Path) {
+    fun `all commands reference MAVEN build tool`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "pom.xml").writeText("<project/>")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         result.commands.forEach { assertEquals(BuildTool.MAVEN, it.buildTool) }
     }
 
     @Test
-    fun `detects JavaFX plugin and adds javafx run and compile commands`(@TempDir dir: Path) {
-        File(dir.toFile(), "pom.xml").writeText("""
+    fun `detects JavaFX plugin and adds javafx run and compile commands`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "pom.xml").writeText(
+            """
             <project>
               <build><plugins>
                 <plugin>
@@ -57,18 +67,22 @@ class MavenProjectScannerTest {
                 </plugin>
               </plugins></build>
             </project>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         val labels = result.commands.map { it.label }
 
-        assertTrue(labels.contains("mvn javafx:run"),     "Expected mvn javafx:run, got: $labels")
+        assertTrue(labels.contains("mvn javafx:run"), "Expected mvn javafx:run, got: $labels")
         assertTrue(labels.contains("mvn javafx:compile"), "Expected mvn javafx:compile, got: $labels")
     }
 
     @Test
-    fun `adds javafx jlink command only when pom mentions jlink`(@TempDir dir: Path) {
-        val pomWithJlink = """
+    fun `adds javafx jlink command only when pom mentions jlink`(
+        @TempDir dir: Path,
+    ) {
+        val pomWithJlink =
+            """
             <project>
               <groupId>org.openjfx</groupId>
               <build><plugins>
@@ -76,7 +90,7 @@ class MavenProjectScannerTest {
               </plugins></build>
               <!-- jlink configuration here -->
             </project>
-        """.trimIndent()
+            """.trimIndent()
         val pomWithout = "<project><groupId>org.openjfx</groupId></project>"
 
         File(dir.toFile(), "pom.xml").writeText(pomWithJlink)
@@ -89,8 +103,11 @@ class MavenProjectScannerTest {
     }
 
     @Test
-    fun `detects exec-maven-plugin and adds exec_java command`(@TempDir dir: Path) {
-        File(dir.toFile(), "pom.xml").writeText("""
+    fun `detects exec-maven-plugin and adds exec_java command`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "pom.xml").writeText(
+            """
             <project>
               <build><plugins>
                 <plugin>
@@ -98,7 +115,8 @@ class MavenProjectScannerTest {
                 </plugin>
               </plugins></build>
             </project>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         val labels = result.commands.map { it.label }
@@ -106,7 +124,9 @@ class MavenProjectScannerTest {
     }
 
     @Test
-    fun `no extra commands for plain pom without plugins`(@TempDir dir: Path) {
+    fun `no extra commands for plain pom without plugins`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "pom.xml").writeText("<project/>")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(6, result.commands.size, "Plain pom should produce exactly 6 lifecycle commands")
@@ -115,24 +135,30 @@ class MavenProjectScannerTest {
     // ── Submodule detection ──────────────────────────────────────────────────
 
     @Test
-    fun `detects submodules from modules element`(@TempDir dir: Path) {
-        File(dir.toFile(), "pom.xml").writeText("""
+    fun `detects submodules from modules element`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "pom.xml").writeText(
+            """
             <project>
               <modules>
                 <module>desktop</module>
                 <module>web</module>
               </modules>
             </project>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val desktop = File(dir.toFile(), "desktop").also { it.mkdirs() }
-        File(desktop, "pom.xml").writeText("""
+        File(desktop, "pom.xml").writeText(
+            """
             <project>
               <build><plugins>
                 <plugin><artifactId>exec-maven-plugin</artifactId></plugin>
               </plugins></build>
             </project>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val web = File(dir.toFile(), "web").also { it.mkdirs() }
         File(web, "pom.xml").writeText("<project/>")
@@ -151,8 +177,11 @@ class MavenProjectScannerTest {
     }
 
     @Test
-    fun `detects Spring Boot plugin`(@TempDir dir: Path) {
-        File(dir.toFile(), "pom.xml").writeText("""
+    fun `detects Spring Boot plugin`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "pom.xml").writeText(
+            """
             <project>
               <build><plugins>
                 <plugin>
@@ -161,7 +190,8 @@ class MavenProjectScannerTest {
                 </plugin>
               </plugins></build>
             </project>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         val labels = result.commands.map { it.label }
@@ -169,8 +199,11 @@ class MavenProjectScannerTest {
     }
 
     @Test
-    fun `detects Quarkus plugin`(@TempDir dir: Path) {
-        File(dir.toFile(), "pom.xml").writeText("""
+    fun `detects Quarkus plugin`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "pom.xml").writeText(
+            """
             <project>
               <build><plugins>
                 <plugin>
@@ -179,7 +212,8 @@ class MavenProjectScannerTest {
                 </plugin>
               </plugins></build>
             </project>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         val labels = result.commands.map { it.label }
@@ -187,15 +221,20 @@ class MavenProjectScannerTest {
     }
 
     @Test
-    fun `detects Spring Boot in submodule`(@TempDir dir: Path) {
-        File(dir.toFile(), "pom.xml").writeText("""
+    fun `detects Spring Boot in submodule`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "pom.xml").writeText(
+            """
             <project>
               <modules><module>api</module></modules>
             </project>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val api = File(dir.toFile(), "api").also { it.mkdirs() }
-        File(api, "pom.xml").writeText("""
+        File(api, "pom.xml").writeText(
+            """
             <project>
               <build><plugins>
                 <plugin>
@@ -204,21 +243,28 @@ class MavenProjectScannerTest {
                 </plugin>
               </plugins></build>
             </project>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         val labels = result.commands.map { it.label }
-        assertTrue(labels.any { it.contains("-pl api") && it.contains("spring-boot:run") },
-            "Missing -pl api spring-boot:run, got: $labels")
+        assertTrue(
+            labels.any { it.contains("-pl api") && it.contains("spring-boot:run") },
+            "Missing -pl api spring-boot:run, got: $labels",
+        )
     }
 
     @Test
-    fun `ignores submodule with no pom`(@TempDir dir: Path) {
-        File(dir.toFile(), "pom.xml").writeText("""
+    fun `ignores submodule with no pom`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "pom.xml").writeText(
+            """
             <project>
               <modules><module>ghost</module></modules>
             </project>
-        """.trimIndent())
+            """.trimIndent(),
+        )
         // No ghost/ directory
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
