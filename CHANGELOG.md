@@ -1,4 +1,10 @@
 
+## v0.11.0-beta.1 — 2026-06-08
+
+- 97daa31 feat: Cycle 4 — code quality and tooling improvements
+- 8b470a4 docs: update auto-generated screenshots
+- f6543b8 docs: add v0.10.0-beta.1 changelog entries
+
 ## v0.10.0-beta.1 — 2026-06-08
 
 - 53f2498 Merge pull request #214 from rygel/feat/cycle-3-core
