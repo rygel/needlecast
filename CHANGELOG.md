@@ -1,3 +1,18 @@
+
+## v0.10.0-beta.1 — 2026-06-08
+
+- 53f2498 Merge pull request #214 from rygel/feat/cycle-3-core
+- bf19acf docs: update auto-generated screenshots
+- 8f8a2ac Merge remote-tracking branch 'origin/develop' into feat/cycle-3-core
+- cc87bf4 Merge pull request #215 from rygel/feat/cycle-3-ui
+- c4354aa test: expand settings panel test coverage
+- 90b1ae5 feat: project tree filter with clear button and path matching
+- f744225 test: add icon loading regression tests for RemixIcons
+- 73c8a9a fix: auto-restart shell when terminal child process exits
+- 4150976 style: apply ktlint auto-format to all Kotlin source files
+- 4a90824 docs: update auto-generated screenshots
+- ba2ffd0 docs: add v0.9.0-beta.1 changelog entries
+
 # Changelog
 
 All notable changes to Needlecast are documented here.
