@@ -25,8 +25,14 @@ object WordDiffCalculator {
 
         for (op in ops) {
             when (op.type) {
-                DiffLineType.REMOVED -> removedDiffs.add(WordDiff(WordDiffType.REMOVED, oldTokens[op.index]))
-                DiffLineType.ADDED -> addedDiffs.add(WordDiff(WordDiffType.ADDED, newTokens[op.index]))
+                DiffLineType.REMOVED -> {
+                    removedDiffs.add(WordDiff(WordDiffType.REMOVED, oldTokens[op.index]))
+                }
+
+                DiffLineType.ADDED -> {
+                    addedDiffs.add(WordDiff(WordDiffType.ADDED, newTokens[op.index]))
+                }
+
                 DiffLineType.CONTEXT -> { }
             }
         }

@@ -295,8 +295,7 @@ class PromptInputPanel(
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private fun currentLibrary(): List<PromptTemplate> =
-        if (isCommand) ctx.promptLibraryStore.loadCommands() else ctx.promptLibraryStore.loadPrompts()
+    private fun currentLibrary(): List<PromptTemplate> = if (isCommand) ctx.promptLibraryStore.loadCommands() else ctx.promptLibraryStore.loadPrompts()
 
     private fun selectedPrompt(): PromptTemplate? {
         val node = tree.selectionPath?.lastPathComponent as? DefaultMutableTreeNode ?: return null
@@ -326,6 +325,7 @@ class PromptInputPanel(
                     font = plainFont
                     icon = leafIcon
                 }
+
                 else -> {
                     // Category node — already uses node.toString() via super; make it bold
                     font = boldFont

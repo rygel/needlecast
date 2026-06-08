@@ -275,8 +275,7 @@ diff --git a/README.md b/README.md
         val hasSplit =
             GuiActionRunner.execute(
                 object : GuiQuery<Boolean>() {
-                    override fun executeInEDT(): Boolean =
-                        findDescendant(diffViewerPanel.contentPanel as Container, JSplitPane::class.java) != null
+                    override fun executeInEDT(): Boolean = findDescendant(diffViewerPanel.contentPanel as Container, JSplitPane::class.java) != null
                 },
             )
         assertTrue(hasSplit, "Content panel should contain a JSplitPane for side-by-side view")

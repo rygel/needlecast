@@ -715,11 +715,26 @@ class MainWindow(
 
     private fun classifyUpdateError(error: Throwable): String =
         when (error) {
-            is SSLHandshakeException -> "tls_handshake"
-            is SSLException -> "tls_ssl"
-            is UnknownHostException -> "dns_unresolved_host"
-            is SocketTimeoutException -> "network_timeout"
-            is ConnectException -> "network_connect_refused"
+            is SSLHandshakeException -> {
+                "tls_handshake"
+            }
+
+            is SSLException -> {
+                "tls_ssl"
+            }
+
+            is UnknownHostException -> {
+                "dns_unresolved_host"
+            }
+
+            is SocketTimeoutException -> {
+                "network_timeout"
+            }
+
+            is ConnectException -> {
+                "network_connect_refused"
+            }
+
             else -> {
                 val message = (error.message ?: "").lowercase()
                 when {

@@ -329,8 +329,7 @@ class PromptLibraryDialog(
     // List helpers
     // ─────────────────────────────────────────────────────────────────────
 
-    private fun currentLibrary(): List<PromptTemplate> =
-        if (isCommand) ctx.promptLibraryStore.loadCommands() else ctx.promptLibraryStore.loadPrompts()
+    private fun currentLibrary(): List<PromptTemplate> = if (isCommand) ctx.promptLibraryStore.loadCommands() else ctx.promptLibraryStore.loadPrompts()
 
     private fun applyFilter() {
         val query = searchField.text.trim().lowercase()

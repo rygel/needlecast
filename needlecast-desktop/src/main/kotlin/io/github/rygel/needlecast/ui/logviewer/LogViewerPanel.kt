@@ -146,14 +146,23 @@ class LogViewerPanel : JPanel(BorderLayout()) {
         val attrs = SimpleAttributeSet()
         val fg =
             when (level) {
-                LogLevel.ERROR -> Color(0xF44336)
-                LogLevel.WARN -> Color(0xFFA726)
-                LogLevel.DEBUG, LogLevel.TRACE ->
+                LogLevel.ERROR -> {
+                    Color(0xF44336)
+                }
+
+                LogLevel.WARN -> {
+                    Color(0xFFA726)
+                }
+
+                LogLevel.DEBUG, LogLevel.TRACE -> {
                     UIManager.getColor("Label.disabledForeground") ?: Color(0x888888)
-                else ->
+                }
+
+                else -> {
                     UIManager.getColor("TextPane.foreground")
                         ?: UIManager.getColor("TextArea.foreground")
                         ?: textPane.foreground
+                }
             }
         StyleConstants.setForeground(attrs, fg)
         if (level == LogLevel.ERROR) StyleConstants.setBold(attrs, true)
@@ -211,8 +220,14 @@ class LogViewerPanel : JPanel(BorderLayout()) {
                             searchField.text = ""
                             rebuildSearchMatches()
                         }
-                        e.keyCode == KeyEvent.VK_ENTER && e.isShiftDown -> stepMatch(-1)
-                        e.keyCode == KeyEvent.VK_ENTER -> stepMatch(+1)
+
+                        e.keyCode == KeyEvent.VK_ENTER && e.isShiftDown -> {
+                            stepMatch(-1)
+                        }
+
+                        e.keyCode == KeyEvent.VK_ENTER -> {
+                            stepMatch(+1)
+                        }
                     }
                 }
             },

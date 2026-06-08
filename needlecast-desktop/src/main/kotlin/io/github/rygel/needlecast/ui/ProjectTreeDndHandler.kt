@@ -255,7 +255,10 @@ internal class ProjectTreeDndHandler(
             val targetNode = dl.path.lastPathComponent as? DefaultMutableTreeNode ?: return null
             return if (dl.childIndex == -1) {
                 when (targetNode.userObject) {
-                    is ProjectTreeEntry.Folder -> Pair(targetNode, targetNode.childCount)
+                    is ProjectTreeEntry.Folder -> {
+                        Pair(targetNode, targetNode.childCount)
+                    }
+
                     else -> {
                         val parent = targetNode.parent as? DefaultMutableTreeNode ?: rootNode
                         Pair(parent, parent.getIndex(targetNode) + 1)
@@ -295,11 +298,15 @@ internal class ProjectTreeDndHandler(
                     }
                     true
                 }
+
                 isExternalDrop(support) -> {
                     support.setShowDropLocation(true)
                     true
                 }
-                else -> false
+
+                else -> {
+                    false
+                }
             }
         }
 
@@ -389,17 +396,23 @@ internal class ProjectTreeDndHandler(
         private fun readUriListText(support: TransferSupport): String? =
             try {
                 when {
-                    uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor) ->
+                    uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor) -> {
                         support.transferable.getTransferData(uriListFlavor) as? String
+                    }
+
                     uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor) -> {
                         val reader = support.transferable.getTransferData(uriListReaderFlavor) as? java.io.Reader
                         reader?.readText()
                     }
+
                     uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor) -> {
                         val stream = support.transferable.getTransferData(uriListInputFlavor) as? java.io.InputStream
                         stream?.bufferedReader()?.readText()
                     }
-                    else -> null
+
+                    else -> {
+                        null
+                    }
                 }
             } catch (_: Exception) {
                 null

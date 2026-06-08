@@ -257,8 +257,14 @@ class EditorPanel(
                 saveFile()
                 true
             }
-            JOptionPane.NO_OPTION -> true
-            else -> false
+
+            JOptionPane.NO_OPTION -> {
+                true
+            }
+
+            else -> {
+                false
+            }
         }
     }
 
@@ -464,7 +470,7 @@ class EditorPanel(
         val available = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toHashSet()
         val preferred =
             when {
-                os.contains("win") ->
+                os.contains("win") -> {
                     listOf(
                         "Cascadia Mono", // ships with Windows 11 / Windows Terminal — crisp at all sizes
                         "Cascadia Code", // ligature variant
@@ -473,7 +479,9 @@ class EditorPanel(
                         "Consolas", // ClearType-optimised, every Windows since Vista
                         "Lucida Console",
                     )
-                os.contains("mac") ->
+                }
+
+                os.contains("mac") -> {
                     listOf(
                         "SF Mono", // Apple's system monospace (macOS 10.15+)
                         "Menlo", // macOS default monospace
@@ -482,7 +490,9 @@ class EditorPanel(
                         "Monaco",
                         "Courier New",
                     )
-                else ->
+                }
+
+                else -> {
                     listOf(
                         "JetBrains Mono",
                         "Fira Code",
@@ -491,6 +501,7 @@ class EditorPanel(
                         "Noto Mono",
                         "Ubuntu Mono",
                     )
+                }
             }
         return preferred.firstOrNull { it in available } ?: Font.MONOSPACED
     }

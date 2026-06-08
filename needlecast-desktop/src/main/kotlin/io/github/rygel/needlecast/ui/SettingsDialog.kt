@@ -100,10 +100,12 @@ class SettingsDialog(
                             selectedIndex = lastValidIndex
                             return@addListSelectionListener
                         }
+
                         is SidebarEntry.Category -> {
                             lastValidIndex = selectedIndex
                             cardLayout.show(contentPanel, entry.key)
                         }
+
                         null -> {}
                     }
                 }
@@ -183,13 +185,17 @@ class SettingsDialog(
                     headerLabel.background = list.background
                     headerLabel
                 }
+
                 is SidebarEntry.Category -> {
                     categoryLabel.text = value.label
                     categoryLabel.foreground = if (isSelected) list.selectionForeground else list.foreground
                     categoryLabel.background = if (isSelected) list.selectionBackground else list.background
                     categoryLabel
                 }
-                null -> categoryLabel.also { it.text = "" }
+
+                null -> {
+                    categoryLabel.also { it.text = "" }
+                }
             }
     }
 }

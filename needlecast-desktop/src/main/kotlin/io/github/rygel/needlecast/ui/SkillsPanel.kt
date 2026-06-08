@@ -306,10 +306,12 @@ class SkillsPanel(
         ): List<ProjectTreeEntry> =
             tree.map { entry ->
                 when (entry) {
-                    is ProjectTreeEntry.Folder ->
+                    is ProjectTreeEntry.Folder -> {
                         entry.copy(
                             children = updateProjectInTree(entry.children, projectPath, updatedDir),
                         )
+                    }
+
                     is ProjectTreeEntry.Project -> {
                         if (entry.directory.path == projectPath) entry.copy(directory = updatedDir) else entry
                     }

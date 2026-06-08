@@ -278,6 +278,7 @@ class DocViewerPanel(
                     headerLabel.foreground = list.foreground
                     headerLabel
                 }
+
                 is DocRow.Entry -> {
                     val symbol = if (row.available) "\u25CF" else "\u25CB" // ● or ○
                     entryLabel.text = "$symbol  ${row.target.label}"
@@ -298,12 +299,16 @@ class DocViewerPanel(
                     hintLabel.toolTipText = tooltip
                     entryPanel
                 }
+
                 is DocRow.Placeholder -> {
                     placeholderLabel.text = row.message
                     placeholderLabel.background = list.background
                     placeholderLabel
                 }
-                null -> JLabel()
+
+                null -> {
+                    JLabel()
+                }
             }
     }
 }

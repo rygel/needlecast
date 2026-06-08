@@ -276,8 +276,7 @@ class GitLogPanelUiTest {
         val logToggleSelected =
             GuiActionRunner.execute(
                 object : GuiQuery<Boolean>() {
-                    override fun executeInEDT(): Boolean =
-                        robot.finder().findByName(panel, "toggle-log", JToggleButton::class.java, true).isSelected
+                    override fun executeInEDT(): Boolean = robot.finder().findByName(panel, "toggle-log", JToggleButton::class.java, true).isSelected
                 },
             )
         assertTrue(logToggleSelected, "Expected Log toggle to be selected after Close")

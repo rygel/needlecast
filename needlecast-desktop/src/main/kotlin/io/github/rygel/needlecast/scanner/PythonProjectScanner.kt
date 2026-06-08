@@ -61,6 +61,7 @@ class PythonProjectScanner : ProjectScanner {
                 commands += cmd("uv lock", directory, buildTool, "uv", "lock")
                 commands += cmd("uv add", directory, buildTool, "uv", "add")
             }
+
             PythonTool.POETRY -> {
                 commands += cmd("poetry install", directory, buildTool, "poetry", "install")
                 commands += cmd("poetry run python", directory, buildTool, "poetry", "run", "python")
@@ -69,6 +70,7 @@ class PythonProjectScanner : ProjectScanner {
                 commands += cmd("poetry lock", directory, buildTool, "poetry", "lock")
                 commands += cmd("poetry add", directory, buildTool, "poetry", "add")
             }
+
             PythonTool.PIP -> {
                 if (pyproject.exists()) {
                     commands += cmd("pip install -e .", directory, buildTool, "pip", "install", "-e", ".")

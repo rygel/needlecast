@@ -210,6 +210,7 @@ internal class ProjectTreeCellRenderer(
                     }
                 folderLabel
             }
+
             is ProjectTreeEntry.Project -> {
                 val isActive = entry.directory.path in activePaths()
                 activeDot.isVisible = isActive
@@ -242,10 +243,12 @@ internal class ProjectTreeCellRenderer(
                     buildToolBadgeCount = 0
                     when {
                         scanned == null -> {}
+
                         scanned.scanFailed -> {
                             tagsPanel.add(badge("\u26A0", "#B71C1C"))
                             buildToolBadgeCount = 1
                         }
+
                         else -> {
                             entry.tags.forEach { tag -> tagsPanel.add(badge(tag, "#546E7A")) }
                             scanned.buildTools.forEach { tool -> tagsPanel.add(badge(tool.tagLabel, tool.tagColor)) }
@@ -288,12 +291,14 @@ internal class ProjectTreeCellRenderer(
 
                 projectPanel
             }
-            else ->
+
+            else -> {
                 JLabel(value?.toString() ?: "").apply {
                     foreground = fg
                     background = bg
                     isOpaque = true
                 }
+            }
         }
     }
 }

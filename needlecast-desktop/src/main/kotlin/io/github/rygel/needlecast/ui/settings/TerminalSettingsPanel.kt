@@ -119,9 +119,11 @@ class TerminalSettingsPanel(
                     shellField.isVisible = false
                     ctx.updateConfig(ctx.config.copy(defaultShell = null))
                 }
+
                 manualItem -> {
                     shellField.isVisible = true
                 }
+
                 is ShellInfo -> {
                     val s = shellCombo.selectedItem as ShellInfo
                     shellField.isVisible = false

@@ -188,6 +188,7 @@ class DiffContentPanel : JPanel(BorderLayout()) {
                     right.add(lines[i])
                     i++
                 }
+
                 DiffLineType.REMOVED -> {
                     val removedStart = i
                     while (i < lines.size && lines[i].type == DiffLineType.REMOVED) {
@@ -208,6 +209,7 @@ class DiffContentPanel : JPanel(BorderLayout()) {
                         repeat(-padCount) { left.add(DiffLine(DiffLineType.CONTEXT, null, null, "")) }
                     }
                 }
+
                 DiffLineType.ADDED -> {
                     right.add(lines[i])
                     left.add(DiffLine(DiffLineType.CONTEXT, null, null, ""))

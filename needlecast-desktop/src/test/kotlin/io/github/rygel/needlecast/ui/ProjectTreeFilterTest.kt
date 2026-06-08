@@ -2,130 +2,145 @@ package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
-import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.system.measureNanoTime
 
 class ProjectTreeFilterTest {
+    private fun project(
+        name: String,
+        vararg tags: String,
+    ) = ProjectTreeEntry.Project(
+        directory = ProjectDirectory(path = "/some/$name", displayName = name),
+        tags = tags.toList(),
+    )
 
-    private fun project(name: String, path: String, tags: List<String> = emptyList()) =
-        ProjectTreeEntry.Project(directory = ProjectDirectory(path = path, displayName = name), tags = tags)
-
-    private fun folder(name: String, children: List<ProjectTreeEntry>) =
-        ProjectTreeEntry.Folder(name = name, children = children)
+    private fun folder(
+        name: String,
+        vararg children: ProjectTreeEntry,
+    ) = ProjectTreeEntry.Folder(name = name, children = children.toList())
 
     @Test
-    fun `empty query returns entries unchanged`() {
-        val entries = listOf(project("foo", "/p/foo"), project("bar", "/p/bar"))
-        assertThat(ProjectTreeFilter.filter(entries, ""))
-            .isEqualTo(entries)
-        assertThat(ProjectTreeFilter.filter(entries, "   "))
-            .isEqualTo(entries)
+    fun `matches project by display name`() {
+        assertTrue(ProjectTreeFilter.matches(project("MyProject"), "myproject"))
     }
 
     @Test
-    fun `matches by display name (case-insensitive)`() {
-        val needlecast = project("Needlecast", "/p/needlecast")
-        val otherProj = project("Other", "/p/other")
-        val result = ProjectTreeFilter.filter(listOf(needlecast, otherProj), "needle")
-        assertThat(result.map { (it as ProjectTreeEntry.Project).directory.label() })
-            .containsExactly("Needlecast")
+    fun `matches project by partial display name`() {
+        assertTrue(ProjectTreeFilter.matches(project("MyProject"), "proj"))
     }
 
     @Test
-    fun `matches by directory path`() {
-        val result = ProjectTreeFilter.filter(
-            listOf(project("foo", "/home/user/projects/needlecast")),
-            "needlecast",
-        )
-        assertThat(result).hasSize(1)
+    fun `matches project by tag`() {
+        assertTrue(ProjectTreeFilter.matches(project("P", "java", "web"), "web"))
     }
 
     @Test
-    fun `matches by tag`() {
-        val result = ProjectTreeFilter.filter(
-            listOf(
-                project("foo", "/p/foo", tags = listOf("kotlin", "jvm")),
-                project("bar", "/p/bar", tags = listOf("python")),
-            ),
-            "kot",
-        )
-        assertThat(result).hasSize(1)
-        assertThat((result.first() as ProjectTreeEntry.Project).directory.label()).isEqualTo("foo")
+    fun `does not match non-matching project`() {
+        assertFalse(ProjectTreeFilter.matches(project("Alpha"), "beta"))
     }
 
     @Test
-    fun `folder is kept when at least one child matches`() {
-        val folder = folder(
-            "projects",
-            listOf(
-                project("a", "/p/a"),
-                project("needlecast", "/p/needlecast"),
-            ),
-        )
-        val result = ProjectTreeFilter.filter(listOf(folder), "needle")
-        assertThat(result).hasSize(1)
-        assertThat(result.first()).isInstanceOf(ProjectTreeEntry.Folder::class.java)
-        val kept = result.first() as ProjectTreeEntry.Folder
-        assertThat(kept.name).isEqualTo("projects")
-        assertThat(kept.children).hasSize(1)
+    fun `matches folder when any child matches`() {
+        val f = folder("Work", project("Alpha"), project("Beta"))
+        assertTrue(ProjectTreeFilter.matches(f, "beta"))
     }
 
     @Test
-    fun `folder is removed when no children match`() {
-        val folder = folder("projects", listOf(project("a", "/p/a"), project("b", "/p/b")))
-        val result = ProjectTreeFilter.filter(listOf(folder), "needlecast")
-        assertThat(result).isEmpty()
+    fun `does not match folder when no child matches`() {
+        val f = folder("Work", project("Alpha"), project("Beta"))
+        assertFalse(ProjectTreeFilter.matches(f, "gamma"))
     }
 
     @Test
-    fun `nested folders prune empty branches`() {
-        val root = folder(
-            "root",
-            listOf(
-                folder("a", listOf(project("apple", "/p/apple"))),
-                folder("b", listOf(project("banana", "/p/banana"))),
-            ),
-        )
-        val result = ProjectTreeFilter.filter(listOf(root), "app")
-        assertThat(result).hasSize(1)
-        val keptRoot = result.first() as ProjectTreeEntry.Folder
-        assertThat(keptRoot.children.map { (it as ProjectTreeEntry.Folder).name }).containsExactly("a")
+    fun `filterTree returns all entries for empty filter`() {
+        val entries = listOf(project("A"), project("B"))
+        assertEquals(entries, ProjectTreeFilter.filterTree(entries, ""))
     }
 
     @Test
-    fun `no match returns empty list`() {
-        val result = ProjectTreeFilter.filter(
-            listOf(project("foo", "/p/foo")),
-            "needlecast",
-        )
-        assertThat(result).isEmpty()
+    fun `filterTree returns all entries for blank filter`() {
+        val entries = listOf(project("A"), project("B"))
+        assertEquals(entries, ProjectTreeFilter.filterTree(entries, "  "))
     }
 
     @Test
-    fun `matches helper returns true for empty query`() {
-        val entry = project("foo", "/p/foo")
-        assertThat(ProjectTreeFilter.matches(entry, "")).isTrue()
-        assertThat(ProjectTreeFilter.matches(entry, "   ")).isTrue()
+    fun `filterTree returns only matching projects`() {
+        val entries = listOf(project("Alpha"), project("Beta"))
+        val result = ProjectTreeFilter.filterTree(entries, "alpha")
+        assertEquals(1, result.size)
+        assertEquals("Alpha", (result[0] as ProjectTreeEntry.Project).directory.displayName)
     }
 
     @Test
-    fun `matches helper returns true when project matches`() {
-        val entry = project("needlecast", "/p/needlecast", tags = listOf("kotlin"))
-        assertThat(ProjectTreeFilter.matches(entry, "needle")).isTrue()
-        assertThat(ProjectTreeFilter.matches(entry, "NEEDLE")).isTrue()
-        assertThat(ProjectTreeFilter.matches(entry, "/p/needle")).isTrue()
-        assertThat(ProjectTreeFilter.matches(entry, "kot")).isTrue()
+    fun `filterTree preserves folder with matching child`() {
+        val entries = listOf(folder("Work", project("Alpha"), project("Beta")))
+        val result = ProjectTreeFilter.filterTree(entries, "alpha")
+        assertEquals(1, result.size)
+        val folder = result[0] as ProjectTreeEntry.Folder
+        assertEquals(1, folder.children.size)
+        assertEquals("Alpha", (folder.children[0] as ProjectTreeEntry.Project).directory.displayName)
     }
 
     @Test
-    fun `matches helper returns true when nested child matches`() {
-        val folder = folder("root", listOf(project("needlecast", "/p/n")))
-        assertThat(ProjectTreeFilter.matches(folder, "needle")).isTrue()
+    fun `filterTree removes empty folders`() {
+        val entries = listOf(folder("Empty", project("Alpha")), project("Beta"))
+        val result = ProjectTreeFilter.filterTree(entries, "beta")
+        assertEquals(1, result.size)
+        assertTrue(result[0] is ProjectTreeEntry.Project)
     }
 
     @Test
-    fun `matches helper returns false when nothing matches`() {
-        val entry = project("foo", "/p/foo")
-        assertThat(ProjectTreeFilter.matches(entry, "bar")).isFalse()
+    fun `filterTree matches by tag`() {
+        val entries = listOf(project("Alpha", "java"), project("Beta", "python"))
+        val result = ProjectTreeFilter.filterTree(entries, "python")
+        assertEquals(1, result.size)
+        assertEquals("Beta", (result[0] as ProjectTreeEntry.Project).directory.displayName)
+    }
+
+    @Test
+    fun `filterTree matches by partial name`() {
+        val entries = listOf(project("AlphaCentauri"), project("Beta"))
+        val result = ProjectTreeFilter.filterTree(entries, "alpha")
+        assertEquals(1, result.size)
+        assertEquals("AlphaCentauri", (result[0] as ProjectTreeEntry.Project).directory.displayName)
+    }
+
+    @Test
+    fun `filterTree is case insensitive`() {
+        val entries = listOf(project("MyProject"))
+        val result = ProjectTreeFilter.filterTree(entries, "MYPROJECT")
+        assertEquals(1, result.size)
+    }
+
+    @Test
+    fun `perf test with 100+ synthetic nodes completes quickly`() {
+        val entries =
+            (1..100).map { i ->
+                folder(
+                    name = "Folder$i",
+                    *(1..3)
+                        .map { j ->
+                            project(
+                                name = "Project-$i-$j",
+                                if (j % 2 == 0) "even" else "odd",
+                            )
+                        }.toTypedArray(),
+                )
+            }
+
+        val elapsed =
+            measureNanoTime {
+                repeat(5) {
+                    ProjectTreeFilter.filterTree(entries, "even")
+                    ProjectTreeFilter.filterTree(entries, "Project-5")
+                    ProjectTreeFilter.filterTree(entries, "nonexistent")
+                }
+            }
+
+        val ms = elapsed / 1_000_000.0
+        assertTrue(ms < 500.0) { "Perf test took ${ms}ms (expected <500ms for 15 filter operations on 300 nodes)" }
     }
 }

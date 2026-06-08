@@ -137,7 +137,10 @@ class ExplorerPanel(
                             val entry = selectedEntry() ?: return
                             handleActivate(entry)
                         }
-                        KeyEvent.VK_BACK_SPACE -> navigateUp()
+
+                        KeyEvent.VK_BACK_SPACE -> {
+                            navigateUp()
+                        }
                     }
                 }
             },
@@ -220,14 +223,7 @@ class ExplorerPanel(
                     column: Int,
                 ): Component {
                     val label =
-                        super.getTableCellRendererComponent(
-                            table,
-                            value,
-                            isSelected,
-                            hasFocus,
-                            row,
-                            column,
-                        ) as JLabel
+                        super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column) as JLabel
                     val colName = tableModel.getColumnName(column)
                     label.text =
                         if (currentSortState.column == column) {
@@ -308,7 +304,10 @@ class ExplorerPanel(
     ): ProjectTreeEntry.Project? {
         for (entry in entries) {
             when (entry) {
-                is ProjectTreeEntry.Project -> if (entry.directory.path == rootPath) return entry
+                is ProjectTreeEntry.Project -> {
+                    if (entry.directory.path == rootPath) return entry
+                }
+
                 is ProjectTreeEntry.Folder -> {
                     val nested = findProjectEntryByPath(entry.children, rootPath)
                     if (nested != null) return nested
@@ -400,23 +399,42 @@ class ExplorerPanel(
         if (existing != null) {
             tabs.selectedComponent = existing
             when (existing) {
-                is ImageViewerPanel -> existing.reloadIfChanged()
-                is SvgViewerPanel -> existing.reloadIfChanged()
-                is EditorPanel -> if (line != null) existing.focusLocation(line, column)
+                is ImageViewerPanel -> {
+                    existing.reloadIfChanged()
+                }
+
+                is SvgViewerPanel -> {
+                    existing.reloadIfChanged()
+                }
+
+                is EditorPanel -> {
+                    if (line != null) existing.focusLocation(line, column)
+                }
+
                 is MediaPlayerPanel -> {} // no reload; media can be restarted via controls
             }
             return
         }
         val panel: javax.swing.JComponent =
             when {
-                isSvgFile(file) -> SvgViewerPanel(file)
-                isImageFile(file) -> ImageViewerPanel(file)
-                isMediaFile(file) -> MediaPlayerPanel(file, ctx)
-                else ->
+                isSvgFile(file) -> {
+                    SvgViewerPanel(file)
+                }
+
+                isImageFile(file) -> {
+                    ImageViewerPanel(file)
+                }
+
+                isMediaFile(file) -> {
+                    MediaPlayerPanel(file, ctx)
+                }
+
+                else -> {
                     EditorPanel(ctx).also {
                         it.applyTheme(isDark)
                         it.openFile(file, line, column)
                     }
+                }
             }
         openFiles[key] = panel
         val idx = tabs.tabCount
@@ -533,6 +551,7 @@ class ExplorerPanel(
             is FileEntry.ParentDir -> {
                 menu.add(JMenuItem("Go up").apply { addActionListener { navigateUp() } })
             }
+
             is FileEntry.Dir -> {
                 menu.add(JMenuItem("Open").apply { addActionListener { navigateTo(entry.file) } })
                 menu.addSeparator()
@@ -544,6 +563,7 @@ class ExplorerPanel(
                 menu.addSeparator()
                 menu.add(copyPathItem(entry.file))
             }
+
             is FileEntry.RegularFile -> {
                 menu.add(
                     JMenuItem("Open in Editor").apply {
@@ -695,24 +715,32 @@ class ExplorerPanel(
         ): Any {
             val entry = entries[row]
             return when (col) {
-                0 ->
+                0 -> {
                     when (entry) {
                         is FileEntry.ParentDir -> ".."
                         is FileEntry.Dir -> entry.file.name
                         is FileEntry.RegularFile -> entry.file.name
                     }
-                1 ->
+                }
+
+                1 -> {
                     when (entry) {
                         is FileEntry.RegularFile -> formatSize(entry.file.length())
                         else -> ""
                     }
-                2 ->
+                }
+
+                2 -> {
                     when (entry) {
                         is FileEntry.ParentDir -> ""
                         is FileEntry.Dir -> dateFmt.format(Date(entry.file.lastModified()))
                         is FileEntry.RegularFile -> dateFmt.format(Date(entry.file.lastModified()))
                     }
-                else -> ""
+                }
+
+                else -> {
+                    ""
+                }
             }
         }
 
@@ -736,9 +764,13 @@ class ExplorerPanel(
             if (c is JLabel) {
                 c.font =
                     when {
-                        entry is FileEntry.Dir || entry is FileEntry.ParentDir ->
+                        entry is FileEntry.Dir || entry is FileEntry.ParentDir -> {
                             c.font.deriveFont(Font.BOLD)
-                        else -> c.font.deriveFont(Font.PLAIN)
+                        }
+
+                        else -> {
+                            c.font.deriveFont(Font.PLAIN)
+                        }
                     }
                 c.horizontalAlignment =
                     when (column) {
@@ -837,17 +869,23 @@ class ExplorerPanel(
         private fun readUriListText(support: TransferSupport): String? =
             try {
                 when {
-                    uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor) ->
+                    uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor) -> {
                         support.transferable.getTransferData(uriListFlavor) as? String
+                    }
+
                     uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor) -> {
                         val reader = support.transferable.getTransferData(uriListReaderFlavor) as? java.io.Reader
                         reader?.readText()
                     }
+
                     uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor) -> {
                         val stream = support.transferable.getTransferData(uriListInputFlavor) as? java.io.InputStream
                         stream?.bufferedReader()?.readText()
                     }
-                    else -> null
+
+                    else -> {
+                        null
+                    }
                 }
             } catch (_: Exception) {
                 null
@@ -922,12 +960,25 @@ internal fun sortGroup(
     val isDirGroup = entries.first() is FileEntry.Dir
     val comparator: Comparator<FileEntry> =
         when {
-            state.column == COL_SIZE && isDirGroup ->
+            state.column == COL_SIZE && isDirGroup -> {
                 compareBy { fileOf(it)?.name?.lowercase() ?: "" }
-            state.column == COL_NAME -> compareBy { fileOf(it)?.name?.lowercase() ?: "" }
-            state.column == COL_SIZE -> compareBy { fileOf(it)?.length() ?: 0L }
-            state.column == COL_MODIFIED -> compareBy { fileOf(it)?.lastModified() ?: 0L }
-            else -> compareBy { fileOf(it)?.name?.lowercase() ?: "" }
+            }
+
+            state.column == COL_NAME -> {
+                compareBy { fileOf(it)?.name?.lowercase() ?: "" }
+            }
+
+            state.column == COL_SIZE -> {
+                compareBy { fileOf(it)?.length() ?: 0L }
+            }
+
+            state.column == COL_MODIFIED -> {
+                compareBy { fileOf(it)?.lastModified() ?: 0L }
+            }
+
+            else -> {
+                compareBy { fileOf(it)?.name?.lowercase() ?: "" }
+            }
         }
     return if (state.ascending) entries.sortedWith(comparator) else entries.sortedWith(comparator.reversed())
 }

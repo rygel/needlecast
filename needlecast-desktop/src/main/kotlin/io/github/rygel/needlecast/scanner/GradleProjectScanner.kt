@@ -66,8 +66,10 @@ class GradleProjectScanner : ProjectScanner {
 
         val hasJavaFx =
             buildScript.contains("org.openjfx") ||
-                buildScript.contains("javafx") &&
-                buildScript.contains("application")
+                (
+                    buildScript.contains("javafx") &&
+                        buildScript.contains("application")
+                )
         if (hasJavaFx) {
             commands += cmd("${p}run", dirPath, hasWrapper)
             commands += cmd("${p}jlink", dirPath, hasWrapper)
@@ -113,19 +115,25 @@ class GradleProjectScanner : ProjectScanner {
         val groovy = dir.resolve("build.gradle").toFile()
         val kts = dir.resolve("build.gradle.kts").toFile()
         return when {
-            groovy.exists() ->
+            groovy.exists() -> {
                 try {
                     groovy.readText()
                 } catch (_: Exception) {
                     ""
                 }
-            kts.exists() ->
+            }
+
+            kts.exists() -> {
                 try {
                     kts.readText()
                 } catch (_: Exception) {
                     ""
                 }
-            else -> ""
+            }
+
+            else -> {
+                ""
+            }
         }
     }
 

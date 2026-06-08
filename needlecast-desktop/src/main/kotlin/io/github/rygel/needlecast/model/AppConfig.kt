@@ -133,9 +133,7 @@ data class ProjectDirectory(
 ) {
     fun label(): String = displayName ?: path.substringAfterLast('/').substringAfterLast('\\').ifBlank { path }
 
-    fun label(privacyModeEnabled: Boolean): String =
-        if (isPrivate && privacyModeEnabled) "\u2022\u2022\u2022\u2022\u2022\u2022" else label()
+    fun label(privacyModeEnabled: Boolean): String = if (isPrivate && privacyModeEnabled) "\u2022\u2022\u2022\u2022\u2022\u2022" else label()
 
-    fun redactedPath(privacyModeEnabled: Boolean): String =
-        if (isPrivate && privacyModeEnabled) "\u2022\u2022\u2022\u2022\u2022\u2022" else path
+    fun redactedPath(privacyModeEnabled: Boolean): String = if (isPrivate && privacyModeEnabled) "\u2022\u2022\u2022\u2022\u2022\u2022" else path
 }

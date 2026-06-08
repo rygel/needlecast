@@ -89,8 +89,7 @@ class CompositeProjectScannerIntegrationTest {
     ) {
         val bombScanner =
             object : ProjectScanner {
-                override fun scan(directory: ProjectDirectory): io.github.rygel.needlecast.model.DetectedProject? =
-                    throw RuntimeException("Simulated scanner failure")
+                override fun scan(directory: ProjectDirectory): io.github.rygel.needlecast.model.DetectedProject? = throw RuntimeException("Simulated scanner failure")
             }
         val mavenOnly =
             CompositeProjectScanner(

@@ -46,10 +46,12 @@ class DiffEditorPane(
                     StyleConstants.setBackground(lineAttrs, DiffColors.addedBackground)
                     StyleConstants.setForeground(lineAttrs, DiffColors.addedForeground)
                 }
+
                 DiffLineType.REMOVED -> {
                     StyleConstants.setBackground(lineAttrs, DiffColors.removedBackground)
                     StyleConstants.setForeground(lineAttrs, DiffColors.removedForeground)
                 }
+
                 DiffLineType.CONTEXT -> {
                     StyleConstants.setForeground(lineAttrs, DiffColors.contextForeground)
                 }

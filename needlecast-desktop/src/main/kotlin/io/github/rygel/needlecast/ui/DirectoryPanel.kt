@@ -267,8 +267,7 @@ class DirectoryPanel(
 
     fun requestFocusOnList() = list.requestFocusInWindow()
 
-    fun getProjectByPath(path: String): DetectedProject? =
-        (0 until model.size).map { model.getElementAt(it) }.firstOrNull { it.directory.path == path }
+    fun getProjectByPath(path: String): DetectedProject? = (0 until model.size).map { model.getElementAt(it) }.firstOrNull { it.directory.path == path }
 
     /**
      * Selects the project with [path] in the list. If not yet scanned, stores it and applies

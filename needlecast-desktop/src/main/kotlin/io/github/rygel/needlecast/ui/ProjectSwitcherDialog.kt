@@ -85,8 +85,14 @@ class ProjectSwitcherDialog(
                 object : KeyAdapter() {
                     override fun keyPressed(e: KeyEvent) {
                         when (e.keyCode) {
-                            KeyEvent.VK_ESCAPE -> dispose()
-                            KeyEvent.VK_ENTER -> confirmSelection()
+                            KeyEvent.VK_ESCAPE -> {
+                                dispose()
+                            }
+
+                            KeyEvent.VK_ENTER -> {
+                                confirmSelection()
+                            }
+
                             KeyEvent.VK_DOWN -> {
                                 if (listModel.size > 0) {
                                     val next = minOf((resultList.selectedIndex + 1), listModel.size - 1)
@@ -95,6 +101,7 @@ class ProjectSwitcherDialog(
                                 }
                                 e.consume()
                             }
+
                             KeyEvent.VK_UP -> {
                                 if (listModel.size > 0) {
                                     val prev = maxOf((resultList.selectedIndex - 1), 0)
@@ -262,7 +269,10 @@ private fun collectProjects(
 ): List<ProjectSwitcherDialog.Entry> =
     entries.flatMap { entry ->
         when (entry) {
-            is ProjectTreeEntry.Project -> listOf(ProjectSwitcherDialog.Entry(entry.directory, folderPath, privacyModeEnabled))
+            is ProjectTreeEntry.Project -> {
+                listOf(ProjectSwitcherDialog.Entry(entry.directory, folderPath, privacyModeEnabled))
+            }
+
             is ProjectTreeEntry.Folder -> {
                 val path = if (folderPath.isEmpty()) entry.name else "$folderPath / ${entry.name}"
                 collectProjects(entry.children, path, privacyModeEnabled)

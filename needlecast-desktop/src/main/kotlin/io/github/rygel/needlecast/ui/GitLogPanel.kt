@@ -460,9 +460,15 @@ class GitLogPanel(
 
         private fun statusColor(statusCode: String): Color =
             when {
-                statusCode.any { it == 'M' } -> Color(0x4070C0) // modified — blue
-                statusCode.any { it == 'A' } -> Color(0x40A040) // added — green
-                statusCode.any { it == 'D' } -> Color(0xC04040) // deleted — red
+                statusCode.any { it == 'M' } -> Color(0x4070C0)
+
+                // modified — blue
+                statusCode.any { it == 'A' } -> Color(0x40A040)
+
+                // added — green
+                statusCode.any { it == 'D' } -> Color(0xC04040)
+
+                // deleted — red
                 else -> Color(0x888888) // untracked / other — grey
             }
     }

@@ -22,17 +22,25 @@ object DiffParser {
                 while (i < lines.size) {
                     val cur = lines[i]
                     when {
-                        cur.startsWith("diff --git ") -> break
+                        cur.startsWith("diff --git ") -> {
+                            break
+                        }
+
                         cur.startsWith("--- ") -> {
                             val p = cur.removePrefix("--- ").removePrefix("a/")
                             if (p != "/dev/null") oldPath = p
                             i++
                         }
-                        cur.startsWith("+++ ") -> i++
+
+                        cur.startsWith("+++ ") -> {
+                            i++
+                        }
+
                         cur.startsWith("Binary files") || cur.startsWith("GIT binary patch") -> {
                             isBinary = true
                             i++
                         }
+
                         cur.startsWith("@@ ") -> {
                             val hunk = parseHunk(lines, i)
                             hunks.add(hunk.hunk)
@@ -40,7 +48,10 @@ object DiffParser {
                             additions += hunk.hunk.lines.count { it.type == DiffLineType.ADDED }
                             deletions += hunk.hunk.lines.count { it.type == DiffLineType.REMOVED }
                         }
-                        else -> i++
+
+                        else -> {
+                            i++
+                        }
                     }
                 }
 
@@ -100,23 +111,32 @@ object DiffParser {
         while (j < lines.size) {
             val cur = lines[j]
             when {
-                cur.startsWith("diff --git ") || cur.startsWith("@@ ") -> break
+                cur.startsWith("diff --git ") || cur.startsWith("@@ ") -> {
+                    break
+                }
+
                 cur.startsWith("+") -> {
                     diffLines.add(DiffLine(DiffLineType.ADDED, null, newLine, cur.removePrefix("+")))
                     newLine++
                 }
+
                 cur.startsWith("-") -> {
                     diffLines.add(DiffLine(DiffLineType.REMOVED, oldLine, null, cur.removePrefix("-")))
                     oldLine++
                 }
+
                 cur.startsWith(" ") -> {
                     val content = cur.removePrefix(" ")
                     diffLines.add(DiffLine(DiffLineType.CONTEXT, oldLine, newLine, content))
                     oldLine++
                     newLine++
                 }
+
                 cur.startsWith("\\ ") -> { }
-                else -> break
+
+                else -> {
+                    break
+                }
             }
             j++
         }

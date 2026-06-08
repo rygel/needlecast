@@ -5,6 +5,7 @@ import com.jediterm.terminal.TextStyle
 import com.jediterm.terminal.TtyConnector
 import com.jediterm.terminal.model.StyleState
 import com.jediterm.terminal.ui.JediTermWidget
+import com.jediterm.terminal.ui.TerminalSession
 import com.pty4j.PtyProcess
 import com.pty4j.PtyProcessBuilder
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
@@ -69,6 +70,7 @@ class TerminalPanel(
         }
     private var currentDir: String = initialDir
     private var ptyProcess: PtyProcess? = null
+    private var currentSession: TerminalSession? = null
     private val extraEnv: Map<String, String> = extraEnv
 
     /**
@@ -314,19 +316,22 @@ class TerminalPanel(
                             rawConnector.resize(d)
                         }
                     }
-                val observed = ObservingTtyConnector(
-                    connector,
-                    onOutput = { chunk -> handleOutput(chunk) },
-                    onEof = {
-                        logger.info("Terminal process exited (EOF), restarting shell")
-                        SwingUtilities.invokeLater {
-                            silenceTimer.stop()
-                            transitionTo(AgentStatus.NONE)
-                            startShell()
-                        }
-                    },
-                )
+                val observed =
+                    ObservingTtyConnector(
+                        connector,
+                        onOutput = { chunk -> handleOutput(chunk) },
+                        onEof = {
+                            logger.info("Terminal process exited (EOF), restarting shell")
+                            SwingUtilities.invokeLater {
+                                silenceTimer.stop()
+                                transitionTo(AgentStatus.NONE)
+                                startShell()
+                            }
+                        },
+                    )
+                currentSession?.close()
                 val session = termWidget.createTerminalSession(observed)
+                currentSession = session
                 session.start()
 
                 SwingUtilities.invokeLater {
@@ -386,14 +391,20 @@ class TerminalPanel(
         var inQuote = false
         for (c in s) {
             when {
-                c == '"' -> inQuote = !inQuote
+                c == '"' -> {
+                    inQuote = !inQuote
+                }
+
                 c.isWhitespace() && !inQuote -> {
                     if (sb.isNotEmpty()) {
                         tokens += sb.toString()
                         sb.clear()
                     }
                 }
-                else -> sb.append(c)
+
+                else -> {
+                    sb.append(c)
+                }
             }
         }
         if (sb.isNotEmpty()) tokens += sb.toString()

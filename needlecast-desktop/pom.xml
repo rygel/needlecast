@@ -20,6 +20,10 @@
         <mainClass>io.github.rygel.needlecast.MainKt</mainClass>
         <!-- Default: exclude UI tests unless explicitly enabled -->
         <uiTestExclude>**/*UiTest, **/*E2ETest, **/PowerShellResizeTest</uiTestExclude>
+        <!-- ktlint version (pinned to match C3 auto-format baseline) -->
+        <ktlint.version>1.4.1</ktlint.version>
+        <!-- ktlint-maven-plugin (gantsign maintained fork; upstream plugin is unmaintained) -->
+        <ktlint-maven-plugin.version>3.7.1</ktlint-maven-plugin.version>
     </properties>
 
     <dependencies>
@@ -300,6 +304,35 @@
                         </configurationParameters>
                     </properties>
                 </configuration>
+            </plugin>
+
+            <!--
+                ktlint enforcement: runs ktlint against main + test Kotlin sources
+                during `mvn verify`. Uses the maintained gantsign fork because the
+                upstream com.github.heroku:ktlint-maven-plugin is unmaintained
+                (last release 0.51.0-FINAL, Oct 2023, pre-dates Kotlin 2.x).
+                Override with: mvn ktlint:format (auto-fix in place).
+            -->
+            <plugin>
+                <groupId>com.github.gantsign.maven</groupId>
+                <artifactId>ktlint-maven-plugin</artifactId>
+                <version>${ktlint-maven-plugin.version}</version>
+                <configuration>
+                    <ktlintVersion>${ktlint.version}</ktlintVersion>
+                    <sourceDirectories>
+                        <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+                        <sourceDirectory>${project.basedir}/src/test/kotlin</sourceDirectory>
+                    </sourceDirectories>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>ktlint-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
