@@ -79,7 +79,8 @@ class ProjectTreePanel(
 
     private var lastFilter = ""
     private var pendingFilterText = ""
-    private val filterDebounceTimer = Timer(100) { doApplyFilter() }.apply { isRepeats = false }
+    private var cachedAllEntries: List<ProjectTreeEntry>? = null
+    private val filterDebounceTimer = Timer(150) { doApplyFilter() }.apply { isRepeats = false }
     private val clickTraceForced =
         System.getProperty("needlecast.tree.clickTrace")?.equals("true", ignoreCase = true) == true ||
             (System.getenv("NEEDLECAST_TREE_CLICK_TRACE")?.equals("true", ignoreCase = true) == true) ||
@@ -332,6 +333,17 @@ class ProjectTreePanel(
                         override fun changedUpdate(e: DocumentEvent) {}
                     },
                 )
+                actionMap.put(
+                    "clear-filter",
+                    object : javax.swing.AbstractAction() {
+                        override fun actionPerformed(e: java.awt.event.ActionEvent) {
+                            text = ""
+                            pendingFilterText = ""
+                            doApplyFilter()
+                        }
+                    },
+                )
+                inputMap.put(javax.swing.KeyStroke.getKeyStroke("ESCAPE"), "clear-filter")
             }
 
         val northPanel =
@@ -483,6 +495,7 @@ class ProjectTreePanel(
     // ── Loading ─────────────────────────────────────────────────────────────
 
     private fun loadFromConfig() {
+        cachedAllEntries = null
         rootNode.removeAllChildren()
         missingPaths.clear()
         migrateOrLoad().forEach { addEntryNode(rootNode, it) }
@@ -794,11 +807,11 @@ class ProjectTreePanel(
         lastFilter = filter
         rootNode.removeAllChildren()
         if (filter.isEmpty() && !activeOnly) {
-            val all = migrateOrLoad()
+            val all = cachedAllEntries ?: migrateOrLoad().also { cachedAllEntries = it }
             all.forEach { addEntryNode(rootNode, it, scan = false) }
             ensureScans(all)
         } else {
-            val source = if (filter.isEmpty()) migrateOrLoad() else ctx.config.projectTree
+            val source = cachedAllEntries ?: ctx.config.projectTree
             val filtered = mutableListOf<ProjectTreeEntry>()
             for (entry in source) {
                 val result = filterEntry(entry, filter)
@@ -808,6 +821,10 @@ class ProjectTreePanel(
         }
         treeModel.reload()
         if (filter.isEmpty() && !activeOnly) expandAll()
+    }
+
+    fun invalidateFilterCache() {
+        cachedAllEntries = null
     }
 
     private fun filterEntry(
