@@ -12,14 +12,19 @@ import javax.swing.JPanel
 import javax.swing.UIManager
 
 class StatusBar : JPanel(BorderLayout()) {
-    private val label = JLabel(" Ready")
+    private val label =
+        JLabel(" Ready").apply {
+            accessibleContext.accessibleName = "Status message"
+        }
     private val quotaLabel =
         JLabel().apply {
+            accessibleContext.accessibleName = "Claude usage quota"
             isVisible = false
             border = BorderFactory.createEmptyBorder(0, 8, 0, 8)
         }
     private val updateBadge =
         JLabel().apply {
+            accessibleContext.accessibleName = "Update available"
             isVisible = false
             cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
             border = BorderFactory.createEmptyBorder(0, 8, 0, 6)
@@ -27,6 +32,7 @@ class StatusBar : JPanel(BorderLayout()) {
 
     private val warningBadge =
         JLabel().apply {
+            accessibleContext.accessibleName = "Update check warning"
             isVisible = false
             cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
             border = BorderFactory.createEmptyBorder(0, 8, 0, 6)

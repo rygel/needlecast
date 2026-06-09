@@ -92,6 +92,7 @@ class SettingsDialog(
 
         val sidebarList =
             JList(sidebarModel).apply {
+                accessibleContext.accessibleName = "Settings categories"
                 selectionMode = ListSelectionModel.SINGLE_SELECTION
                 setCellRenderer(SidebarCellRenderer())
                 addListSelectionListener { e ->

@@ -6,11 +6,13 @@ import java.awt.FlowLayout
 import java.awt.Window
 import javax.swing.BorderFactory
 import javax.swing.JButton
+import javax.swing.JComponent
 import javax.swing.JDialog
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTable
+import javax.swing.KeyStroke
 import javax.swing.table.DefaultTableModel
 
 /**
@@ -100,6 +102,18 @@ class EnvEditorDialog(
 
         add(center, BorderLayout.CENTER)
         add(buttonBar, BorderLayout.SOUTH)
+
+        rootPane.defaultButton = saveButton
+        rootPane.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT).put(
+            KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
+            "cancel",
+        )
+        rootPane.actionMap.put(
+            "cancel",
+            object : javax.swing.AbstractAction() {
+                override fun actionPerformed(e: java.awt.event.ActionEvent) = dispose()
+            },
+        )
 
         pack()
         setLocationRelativeTo(owner)

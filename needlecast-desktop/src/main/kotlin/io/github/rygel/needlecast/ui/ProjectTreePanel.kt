@@ -316,6 +316,7 @@ class ProjectTreePanel(
 
         val filterField =
             JTextField().apply {
+                accessibleContext.accessibleName = "Filter projects"
                 toolTipText = "Filter projects"
                 putClientProperty("JTextField.placeholderText", "Filter\u2026")
                 document.addDocumentListener(
