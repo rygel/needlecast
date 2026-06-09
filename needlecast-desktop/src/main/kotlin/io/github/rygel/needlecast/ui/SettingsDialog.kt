@@ -25,6 +25,7 @@ import javax.swing.JDialog
 import javax.swing.JFrame
 import javax.swing.JLabel
 import javax.swing.JList
+import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.ListCellRenderer
@@ -126,6 +127,27 @@ class SettingsDialog(
                 horizontalScrollBarPolicy = JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             }
 
+        val restoreButton =
+            JButton("Restore Defaults").apply {
+                toolTipText = "Reset all settings to their default values"
+                addActionListener {
+                    val confirm =
+                        JOptionPane.showConfirmDialog(
+                            this@SettingsDialog,
+                            "Reset all settings to defaults?",
+                            "Restore Defaults",
+                            JOptionPane.YES_NO_OPTION,
+                            JOptionPane.QUESTION_MESSAGE,
+                        )
+                    if (confirm == JOptionPane.YES_OPTION) {
+                        ctx.updateConfig(
+                            io.github.rygel.needlecast.model
+                                .AppConfig(),
+                        )
+                        dispose()
+                    }
+                }
+            }
         val closeButton =
             JButton("Close").apply {
                 addActionListener { dispose() }
@@ -145,6 +167,7 @@ class SettingsDialog(
                         0,
                         UIManager.getColor("Separator.foreground") ?: Color.GRAY,
                     )
+                add(restoreButton)
                 add(applyButton)
                 add(closeButton)
             }

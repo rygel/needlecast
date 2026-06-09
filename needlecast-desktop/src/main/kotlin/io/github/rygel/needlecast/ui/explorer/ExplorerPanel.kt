@@ -9,6 +9,7 @@ import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Desktop
+import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.GridBagLayout
@@ -997,8 +998,9 @@ private class TabHeader(
         border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         add(JLabel(title))
         add(
-            JButton(RemixIcons.icon("ri-close-line", 12)).apply {
+            JButton(RemixIcons.icon("ri-close-line", 16)).apply {
                 toolTipText = "Close tab"
+                preferredSize = Dimension(20, 20)
                 isFocusable = false
                 isBorderPainted = false
                 isContentAreaFilled = false
