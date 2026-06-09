@@ -42,6 +42,9 @@ class SkillLibraryStore(
                 appendLine("---")
                 appendLine("name: ${entry.name}")
                 appendLine("description: ${entry.description}")
+                if (entry.category.isNotBlank() && entry.category != "General") {
+                    appendLine("category: ${entry.category}")
+                }
                 appendLine("---")
                 appendLine(body)
             }
@@ -146,7 +149,8 @@ class SkillLibraryStore(
         val (frontmatter, _) = FrontmatterParser.split(raw)
         val name = frontmatter["name"] ?: dir.name
         val description = frontmatter["description"] ?: ""
-        return SkillEntry(name = name, description = description, skillDir = dir)
+        val category = frontmatter["category"] ?: "General"
+        return SkillEntry(name = name, description = description, skillDir = dir, category = category)
     }
 
     private fun isJunction(

@@ -6,4 +6,5 @@ data class SkillEntry(
     val name: String,
     val description: String,
     val skillDir: Path,
+    val category: String = "General",
 )

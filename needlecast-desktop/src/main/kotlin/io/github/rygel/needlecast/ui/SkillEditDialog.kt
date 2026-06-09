@@ -29,6 +29,7 @@ class SkillEditDialog(
 
     private val nameField = JTextField(30)
     private val descField = JTextField(30)
+    private val categoryField = JTextField(30)
     private val bodyArea =
         JTextArea(12, 50).apply {
             lineWrap = true
@@ -45,6 +46,7 @@ class SkillEditDialog(
             nameField.text = existing.name
             nameField.isEnabled = false
             descField.text = existing.description
+            categoryField.text = existing.category
         }
 
         val grid =
@@ -75,7 +77,8 @@ class SkillEditDialog(
 
         row(0, "Name:", nameField)
         row(1, "Description:", descField)
-        row(2, "Body:", JScrollPane(bodyArea), fill = true)
+        row(2, "Category:", categoryField)
+        row(3, "Body:", JScrollPane(bodyArea), fill = true)
 
         val ok = JButton("OK").apply { addActionListener { onOk() } }
         val cancel = JButton("Cancel").apply { addActionListener { dispose() } }
@@ -116,6 +119,7 @@ class SkillEditDialog(
             return
         }
         val description = descField.text.trim()
+        val category = categoryField.text.trim().ifBlank { "General" }
         val body = bodyArea.text
         val skillDir =
             existing?.skillDir ?: java.nio.file.Path.of(
@@ -124,7 +128,7 @@ class SkillEditDialog(
                 "skills",
                 name,
             )
-        val entry = SkillEntry(name = name, description = description, skillDir = skillDir)
+        val entry = SkillEntry(name = name, description = description, skillDir = skillDir, category = category)
         result = entry to body
         dispose()
     }
