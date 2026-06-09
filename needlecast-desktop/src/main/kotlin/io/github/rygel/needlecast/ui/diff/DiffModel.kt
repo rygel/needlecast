@@ -1,11 +1,14 @@
 package io.github.rygel.needlecast.ui.diff
 
 enum class DiffLineType {
-    CONTEXT, ADDED, REMOVED
+    CONTEXT,
+    ADDED,
+    REMOVED,
 }
 
 enum class WordDiffType {
-    ADDED, REMOVED
+    ADDED,
+    REMOVED,
 }
 
 data class WordDiff(

@@ -12,13 +12,17 @@ import java.nio.file.Path
  * Detects Phoenix framework via presence of `phoenix` in mix.exs.
  */
 class ElixirProjectScanner : ProjectScanner {
-
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val mixExs = dir.resolve("mix.exs").toFile()
         if (!mixExs.exists()) return null
 
-        val content = try { mixExs.readText(Charsets.UTF_8) } catch (_: Exception) { "" }
+        val content =
+            try {
+                mixExs.readText(Charsets.UTF_8)
+            } catch (_: Exception) {
+                ""
+            }
         val isPhoenix = ":phoenix" in content
 
         val commands = mutableListOf<CommandDescriptor>()
@@ -44,8 +48,15 @@ class ElixirProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(label: String, dir: ProjectDirectory, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, BuildTool.MIX,
+    private fun cmd(
+        label: String,
+        dir: ProjectDirectory,
+        vararg args: String,
+    ): CommandDescriptor =
+        CommandDescriptor(
+            label,
+            BuildTool.MIX,
             if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path)
+            dir.path,
+        )
 }

@@ -19,7 +19,6 @@ import org.junit.jupiter.api.io.TempDir
 import java.awt.Color
 import java.nio.file.Path
 import javax.swing.JFrame
-import javax.swing.JPanel
 import javax.swing.UIManager
 
 /**
@@ -37,7 +36,6 @@ import javax.swing.UIManager
  * Never run locally without a virtual display.
  */
 class ThemeConsistencyUiTest {
-
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
 
@@ -57,17 +55,19 @@ class ThemeConsistencyUiTest {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private fun applyThemeAndGetColors(themeId: String): ThemeSnapshot {
-        return GuiActionRunner.execute<ThemeSnapshot> {
+    private fun applyThemeAndGetColors(themeId: String): ThemeSnapshot =
+        GuiActionRunner.execute<ThemeSnapshot> {
             val dark = ThemeRegistry.apply(themeId)
 
             // Terminal settings
             val settings = QuickLaunchTerminalSettings(dark = dark)
             settings.applyDark(dark)
-            val themeBg = UIManager.getColor("TextArea.background")
-                ?: UIManager.getColor("Panel.background")
-            val themeFg = UIManager.getColor("TextArea.foreground")
-                ?: UIManager.getColor("Panel.foreground")
+            val themeBg =
+                UIManager.getColor("TextArea.background")
+                    ?: UIManager.getColor("Panel.background")
+            val themeFg =
+                UIManager.getColor("TextArea.foreground")
+                    ?: UIManager.getColor("Panel.foreground")
             settings.applyThemeColors(themeFg, themeBg)
             val termStyle = settings.getDefaultStyle()
             val termBg = termStyle.background?.toAwtColor() ?: Color.BLACK
@@ -93,19 +93,30 @@ class ThemeConsistencyUiTest {
             val uiSelBg = UIManager.getColor("TextArea.selectionBackground")
 
             ThemeSnapshot(
-                themeId = themeId, dark = dark,
-                uiBg = uiBg, uiFg = uiFg, uiSelBg = uiSelBg,
-                termBg = termBg, termFg = termFg, termSelBg = selBg,
-                editorBg = editorBg, editorFg = editorFg,
+                themeId = themeId,
+                dark = dark,
+                uiBg = uiBg,
+                uiFg = uiFg,
+                uiSelBg = uiSelBg,
+                termBg = termBg,
+                termFg = termFg,
+                termSelBg = selBg,
+                editorBg = editorBg,
+                editorFg = editorFg,
             )
         }
-    }
 
     private data class ThemeSnapshot(
-        val themeId: String, val dark: Boolean,
-        val uiBg: Color, val uiFg: Color, val uiSelBg: Color?,
-        val termBg: Color, val termFg: Color, val termSelBg: Color,
-        val editorBg: Color, val editorFg: Color,
+        val themeId: String,
+        val dark: Boolean,
+        val uiBg: Color,
+        val uiFg: Color,
+        val uiSelBg: Color?,
+        val termBg: Color,
+        val termFg: Color,
+        val termSelBg: Color,
+        val editorBg: Color,
+        val editorFg: Color,
     )
 
     private fun com.jediterm.terminal.TerminalColor.toAwtColor(): Color {
@@ -128,8 +139,11 @@ class ThemeConsistencyUiTest {
         fixture = FrameFixture(robot, frame)
         fixture.show()
         val s = applyThemeAndGetColors("dark")
-        assertEquals(s.uiBg, s.termBg,
-            "Terminal bg must match UIManager TextArea.background in dark theme")
+        assertEquals(
+            s.uiBg,
+            s.termBg,
+            "Terminal bg must match UIManager TextArea.background in dark theme",
+        )
     }
 
     @Test
@@ -138,8 +152,11 @@ class ThemeConsistencyUiTest {
         fixture = FrameFixture(robot, frame)
         fixture.show()
         val s = applyThemeAndGetColors("light")
-        assertEquals(s.uiBg, s.termBg,
-            "Terminal bg must match UIManager TextArea.background in light theme")
+        assertEquals(
+            s.uiBg,
+            s.termBg,
+            "Terminal bg must match UIManager TextArea.background in light theme",
+        )
     }
 
     @Test
@@ -148,8 +165,11 @@ class ThemeConsistencyUiTest {
         fixture = FrameFixture(robot, frame)
         fixture.show()
         val s = applyThemeAndGetColors("dark")
-        assertEquals(s.uiBg, s.editorBg,
-            "Editor bg must match UIManager TextArea.background in dark theme")
+        assertEquals(
+            s.uiBg,
+            s.editorBg,
+            "Editor bg must match UIManager TextArea.background in dark theme",
+        )
     }
 
     @Test
@@ -158,8 +178,11 @@ class ThemeConsistencyUiTest {
         fixture = FrameFixture(robot, frame)
         fixture.show()
         val s = applyThemeAndGetColors("light")
-        assertEquals(s.uiBg, s.editorBg,
-            "Editor bg must match UIManager TextArea.background in light theme")
+        assertEquals(
+            s.uiBg,
+            s.editorBg,
+            "Editor bg must match UIManager TextArea.background in light theme",
+        )
     }
 
     @Test
@@ -168,8 +191,11 @@ class ThemeConsistencyUiTest {
         fixture = FrameFixture(robot, frame)
         fixture.show()
         val s = applyThemeAndGetColors("dark")
-        assertEquals(s.termBg, s.editorBg,
-            "Terminal and editor must share the same background colour")
+        assertEquals(
+            s.termBg,
+            s.editorBg,
+            "Terminal and editor must share the same background colour",
+        )
     }
 
     @Test
@@ -179,8 +205,11 @@ class ThemeConsistencyUiTest {
         fixture.show()
         val s = applyThemeAndGetColors("dark")
         if (s.uiSelBg != null) {
-            assertEquals(s.uiSelBg, s.termSelBg,
-                "Terminal selection bg must match UIManager TextArea.selectionBackground")
+            assertEquals(
+                s.uiSelBg,
+                s.termSelBg,
+                "Terminal selection bg must match UIManager TextArea.selectionBackground",
+            )
         }
     }
 
@@ -191,10 +220,16 @@ class ThemeConsistencyUiTest {
         fixture.show()
         val dark = applyThemeAndGetColors("dark")
         val light = applyThemeAndGetColors("light")
-        assertNotEquals(dark.termBg, light.termBg,
-            "Terminal bg must change when switching dark → light")
-        assertNotEquals(dark.editorBg, light.editorBg,
-            "Editor bg must change when switching dark → light")
+        assertNotEquals(
+            dark.termBg,
+            light.termBg,
+            "Terminal bg must change when switching dark → light",
+        )
+        assertNotEquals(
+            dark.editorBg,
+            light.editorBg,
+            "Editor bg must change when switching dark → light",
+        )
     }
 
     @Test
@@ -206,9 +241,15 @@ class ThemeConsistencyUiTest {
         val plain = applyThemeAndGetColors("dark")
         val themed = applyThemeAndGetColors("catppuccin-mocha")
         // Both are dark themes but with different palettes
-        assertNotEquals(plain.termBg, themed.termBg,
-            "Themed variant must produce different terminal bg than plain dark")
-        assertNotEquals(plain.editorBg, themed.editorBg,
-            "Themed variant must produce different editor bg than plain dark")
+        assertNotEquals(
+            plain.termBg,
+            themed.termBg,
+            "Themed variant must produce different terminal bg than plain dark",
+        )
+        assertNotEquals(
+            plain.editorBg,
+            themed.editorBg,
+            "Themed variant must produce different editor bg than plain dark",
+        )
     }
 }

@@ -11,17 +11,24 @@ import io.github.rygel.needlecast.model.ProjectGroup
  * Every method that modifies state immediately persists the change via [AppContext.updateConfig].
  * The return value is the updated [ProjectGroup] that the caller should use going forward.
  */
-class ProjectService(private val ctx: AppContext) {
-
+class ProjectService(
+    private val ctx: AppContext,
+) {
     /** Appends [dir] to [group] and persists. */
-    fun addDirectory(group: ProjectGroup, dir: ProjectDirectory): ProjectGroup {
+    fun addDirectory(
+        group: ProjectGroup,
+        dir: ProjectDirectory,
+    ): ProjectGroup {
         val updated = group.copy(directories = group.directories + dir)
         persist(updated)
         return updated
     }
 
     /** Removes the directory at [path] from [group] and persists. */
-    fun removeDirectory(group: ProjectGroup, path: String): ProjectGroup {
+    fun removeDirectory(
+        group: ProjectGroup,
+        path: String,
+    ): ProjectGroup {
         val updated = group.copy(directories = group.directories.filter { it.path != path })
         persist(updated)
         return updated
@@ -36,9 +43,10 @@ class ProjectService(private val ctx: AppContext) {
         path: String,
         transform: (ProjectDirectory) -> ProjectDirectory,
     ): ProjectGroup {
-        val updated = group.copy(
-            directories = group.directories.map { if (it.path == path) transform(it) else it },
-        )
+        val updated =
+            group.copy(
+                directories = group.directories.map { if (it.path == path) transform(it) else it },
+            )
         persist(updated)
         return updated
     }

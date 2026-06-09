@@ -4,12 +4,12 @@ import io.github.rygel.needlecast.config.ConfigStore
 import io.github.rygel.needlecast.config.JsonConfigStore
 import io.github.rygel.needlecast.config.PromptLibraryStore
 import io.github.rygel.needlecast.config.SkillLibraryStore
+import io.github.rygel.needlecast.config.defaultCommandLibrary
+import io.github.rygel.needlecast.config.defaultPromptLibrary
 import io.github.rygel.needlecast.git.GitAutoSync
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
 import io.github.rygel.needlecast.model.AppConfig
-import io.github.rygel.needlecast.config.defaultCommandLibrary
-import io.github.rygel.needlecast.config.defaultPromptLibrary
 import io.github.rygel.needlecast.process.CommandRunner
 import io.github.rygel.needlecast.process.ProcessCommandRunner
 import io.github.rygel.needlecast.scanner.CompositeProjectScanner
@@ -29,13 +29,15 @@ class AppContext(
     val scanner: ProjectScanner = CompositeProjectScanner(),
     val commandRunner: CommandRunner = ProcessCommandRunner(),
     val gitService: GitService = ProcessGitService(),
-    val promptLibraryStore: PromptLibraryStore = PromptLibraryStore(
-        Path.of(System.getProperty("user.home"), ".needlecast", "prompts"),
-        Path.of(System.getProperty("user.home"), ".needlecast", "commands"),
-    ),
-    val skillLibraryStore: SkillLibraryStore = SkillLibraryStore(
-        Path.of(System.getProperty("user.home"), ".needlecast", "skills"),
-    ),
+    val promptLibraryStore: PromptLibraryStore =
+        PromptLibraryStore(
+            Path.of(System.getProperty("user.home"), ".needlecast", "prompts"),
+            Path.of(System.getProperty("user.home"), ".needlecast", "commands"),
+        ),
+    val skillLibraryStore: SkillLibraryStore =
+        SkillLibraryStore(
+            Path.of(System.getProperty("user.home"), ".needlecast", "skills"),
+        ),
 ) {
     var config: AppConfig = configStore.load()
         private set
@@ -49,11 +51,12 @@ class AppContext(
     // ── i18n ──────────────────────────────────────────────────────────────
 
     /** Application-wide translation service. Locale is loaded from [config.language]. */
-    val i18n: I18nService = I18nService.create(
-        "i18n/messages",
-        Locale.forLanguageTag(config.language),
-        AppContext::class.java.classLoader,
-    )
+    val i18n: I18nService =
+        I18nService.create(
+            "i18n/messages",
+            Locale.forLanguageTag(config.language),
+            AppContext::class.java.classLoader,
+        )
 
     /** Switch the active locale and persist the choice to config. Fires all [I18nService] listeners. */
     fun switchLocale(locale: Locale) {
@@ -75,7 +78,8 @@ class AppContext(
     private fun loadThemeService(): ThemeService {
         val name = if (ThemeRegistry.isDark(config.theme)) "dark" else "light"
         return try {
-            ThemeService.builder()
+            ThemeService
+                .builder()
                 .fromClasspath("themes/$name.json")
                 .build()
         } catch (_: Exception) {

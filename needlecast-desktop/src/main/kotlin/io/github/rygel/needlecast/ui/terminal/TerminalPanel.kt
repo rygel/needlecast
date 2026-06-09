@@ -2,11 +2,12 @@ package io.github.rygel.needlecast.ui.terminal
 
 import com.jediterm.pty.PtyProcessTtyConnector
 import com.jediterm.terminal.TextStyle
+import com.jediterm.terminal.TtyConnector
 import com.jediterm.terminal.model.StyleState
 import com.jediterm.terminal.ui.JediTermWidget
+import com.jediterm.terminal.ui.TerminalSession
 import com.pty4j.PtyProcess
 import com.pty4j.PtyProcessBuilder
-import com.jediterm.terminal.TtyConnector
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
@@ -38,44 +39,51 @@ class TerminalPanel(
     initialFontSize: Int = 13,
     initialFontFamily: String? = null,
 ) : JPanel(BorderLayout()) {
-
     private val logger = LoggerFactory.getLogger(TerminalPanel::class.java)
 
-    private val settingsProvider = QuickLaunchTerminalSettings(
-        dark = dark,
-        initialFg = initialFg,
-        initialBg = initialBg,
-        initialFontSize = initialFontSize,
-        initialFontFamily = initialFontFamily,
-    ).apply {
-        // Read UIManager colours immediately so the initial terminal session
-        // matches the active FlatLaf theme.  Without this, the first session
-        // uses hardcoded fallback colours until applyTheme() is called later.
-        val themeBg = javax.swing.UIManager.getColor("TextArea.background")
-            ?: javax.swing.UIManager.getColor("Panel.background")
-        val themeFg = javax.swing.UIManager.getColor("TextArea.foreground")
-            ?: javax.swing.UIManager.getColor("Panel.foreground")
-        if (themeFg != null || themeBg != null) applyThemeColors(themeFg, themeBg)
-    }
+    private val settingsProvider =
+        QuickLaunchTerminalSettings(
+            dark = dark,
+            initialFg = initialFg,
+            initialBg = initialBg,
+            initialFontSize = initialFontSize,
+            initialFontFamily = initialFontFamily,
+        ).apply {
+            // Read UIManager colours immediately so the initial terminal session
+            // matches the active FlatLaf theme.  Without this, the first session
+            // uses hardcoded fallback colours until applyTheme() is called later.
+            val themeBg =
+                javax.swing.UIManager.getColor("TextArea.background")
+                    ?: javax.swing.UIManager.getColor("Panel.background")
+            val themeFg =
+                javax.swing.UIManager.getColor("TextArea.foreground")
+                    ?: javax.swing.UIManager.getColor("Panel.foreground")
+            if (themeFg != null || themeBg != null) applyThemeColors(themeFg, themeBg)
+        }
     private val termWidget = ShrinkableJediTermWidget(settingsProvider)
     private val embeddedTerminalPanel = termWidget.terminalPanel
-    private val termContainer = object : JPanel(BorderLayout()) {
-        override fun getPreferredSize(): Dimension = Dimension(1, 1)
-        override fun getMinimumSize(): Dimension = Dimension(0, 0)
-    }
+    private val termContainer =
+        object : JPanel(BorderLayout()) {
+            override fun getPreferredSize(): Dimension = Dimension(1, 1)
+
+            override fun getMinimumSize(): Dimension = Dimension(0, 0)
+        }
     private var currentDir: String = initialDir
     private var ptyProcess: PtyProcess? = null
+    private var currentSession: TerminalSession? = null
     private val extraEnv: Map<String, String> = extraEnv
 
     /**
      * True when this terminal was started with (or later launched) the Claude Code CLI.
      * When true, PTY-quiescence heuristics are disabled in favour of Claude Code lifecycle hooks.
      */
-    @Volatile var isClaudeSession: Boolean = startupCommand?.trim()?.let {
-        it == "claude" || it.startsWith("claude ") || it.startsWith("claude\t") || it == "claude.exe" || it.startsWith("claude.exe ")
-    } ?: false
+    @Volatile var isClaudeSession: Boolean =
+        startupCommand?.trim()?.let {
+            it == "claude" || it.startsWith("claude ") || it.startsWith("claude\t") || it == "claude.exe" || it.startsWith("claude.exe ")
+        } ?: false
 
     var onStatusChanged: ((AgentStatus) -> Unit)? = null
+
     /** Fired when the font size changes via Ctrl+scroll. Argument is the new absolute size. */
     var onFontSizeChanged: ((Int) -> Unit)? = null
     private var currentStatus: AgentStatus = AgentStatus.NONE
@@ -84,14 +92,16 @@ class TerminalPanel(
 
     /** Timestamp of the last bytes written to the PTY input (user input / sendInput). */
     @Volatile private var lastInputMs: Long = 0L
+
     /** Last raw output chunk, retained for spinner detection. */
     @Volatile private var lastChunk: String = ""
     private var styleStateWarned = false
-    private val remoteMouseWheelConsumer = MouseWheelListener { event ->
-        if (shouldConsumeRemoteMouseWheelEvent(event, embeddedTerminalPanel.isRemoteMouseAction(event))) {
-            event.consume()
+    private val remoteMouseWheelConsumer =
+        MouseWheelListener { event ->
+            if (shouldConsumeRemoteMouseWheelEvent(event, embeddedTerminalPanel.isRemoteMouseAction(event))) {
+                event.consume()
+            }
         }
-    }
 
     /**
      * 2 s silence → WAITING.
@@ -106,17 +116,27 @@ class TerminalPanel(
         termContainer.add(termWidget, BorderLayout.CENTER)
         add(termContainer, BorderLayout.CENTER)
         embeddedTerminalPanel.addMouseWheelListener(remoteMouseWheelConsumer)
-        termWidget.addMouseWheelListener(object : MouseWheelListener {
-            override fun mouseWheelMoved(e: MouseWheelEvent) {
-                if (e.isControlDown) {
-                    changeFontSize(if (e.wheelRotation < 0) +1 else -1)
-                    e.consume()
+        termWidget.addMouseWheelListener(
+            object : MouseWheelListener {
+                override fun mouseWheelMoved(e: MouseWheelEvent) {
+                    if (e.isControlDown) {
+                        changeFontSize(if (e.wheelRotation < 0) +1 else -1)
+                        e.consume()
+                    }
                 }
-            }
-        })
+            },
+        )
         termWidget.onPasteRequested = {
-            val cb = java.awt.Toolkit.getDefaultToolkit().systemClipboard
-            val text = try { cb.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String } catch (_: Exception) { null }
+            val cb =
+                java.awt.Toolkit
+                    .getDefaultToolkit()
+                    .systemClipboard
+            val text =
+                try {
+                    cb.getData(java.awt.datatransfer.DataFlavor.stringFlavor) as? String
+                } catch (_: Exception) {
+                    null
+                }
             if (text != null) sendInput(text)
         }
         termWidget.onTextInput = { text -> sendInput(text) }
@@ -160,7 +180,8 @@ class TerminalPanel(
         try {
             ptyProcess?.outputStream?.write(text.toByteArray(Charsets.UTF_8))
             ptyProcess?.outputStream?.flush()
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 
     fun applyTheme(dark: Boolean) {
@@ -168,16 +189,21 @@ class TerminalPanel(
         // Derive bg/fg from the active FlatLaf theme via UIManager so the terminal
         // matches the current theme automatically. TextArea colors best represent
         // editor/code surfaces, which is semantically correct for a terminal.
-        val themeBg = javax.swing.UIManager.getColor("TextArea.background")
-            ?: javax.swing.UIManager.getColor("Panel.background")
-        val themeFg = javax.swing.UIManager.getColor("TextArea.foreground")
-            ?: javax.swing.UIManager.getColor("Panel.foreground")
+        val themeBg =
+            javax.swing.UIManager.getColor("TextArea.background")
+                ?: javax.swing.UIManager.getColor("Panel.background")
+        val themeFg =
+            javax.swing.UIManager.getColor("TextArea.foreground")
+                ?: javax.swing.UIManager.getColor("Panel.foreground")
         settingsProvider.applyThemeColors(themeFg, themeBg)
         pushStyleToJediTerm(settingsProvider.getDefaultStyle())
         termWidget.repaint()
     }
 
-    fun applyColors(fg: java.awt.Color?, bg: java.awt.Color?) {
+    fun applyColors(
+        fg: java.awt.Color?,
+        bg: java.awt.Color?,
+    ) {
         settingsProvider.applyColors(fg, bg)
         pushStyleToJediTerm(settingsProvider.getDefaultStyle())
         termWidget.repaint()
@@ -213,6 +239,8 @@ class TerminalPanel(
         silenceTimer.stop()
         transitionTo(AgentStatus.NONE)
         embeddedTerminalPanel.removeMouseWheelListener(remoteMouseWheelConsumer)
+        currentSession?.close()
+        currentSession = null
         termWidget.close()
     }
 
@@ -261,16 +289,18 @@ class TerminalPanel(
         Thread {
             try {
                 val cmd = resolveShellCommand()
-                val env = System.getenv().toMutableMap().apply {
-                    put("TERM", "xterm-256color")
-                    putAll(extraEnv)
-                }
-                val builder = PtyProcessBuilder()
-                    .setCommand(cmd)
-                    .setEnvironment(env)
-                    .setDirectory(currentDir)
-                    .setInitialColumns(120)
-                    .setInitialRows(30)
+                val env =
+                    System.getenv().toMutableMap().apply {
+                        put("TERM", "xterm-256color")
+                        putAll(extraEnv)
+                    }
+                val builder =
+                    PtyProcessBuilder()
+                        .setCommand(cmd)
+                        .setEnvironment(env)
+                        .setDirectory(currentDir)
+                        .setInitialColumns(120)
+                        .setInitialRows(30)
                 if (IS_WINDOWS) {
                     logger.info("Starting PTY with WinConPty on Windows: cmd={}", cmd.toList())
                     builder.setUseWinConPty(true)
@@ -281,25 +311,47 @@ class TerminalPanel(
                 ptyProcess = process
                 logger.info("PTY started: pid={}, alive={}", process.pid(), process.isAlive)
                 val rawConnector = PtyProcessTtyConnector(process, Charset.forName("UTF-8"))
-                val connector = object : TtyConnector by rawConnector {
-                    override fun resize(d: Dimension) {
-                        logger.info("TtyConnector.resize: cols={}, rows={}, connected={}", d.width, d.height, isConnected)
-                        rawConnector.resize(d)
+                val connector =
+                    object : TtyConnector by rawConnector {
+                        override fun resize(d: Dimension) {
+                            logger.info("TtyConnector.resize: cols={}, rows={}, connected={}", d.width, d.height, isConnected)
+                            rawConnector.resize(d)
+                        }
                     }
-                }
-                val observed = ObservingTtyConnector(connector) { chunk -> handleOutput(chunk) }
+                val observed =
+                    ObservingTtyConnector(
+                        connector,
+                        onOutput = { chunk -> handleOutput(chunk) },
+                        onEof = {
+                            logger.info("Terminal process exited (EOF), restarting shell")
+                            SwingUtilities.invokeLater {
+                                silenceTimer.stop()
+                                transitionTo(AgentStatus.NONE)
+                                startShell()
+                            }
+                        },
+                    )
+                currentSession?.close()
                 val session = termWidget.createTerminalSession(observed)
+                currentSession = session
                 session.start()
 
                 SwingUtilities.invokeLater {
-                    embeddedTerminalPanel.addComponentListener(object : java.awt.event.ComponentAdapter() {
-                        override fun componentResized(e: java.awt.event.ComponentEvent) {
-                            val size = embeddedTerminalPanel.size
-                            val termSize = embeddedTerminalPanel.getTerminalSizeFromComponent()
-                            logger.info("TerminalPanel componentResized: panel={}x{}, termCols={}, termRows={}",
-                                size.width, size.height, termSize?.width, termSize?.height)
-                        }
-                    })
+                    embeddedTerminalPanel.addComponentListener(
+                        object : java.awt.event.ComponentAdapter() {
+                            override fun componentResized(e: java.awt.event.ComponentEvent) {
+                                val size = embeddedTerminalPanel.size
+                                val termSize = embeddedTerminalPanel.getTerminalSizeFromComponent()
+                                logger.info(
+                                    "TerminalPanel componentResized: panel={}x{}, termCols={}, termRows={}",
+                                    size.width,
+                                    size.height,
+                                    termSize?.width,
+                                    termSize?.height,
+                                )
+                            }
+                        },
+                    )
                     transitionTo(AgentStatus.WAITING)
                 }
                 if (!startupCommand.isNullOrBlank()) {
@@ -317,8 +369,8 @@ class TerminalPanel(
         }.also { it.isDaemon = true }.start()
     }
 
-    private fun containsClaudeCommand(text: String): Boolean {
-        return text.lineSequence().any { line ->
+    private fun containsClaudeCommand(text: String): Boolean =
+        text.lineSequence().any { line ->
             val trimmed = line.trimStart()
             trimmed == "claude" ||
                 trimmed == "claude.exe" ||
@@ -327,11 +379,11 @@ class TerminalPanel(
                 trimmed.startsWith("claude.exe ") ||
                 trimmed.startsWith("claude.exe\t")
         }
-    }
 
     private fun resolveShellCommand(): Array<String> {
-        val custom = shellExecutable?.trim()?.takeIf { it.isNotEmpty() }
-            ?: return if (IS_WINDOWS) arrayOf("cmd.exe") else arrayOf("/bin/bash", "--login")
+        val custom =
+            shellExecutable?.trim()?.takeIf { it.isNotEmpty() }
+                ?: return if (IS_WINDOWS) arrayOf("cmd.exe") else arrayOf("/bin/bash", "--login")
         return tokenize(custom)
     }
 
@@ -341,20 +393,34 @@ class TerminalPanel(
         var inQuote = false
         for (c in s) {
             when {
-                c == '"'                     -> inQuote = !inQuote
-                c.isWhitespace() && !inQuote -> { if (sb.isNotEmpty()) { tokens += sb.toString(); sb.clear() } }
-                else                         -> sb.append(c)
+                c == '"' -> {
+                    inQuote = !inQuote
+                }
+
+                c.isWhitespace() && !inQuote -> {
+                    if (sb.isNotEmpty()) {
+                        tokens += sb.toString()
+                        sb.clear()
+                    }
+                }
+
+                else -> {
+                    sb.append(c)
+                }
             }
         }
         if (sb.isNotEmpty()) tokens += sb.toString()
         return tokens.toTypedArray()
     }
 
-    private class ShrinkableJediTermWidget(settings: QuickLaunchTerminalSettings) : JediTermWidget(settings) {
+    private class ShrinkableJediTermWidget(
+        settings: QuickLaunchTerminalSettings,
+    ) : JediTermWidget(settings) {
         var onPasteRequested: (() -> Unit)? = null
         var onTextInput: ((String) -> Unit)? = null
 
         override fun getMinimumSize(): Dimension = Dimension(0, 0)
+
         override fun getPreferredSize(): Dimension = Dimension(1, 1)
 
         /**
@@ -367,45 +433,52 @@ class TerminalPanel(
          * fires before any component sees the event, so it reliably intercepts the
          * shortcut regardless of which child component is focused.
          */
-        private val pasteDispatcher = java.awt.KeyEventDispatcher { e ->
-            if (e.id == java.awt.event.KeyEvent.KEY_PRESSED &&
-                (e.modifiersEx and java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0 &&
-                (e.modifiersEx and java.awt.event.InputEvent.SHIFT_DOWN_MASK) == 0 &&
-                e.keyCode == java.awt.event.KeyEvent.VK_V &&
-                SwingUtilities.isDescendingFrom(e.component, this)) {
-                onPasteRequested?.invoke()
-                true
-            } else {
-                false
+        private val pasteDispatcher =
+            java.awt.KeyEventDispatcher { e ->
+                if (e.id == java.awt.event.KeyEvent.KEY_PRESSED &&
+                    (e.modifiersEx and java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0 &&
+                    (e.modifiersEx and java.awt.event.InputEvent.SHIFT_DOWN_MASK) == 0 &&
+                    e.keyCode == java.awt.event.KeyEvent.VK_V &&
+                    SwingUtilities.isDescendingFrom(e.component, this)
+                ) {
+                    onPasteRequested?.invoke()
+                    true
+                } else {
+                    false
+                }
             }
-        }
 
         init {
-            java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
+            java.awt.KeyboardFocusManager
+                .getCurrentKeyboardFocusManager()
                 .addKeyEventDispatcher(pasteDispatcher)
 
             // Catch text from input methods (voice-to-text, IME, etc.)
             enableInputMethods(true)
-            addInputMethodListener(object : java.awt.event.InputMethodListener {
-                override fun inputMethodTextChanged(e: java.awt.event.InputMethodEvent) {
-                    val text = e.text
-                    if (text != null) {
-                        val sb = StringBuilder()
-                        var c = text.first()
-                        while (c != java.text.CharacterIterator.DONE) {
-                            sb.append(c)
-                            c = text.next()
+            addInputMethodListener(
+                object : java.awt.event.InputMethodListener {
+                    override fun inputMethodTextChanged(e: java.awt.event.InputMethodEvent) {
+                        val text = e.text
+                        if (text != null) {
+                            val sb = StringBuilder()
+                            var c = text.first()
+                            while (c != java.text.CharacterIterator.DONE) {
+                                sb.append(c)
+                                c = text.next()
+                            }
+                            if (sb.isNotEmpty()) onTextInput?.invoke(sb.toString())
                         }
-                        if (sb.isNotEmpty()) onTextInput?.invoke(sb.toString())
+                        e.consume()
                     }
-                    e.consume()
-                }
-                override fun caretPositionChanged(e: java.awt.event.InputMethodEvent) {}
-            })
+
+                    override fun caretPositionChanged(e: java.awt.event.InputMethodEvent) {}
+                },
+            )
         }
 
         override fun close() {
-            java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager()
+            java.awt.KeyboardFocusManager
+                .getCurrentKeyboardFocusManager()
                 .removeKeyEventDispatcher(pasteDispatcher)
             super.close()
         }

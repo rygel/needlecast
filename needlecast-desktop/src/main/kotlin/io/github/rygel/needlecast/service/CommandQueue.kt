@@ -1,13 +1,16 @@
 package io.github.rygel.needlecast.service
 
-data class QueuedCommand(val label: String, val argv: List<String>, val workingDir: String)
+data class QueuedCommand(
+    val label: String,
+    val argv: List<String>,
+    val workingDir: String,
+)
 
 /**
  * Thread-safe FIFO queue of [QueuedCommand] items.
  * Extracted from [io.github.rygel.needlecast.ui.CommandPanel] to be independently testable.
  */
 class CommandQueue {
-
     private val deque = ArrayDeque<QueuedCommand>()
 
     val size: Int get() = deque.size

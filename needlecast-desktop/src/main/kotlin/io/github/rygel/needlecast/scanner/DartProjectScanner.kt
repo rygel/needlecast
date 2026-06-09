@@ -13,13 +13,17 @@ import java.nio.file.Path
  * dependency in pubspec.yaml.
  */
 class DartProjectScanner : ProjectScanner {
-
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val pubspec = dir.resolve("pubspec.yaml").toFile()
         if (!pubspec.exists()) return null
 
-        val content = try { pubspec.readText(Charsets.UTF_8) } catch (_: Exception) { "" }
+        val content =
+            try {
+                pubspec.readText(Charsets.UTF_8)
+            } catch (_: Exception) {
+                ""
+            }
         val isFlutter = "flutter:" in content && "sdk: flutter" in content
 
         val buildTool = if (isFlutter) BuildTool.FLUTTER else BuildTool.PUB
@@ -52,8 +56,16 @@ class DartProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(label: String, dir: ProjectDirectory, tool: BuildTool, vararg args: String): CommandDescriptor =
-        CommandDescriptor(label, tool,
+    private fun cmd(
+        label: String,
+        dir: ProjectDirectory,
+        tool: BuildTool,
+        vararg args: String,
+    ): CommandDescriptor =
+        CommandDescriptor(
+            label,
+            tool,
             if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path)
+            dir.path,
+        )
 }

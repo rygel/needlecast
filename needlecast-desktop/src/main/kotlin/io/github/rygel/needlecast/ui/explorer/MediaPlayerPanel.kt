@@ -25,7 +25,6 @@ class MediaPlayerPanel(
     private val file: File,
     private val ctx: AppContext,
 ) : JPanel(BorderLayout()) {
-
     private val logger = LoggerFactory.getLogger(MediaPlayerPanel::class.java)
 
     private val statusLabel = JLabel("Loading...")
@@ -36,10 +35,12 @@ class MediaPlayerPanel(
     private val volumeSlider = JSlider(0, 100, 80)
     private val loopCheck = JCheckBox("Loop")
     private val autoplayCheck = JCheckBox("Autoplay")
+
     // Per-session only: speed resets to 1× on each new file open (not persisted to AppConfig by design)
-    private val speedCombo = JComboBox(arrayOf("0.5×", "0.75×", "1×", "1.25×", "1.5×", "1.75×", "2×")).apply {
-        selectedItem = "1×"
-    }
+    private val speedCombo =
+        JComboBox(arrayOf("0.5×", "0.75×", "1×", "1.25×", "1.5×", "1.75×", "2×")).apply {
+            selectedItem = "1×"
+        }
 
     private var mediaPlayerComponent: EmbeddedMediaPlayerComponent? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -47,11 +48,12 @@ class MediaPlayerPanel(
     private var updateTimer: Timer? = null
 
     init {
-        val toolbar = JPanel(BorderLayout()).apply {
-            border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
-            add(JLabel(file.name), BorderLayout.WEST)
-            add(statusLabel, BorderLayout.CENTER)
-        }
+        val toolbar =
+            JPanel(BorderLayout()).apply {
+                border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
+                add(JLabel(file.name), BorderLayout.WEST)
+                add(statusLabel, BorderLayout.CENTER)
+            }
         add(toolbar, BorderLayout.NORTH)
 
         if (!ensureVlcAvailable()) {
@@ -63,27 +65,31 @@ class MediaPlayerPanel(
             component.background = Color.BLACK
             add(component, BorderLayout.CENTER)
 
-            val controls = JPanel(BorderLayout(6, 0)).apply {
-                border = BorderFactory.createEmptyBorder(4, 6, 6, 6)
-                val buttons = JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
-                    add(playButton)
-                    add(stopButton)
-                    add(loopCheck)
-                    add(autoplayCheck)
+            val controls =
+                JPanel(BorderLayout(6, 0)).apply {
+                    border = BorderFactory.createEmptyBorder(4, 6, 6, 6)
+                    val buttons =
+                        JPanel(FlowLayout(FlowLayout.LEFT, 6, 0)).apply {
+                            add(playButton)
+                            add(stopButton)
+                            add(loopCheck)
+                            add(autoplayCheck)
+                        }
+                    val right =
+                        JPanel(FlowLayout(FlowLayout.RIGHT, 6, 0)).apply {
+                            add(JLabel("Volume"))
+                            add(volumeSlider)
+                            add(speedCombo)
+                        }
+                    add(buttons, BorderLayout.WEST)
+                    add(seekSlider, BorderLayout.CENTER)
+                    add(right, BorderLayout.EAST)
                 }
-                val right = JPanel(FlowLayout(FlowLayout.RIGHT, 6, 0)).apply {
-                    add(JLabel("Volume"))
-                    add(volumeSlider)
-                    add(speedCombo)
+            val south =
+                JPanel(BorderLayout()).apply {
+                    add(controls, BorderLayout.CENTER)
+                    add(timeLabel, BorderLayout.SOUTH)
                 }
-                add(buttons, BorderLayout.WEST)
-                add(seekSlider, BorderLayout.CENTER)
-                add(right, BorderLayout.EAST)
-            }
-            val south = JPanel(BorderLayout()).apply {
-                add(controls, BorderLayout.CENTER)
-                add(timeLabel, BorderLayout.SOUTH)
-            }
             add(south, BorderLayout.SOUTH)
 
             autoplayCheck.isSelected = ctx.config.mediaAutoplay
@@ -116,41 +122,47 @@ class MediaPlayerPanel(
                 }
             }
 
-            player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
-                override fun playing(mediaPlayer: MediaPlayer) {
-                    SwingUtilities.invokeLater { updatePlayState(isPlaying = true) }
-                }
-
-                override fun paused(mediaPlayer: MediaPlayer) {
-                    SwingUtilities.invokeLater { updatePlayState(isPlaying = false) }
-                }
-
-                override fun stopped(mediaPlayer: MediaPlayer) {
-                    SwingUtilities.invokeLater {
-                        updatePlayState(isPlaying = false)
-                        seekSlider.value = 0
+            player.events().addMediaPlayerEventListener(
+                object : MediaPlayerEventAdapter() {
+                    override fun playing(mediaPlayer: MediaPlayer) {
+                        SwingUtilities.invokeLater { updatePlayState(isPlaying = true) }
                     }
-                }
 
-                override fun finished(mediaPlayer: MediaPlayer) {
-                    SwingUtilities.invokeLater {
-                        if (loopCheck.isSelected) {
-                            playFile()
-                        } else {
+                    override fun paused(mediaPlayer: MediaPlayer) {
+                        SwingUtilities.invokeLater { updatePlayState(isPlaying = false) }
+                    }
+
+                    override fun stopped(mediaPlayer: MediaPlayer) {
+                        SwingUtilities.invokeLater {
                             updatePlayState(isPlaying = false)
-                            seekSlider.value = seekSlider.maximum
+                            seekSlider.value = 0
                         }
                     }
-                }
 
-                override fun error(mediaPlayer: MediaPlayer) {
-                    SwingUtilities.invokeLater {
-                        statusLabel.text = "Playback error"
+                    override fun finished(mediaPlayer: MediaPlayer) {
+                        SwingUtilities.invokeLater {
+                            if (loopCheck.isSelected) {
+                                playFile()
+                            } else {
+                                updatePlayState(isPlaying = false)
+                                seekSlider.value = seekSlider.maximum
+                            }
+                        }
                     }
-                }
-            })
 
-            updateTimer = Timer(250) { refreshTime() }.apply { isRepeats = true; start() }
+                    override fun error(mediaPlayer: MediaPlayer) {
+                        SwingUtilities.invokeLater {
+                            statusLabel.text = "Playback error"
+                        }
+                    }
+                },
+            )
+
+            updateTimer =
+                Timer(250) { refreshTime() }.apply {
+                    isRepeats = true
+                    start()
+                }
             statusLabel.text = "Ready"
             if (ctx.config.mediaAutoplay) {
                 SwingUtilities.invokeLater { playFile() }
@@ -159,9 +171,18 @@ class MediaPlayerPanel(
     }
 
     fun dispose() {
-        try { updateTimer?.stop() } catch (_: Exception) {}
-        try { mediaPlayer?.controls()?.stop() } catch (_: Exception) {}
-        try { mediaPlayerComponent?.release() } catch (_: Exception) {}
+        try {
+            updateTimer?.stop()
+        } catch (_: Exception) {
+        }
+        try {
+            mediaPlayer?.controls()?.stop()
+        } catch (_: Exception) {
+        }
+        try {
+            mediaPlayerComponent?.release()
+        } catch (_: Exception) {
+        }
     }
 
     private fun playFile() {
@@ -176,8 +197,11 @@ class MediaPlayerPanel(
         if (player.status().isPlaying) {
             player.controls().pause()
         } else {
-            if (player.status().time() <= 0L) playFile()
-            else player.controls().play()
+            if (player.status().time() <= 0L) {
+                playFile()
+            } else {
+                player.controls().play()
+            }
         }
     }
 
@@ -213,17 +237,24 @@ class MediaPlayerPanel(
     private fun buildMissingVlcPanel(): JComponent =
         JPanel(BorderLayout()).apply {
             background = Color(0x2B2B2B)
-            add(JLabel(
-                "<html><body style='color:#ddd; font-family:sans-serif;'>" +
-                    "VLC is required to play media files.<br/>" +
-                    "Install VLC (3.x) and restart Needlecast." +
-                    "</body></html>"
-            ).apply { border = BorderFactory.createEmptyBorder(16, 16, 16, 16) }, BorderLayout.NORTH)
+            add(
+                JLabel(
+                    "<html><body style='color:#ddd; font-family:sans-serif;'>" +
+                        "VLC is required to play media files.<br/>" +
+                        "Install VLC (3.x) and restart Needlecast." +
+                        "</body></html>",
+                ).apply { border = BorderFactory.createEmptyBorder(16, 16, 16, 16) },
+                BorderLayout.NORTH,
+            )
         }
 
     private object VlcSupport {
         val available: Boolean by lazy {
-            try { NativeDiscovery().discover() } catch (_: Exception) { false }
+            try {
+                NativeDiscovery().discover()
+            } catch (_: Exception) {
+                false
+            }
         }
     }
 }

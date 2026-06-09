@@ -30,7 +30,6 @@ import javax.swing.JTabbedPane
  * Never run locally — these tests capture the mouse and keyboard.
  */
 class DockingLayoutUiTest {
-
     private lateinit var robot: Robot
     private lateinit var fixture: FrameFixture
     private lateinit var window: MainWindow
@@ -54,9 +53,11 @@ class DockingLayoutUiTest {
         val ctx = AppContext(configStore = store)
         ctx.updateConfig(AppConfig())
         ThemeRegistry.apply("dark")
-        return GuiActionRunner.execute(object : GuiQuery<MainWindow>() {
-            override fun executeInEDT(): MainWindow = MainWindow(ctx)
-        })!!
+        return GuiActionRunner.execute(
+            object : GuiQuery<MainWindow>() {
+                override fun executeInEDT(): MainWindow = MainWindow(ctx)
+            },
+        )!!
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -64,8 +65,9 @@ class DockingLayoutUiTest {
     /** Returns the screen bounds of a dockable panel by its persistent ID, or null if not found. */
     private fun boundsOf(persistentId: String): Rectangle? {
         val all = robot.finder().findAll { c -> c is DockablePanel }
-        val panel = all.filterIsInstance<DockablePanel>().firstOrNull { it.dockableId == persistentId }
-            ?: return null
+        val panel =
+            all.filterIsInstance<DockablePanel>().firstOrNull { it.dockableId == persistentId }
+                ?: return null
         if (!panel.isShowing) {
             val tabbed = javax.swing.SwingUtilities.getAncestorOfClass(JTabbedPane::class.java, panel) as? JTabbedPane
             if (tabbed != null) {
@@ -101,8 +103,10 @@ class DockingLayoutUiTest {
         val ids = listOf("terminal", "project-tree", "commands", "git-log", "explorer", "console")
         for (id in ids) {
             val bounds = boundsOf(id)
-            assertTrue(bounds != null && bounds.width > 0,
-                "Panel '$id' should be docked and visible, bounds=$bounds")
+            assertTrue(
+                bounds != null && bounds.width > 0,
+                "Panel '$id' should be docked and visible, bounds=$bounds",
+            )
         }
     }
 
@@ -117,14 +121,18 @@ class DockingLayoutUiTest {
         fixture.show()
         robot.waitForIdle()
 
-        val terminalBounds   = boundsOf("terminal")     ?: error("terminal not found")
-        val projectBounds    = boundsOf("project-tree") ?: error("project-tree not found")
-        val commandsBounds   = boundsOf("commands")     ?: error("commands not found")
+        val terminalBounds = boundsOf("terminal") ?: error("terminal not found")
+        val projectBounds = boundsOf("project-tree") ?: error("project-tree not found")
+        val commandsBounds = boundsOf("commands") ?: error("commands not found")
 
-        assertTrue(terminalBounds.width > projectBounds.width,
-            "Terminal (${terminalBounds.width}px) should be wider than project tree (${projectBounds.width}px)")
-        assertTrue(terminalBounds.width > commandsBounds.width,
-            "Terminal (${terminalBounds.width}px) should be wider than commands (${commandsBounds.width}px)")
+        assertTrue(
+            terminalBounds.width > projectBounds.width,
+            "Terminal (${terminalBounds.width}px) should be wider than project tree (${projectBounds.width}px)",
+        )
+        assertTrue(
+            terminalBounds.width > commandsBounds.width,
+            "Terminal (${terminalBounds.width}px) should be wider than commands (${commandsBounds.width}px)",
+        )
     }
 
     /**
@@ -138,11 +146,13 @@ class DockingLayoutUiTest {
         fixture.show()
         robot.waitForIdle()
 
-        val projectBounds  = boundsOf("project-tree") ?: error("project-tree not found")
-        val commandsBounds = boundsOf("commands")     ?: error("commands not found")
+        val projectBounds = boundsOf("project-tree") ?: error("project-tree not found")
+        val commandsBounds = boundsOf("commands") ?: error("commands not found")
 
-        assertTrue(projectBounds.width < commandsBounds.width,
-            "Project tree (${projectBounds.width}px) should be narrower than commands (${commandsBounds.width}px)")
+        assertTrue(
+            projectBounds.width < commandsBounds.width,
+            "Project tree (${projectBounds.width}px) should be narrower than commands (${commandsBounds.width}px)",
+        )
     }
 
     @Test
@@ -152,7 +162,7 @@ class DockingLayoutUiTest {
         fixture.show()
         robot.waitForIdle()
 
-        val projectBounds  = boundsOf("project-tree") ?: error("project-tree not found")
+        val projectBounds = boundsOf("project-tree") ?: error("project-tree not found")
         val explorerBounds = boundsOf("explorer") ?: error("explorer not found")
 
         assertEquals(projectBounds.x, explorerBounds.x, "Explorer should share the left rail X position")
@@ -171,18 +181,22 @@ class DockingLayoutUiTest {
         robot.waitForIdle()
 
         // Undock the console and explorer programmatically to simulate a customised layout
-        GuiActionRunner.execute(object : GuiQuery<Unit>() {
-            override fun executeInEDT() {
-                window.resetLayout()
-            }
-        })
+        GuiActionRunner.execute(
+            object : GuiQuery<Unit>() {
+                override fun executeInEDT() {
+                    window.resetLayout()
+                }
+            },
+        )
         robot.waitForIdle()
 
         val ids = listOf("terminal", "project-tree", "commands", "git-log", "explorer", "console")
         for (id in ids) {
             val bounds = boundsOf(id)
-            assertTrue(bounds != null && bounds.width > 0,
-                "After reset, panel '$id' should be visible, bounds=$bounds")
+            assertTrue(
+                bounds != null && bounds.width > 0,
+                "After reset, panel '$id' should be visible, bounds=$bounds",
+            )
         }
     }
 
@@ -197,19 +211,27 @@ class DockingLayoutUiTest {
         fixture.show()
         robot.waitForIdle()
 
-        GuiActionRunner.execute(object : GuiQuery<Unit>() {
-            override fun executeInEDT() { window.resetLayout() }
-        })
+        GuiActionRunner.execute(
+            object : GuiQuery<Unit>() {
+                override fun executeInEDT() {
+                    window.resetLayout()
+                }
+            },
+        )
         robot.waitForIdle()
 
-        val terminalW  = boundsOf("terminal")?.width     ?: error("terminal not found")
-        val projectW   = boundsOf("project-tree")?.width ?: error("project-tree not found")
-        val commandsW  = boundsOf("commands")?.width     ?: error("commands not found")
+        val terminalW = boundsOf("terminal")?.width ?: error("terminal not found")
+        val projectW = boundsOf("project-tree")?.width ?: error("project-tree not found")
+        val commandsW = boundsOf("commands")?.width ?: error("commands not found")
 
-        assertTrue(terminalW > commandsW,
-            "After reset: terminal ($terminalW) should be wider than commands ($commandsW)")
-        assertTrue(commandsW > projectW,
-            "After reset: commands ($commandsW) should be wider than project-tree ($projectW)")
+        assertTrue(
+            terminalW > commandsW,
+            "After reset: terminal ($terminalW) should be wider than commands ($commandsW)",
+        )
+        assertTrue(
+            commandsW > projectW,
+            "After reset: commands ($commandsW) should be wider than project-tree ($projectW)",
+        )
     }
 
     /**
@@ -224,18 +246,26 @@ class DockingLayoutUiTest {
         fixture.show()
         robot.waitForIdle()
 
-        val tabbedPanes = GuiActionRunner.execute(object : GuiQuery<List<Int>>() {
-            override fun executeInEDT(): List<Int> =
-                robot.finder()
-                    .findAll { c -> c is JTabbedPane && c.tabCount > 1 }
-                    .filterIsInstance<JTabbedPane>()
-                    .map { it.tabPlacement }
-        })!!
+        val tabbedPanes =
+            GuiActionRunner.execute(
+                object : GuiQuery<List<Int>>() {
+                    override fun executeInEDT(): List<Int> =
+                        robot
+                            .finder()
+                            .findAll { c -> c is JTabbedPane && c.tabCount > 1 }
+                            .filterIsInstance<JTabbedPane>()
+                            .map { it.tabPlacement }
+                },
+            )!!
 
-        assertTrue(tabbedPanes.isNotEmpty(),
-            "Expected at least one JTabbedPane with multiple tabs (e.g. Terminal+Editor, Projects+Explorer)")
-        assertTrue(tabbedPanes.all { it == JTabbedPane.TOP },
-            "All tabbed docking panels should use TOP placement, but found placements: $tabbedPanes")
+        assertTrue(
+            tabbedPanes.isNotEmpty(),
+            "Expected at least one JTabbedPane with multiple tabs (e.g. Terminal+Editor, Projects+Explorer)",
+        )
+        assertTrue(
+            tabbedPanes.all { it == JTabbedPane.TOP },
+            "All tabbed docking panels should use TOP placement, but found placements: $tabbedPanes",
+        )
     }
 
     /**
@@ -248,24 +278,35 @@ class DockingLayoutUiTest {
         val ctx = AppContext(configStore = store)
         ctx.updateConfig(AppConfig(tabsOnTop = false))
         ThemeRegistry.apply("dark")
-        window = GuiActionRunner.execute(object : GuiQuery<MainWindow>() {
-            override fun executeInEDT(): MainWindow = MainWindow(ctx)
-        })!!
+        window =
+            GuiActionRunner.execute(
+                object : GuiQuery<MainWindow>() {
+                    override fun executeInEDT(): MainWindow = MainWindow(ctx)
+                },
+            )!!
         fixture = FrameFixture(robot, window)
         fixture.show()
         robot.waitForIdle()
 
-        val tabbedPanes = GuiActionRunner.execute(object : GuiQuery<List<Int>>() {
-            override fun executeInEDT(): List<Int> =
-                robot.finder()
-                    .findAll { c -> c is JTabbedPane && c.tabCount > 1 }
-                    .filterIsInstance<JTabbedPane>()
-                    .map { it.tabPlacement }
-        })!!
+        val tabbedPanes =
+            GuiActionRunner.execute(
+                object : GuiQuery<List<Int>>() {
+                    override fun executeInEDT(): List<Int> =
+                        robot
+                            .finder()
+                            .findAll { c -> c is JTabbedPane && c.tabCount > 1 }
+                            .filterIsInstance<JTabbedPane>()
+                            .map { it.tabPlacement }
+                },
+            )!!
 
-        assertTrue(tabbedPanes.isNotEmpty(),
-            "Expected at least one JTabbedPane with multiple tabs")
-        assertTrue(tabbedPanes.all { it == JTabbedPane.BOTTOM },
-            "All tabbed docking panels should use BOTTOM placement when tabsOnTop=false, but found: $tabbedPanes")
+        assertTrue(
+            tabbedPanes.isNotEmpty(),
+            "Expected at least one JTabbedPane with multiple tabs",
+        )
+        assertTrue(
+            tabbedPanes.all { it == JTabbedPane.BOTTOM },
+            "All tabbed docking panels should use BOTTOM placement when tabsOnTop=false, but found: $tabbedPanes",
+        )
     }
 }

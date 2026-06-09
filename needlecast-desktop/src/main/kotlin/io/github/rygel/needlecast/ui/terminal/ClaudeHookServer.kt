@@ -35,17 +35,20 @@ class ClaudeHookServer(
             srv.createContext("/hook/claude/start") { ex ->
                 val cwd = readCwd(ex.requestBody.readBytes())
                 if (cwd != null) SwingUtilities.invokeLater { onEvent(cwd, AgentStatus.THINKING) }
-                ex.sendResponseHeaders(200, -1); ex.close()
+                ex.sendResponseHeaders(200, -1)
+                ex.close()
             }
             srv.createContext("/hook/claude/stop") { ex ->
                 val cwd = readCwd(ex.requestBody.readBytes())
                 if (cwd != null) SwingUtilities.invokeLater { onEvent(cwd, AgentStatus.WAITING) }
-                ex.sendResponseHeaders(200, -1); ex.close()
+                ex.sendResponseHeaders(200, -1)
+                ex.close()
             }
             srv.createContext("/hook/claude/idle") { ex ->
                 val cwd = readCwd(ex.requestBody.readBytes())
                 if (cwd != null) SwingUtilities.invokeLater { onEvent(cwd, AgentStatus.WAITING) }
-                ex.sendResponseHeaders(200, -1); ex.close()
+                ex.sendResponseHeaders(200, -1)
+                ex.close()
             }
             srv.executor = null
             srv.start()
@@ -61,9 +64,16 @@ class ClaudeHookServer(
         server = null
     }
 
-    private fun readCwd(bytes: ByteArray): String? = try {
-        mapper.readTree(bytes)?.get("cwd")?.asText()?.takeIf { it.isNotBlank() }
-    } catch (_: Exception) { null }
+    private fun readCwd(bytes: ByteArray): String? =
+        try {
+            mapper
+                .readTree(bytes)
+                ?.get("cwd")
+                ?.asText()
+                ?.takeIf { it.isNotBlank() }
+        } catch (_: Exception) {
+            null
+        }
 
     companion object {
         const val PORT = 17312
@@ -79,24 +89,44 @@ class ClaudeHookServer(
                 Files.createDirectories(settingsPath.parent)
 
                 val mapper = ObjectMapper()
-                val root: ObjectNode = if (Files.exists(settingsPath)) {
-                    try { mapper.readTree(settingsPath.toFile()) as? ObjectNode ?: mapper.createObjectNode() }
-                    catch (_: Exception) { mapper.createObjectNode() }
-                } else mapper.createObjectNode()
+                val root: ObjectNode =
+                    if (Files.exists(settingsPath)) {
+                        try {
+                            mapper.readTree(settingsPath.toFile()) as? ObjectNode ?: mapper.createObjectNode()
+                        } catch (
+                            _: Exception,
+                        ) {
+                            mapper.createObjectNode()
+                        }
+                    } else {
+                        mapper.createObjectNode()
+                    }
 
                 val hooksNode = root.withObjectProperty("hooks")
 
-                mergeHookEntry(mapper, hooksNode, port, "UserPromptSubmit",
-                    matcher  = "",
-                    command  = curlCmd(port, "start"),
+                mergeHookEntry(
+                    mapper,
+                    hooksNode,
+                    port,
+                    "UserPromptSubmit",
+                    matcher = "",
+                    command = curlCmd(port, "start"),
                 )
-                mergeHookEntry(mapper, hooksNode, port, "Stop",
-                    matcher  = "",
-                    command  = curlCmd(port, "stop"),
+                mergeHookEntry(
+                    mapper,
+                    hooksNode,
+                    port,
+                    "Stop",
+                    matcher = "",
+                    command = curlCmd(port, "stop"),
                 )
-                mergeHookEntry(mapper, hooksNode, port, "Notification",
-                    matcher  = "idle_prompt",
-                    command  = curlCmd(port, "idle"),
+                mergeHookEntry(
+                    mapper,
+                    hooksNode,
+                    port,
+                    "Notification",
+                    matcher = "idle_prompt",
+                    command = curlCmd(port, "idle"),
                 )
 
                 val tmp = settingsPath.parent.resolve("settings.json.tmp")
@@ -125,20 +155,25 @@ class ClaudeHookServer(
 
             // Already present?
             if (rules.any { rule ->
-                (rule.get("hooks") as? ArrayNode)?.any { h ->
-                    h.get("command")?.asText()?.contains(serverUrl) == true
-                } == true
-            }) return
+                    (rule.get("hooks") as? ArrayNode)?.any { h ->
+                        h.get("command")?.asText()?.contains(serverUrl) == true
+                    } == true
+                }
+            ) {
+                return
+            }
 
-            val hookEntry = mapper.createObjectNode().apply {
-                put("type", "command")
-                put("command", command)
-            }
+            val hookEntry =
+                mapper.createObjectNode().apply {
+                    put("type", "command")
+                    put("command", command)
+                }
             val hooksArray = mapper.createArrayNode().add(hookEntry)
-            val rule = mapper.createObjectNode().apply {
-                put("matcher", matcher)
-                set<ArrayNode>("hooks", hooksArray)
-            }
+            val rule =
+                mapper.createObjectNode().apply {
+                    put("matcher", matcher)
+                    set<ArrayNode>("hooks", hooksArray)
+                }
             rules.add(rule)
         }
 
@@ -153,8 +188,12 @@ class ClaudeHookServer(
                 if (!Files.exists(settingsPath)) return
 
                 val mapper = ObjectMapper()
-                val root = try { mapper.readTree(settingsPath.toFile()) as? ObjectNode ?: return }
-                           catch (_: Exception) { return }
+                val root =
+                    try {
+                        mapper.readTree(settingsPath.toFile()) as? ObjectNode ?: return
+                    } catch (_: Exception) {
+                        return
+                    }
 
                 val hooksNode = root.get("hooks") as? ObjectNode ?: return
                 val serverUrl = "localhost:$port"
@@ -162,11 +201,12 @@ class ClaudeHookServer(
 
                 for (eventName in listOf("UserPromptSubmit", "Stop", "Notification")) {
                     val rules = hooksNode.get(eventName) as? ArrayNode ?: continue
-                    val filtered = rules.filterNot { rule ->
-                        (rule.get("hooks") as? ArrayNode)?.any { h ->
-                            h.get("command")?.asText()?.contains(serverUrl) == true
-                        } == true
-                    }
+                    val filtered =
+                        rules.filterNot { rule ->
+                            (rule.get("hooks") as? ArrayNode)?.any { h ->
+                                h.get("command")?.asText()?.contains(serverUrl) == true
+                            } == true
+                        }
                     if (filtered.size < rules.size()) {
                         modified = true
                         if (filtered.isEmpty()) {
@@ -188,12 +228,16 @@ class ClaudeHookServer(
             }
         }
 
-        private fun curlCmd(port: Int, event: String): String {
+        private fun curlCmd(
+            port: Int,
+            event: String,
+        ): String {
             val url = "http://localhost:$port/hook/claude/$event"
-            return if (IS_WINDOWS)
+            return if (IS_WINDOWS) {
                 """curl.exe -s -X POST "$url" -H "Content-Type: application/json" -d @-"""
-            else
+            } else {
                 "curl -s -X POST '$url' -H 'Content-Type: application/json' -d @-"
+            }
         }
     }
 }

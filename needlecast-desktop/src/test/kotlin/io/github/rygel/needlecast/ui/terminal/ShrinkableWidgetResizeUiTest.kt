@@ -17,37 +17,45 @@ import javax.swing.JPanel
 import javax.swing.SwingUtilities
 
 class ShrinkableWidgetResizeUiTest {
-
     private lateinit var frame: JFrame
     private lateinit var container: JPanel
 
-    private class ShrinkableWidget(settings: DefaultSettingsProvider) : JediTermWidget(settings) {
+    private class ShrinkableWidget(
+        settings: DefaultSettingsProvider,
+    ) : JediTermWidget(settings) {
         override fun getMinimumSize(): Dimension = Dimension(0, 0)
+
         override fun getPreferredSize(): Dimension = Dimension(1, 1)
     }
 
     @BeforeEach
     fun setUp() {
-        val settings = object : DefaultSettingsProvider() {
-            override fun enableMouseReporting(): Boolean = true
-        }
+        val settings =
+            object : DefaultSettingsProvider() {
+                override fun enableMouseReporting(): Boolean = true
+            }
 
         val latch = CountDownLatch(1)
         SwingUtilities.invokeLater {
             val widget = ShrinkableWidget(settings)
             val inner = widget.terminalPanel
 
-            val connector = TerminalResizeUiTest.ResizeTrackingConnector(
-                java.util.concurrent.atomic.AtomicInteger(),
-                java.util.concurrent.atomic.AtomicReference(),
-            )
+            val connector =
+                TerminalResizeUiTest.ResizeTrackingConnector(
+                    java.util.concurrent.atomic
+                        .AtomicInteger(),
+                    java.util.concurrent.atomic
+                        .AtomicReference(),
+                )
             widget.createTerminalSession(connector)
             widget.start()
 
-            container = object : JPanel(BorderLayout()) {
-                override fun getPreferredSize(): Dimension = Dimension(1, 1)
-                override fun getMinimumSize(): Dimension = Dimension(0, 0)
-            }
+            container =
+                object : JPanel(BorderLayout()) {
+                    override fun getPreferredSize(): Dimension = Dimension(1, 1)
+
+                    override fun getMinimumSize(): Dimension = Dimension(0, 0)
+                }
             container.add(widget, BorderLayout.CENTER)
 
             val outer = JPanel(BorderLayout())
@@ -95,10 +103,15 @@ class ShrinkableWidgetResizeUiTest {
         val after = afterRef.get()
         println("[TEST] Inner panel before: $before, after: $after")
 
-        assertTrue(after != null && after.width > 0 && after.height > 0,
-            "Inner panel must have positive size after resize")
-        assertNotEquals(before, after,
-            "Inner panel dimensions must change when frame resizes")
+        assertTrue(
+            after != null && after.width > 0 && after.height > 0,
+            "Inner panel must have positive size after resize",
+        )
+        assertNotEquals(
+            before,
+            after,
+            "Inner panel dimensions must change when frame resizes",
+        )
     }
 
     @AfterEach

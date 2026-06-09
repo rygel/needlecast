@@ -10,18 +10,15 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.awt.Dimension
-import java.awt.EventQueue
 import java.awt.event.ComponentEvent
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import javax.swing.JFrame
-import javax.swing.JPanel
 import javax.swing.SwingUtilities
 
 class TerminalResizeUiTest {
-
     private lateinit var frame: JFrame
     private lateinit var widget: JediTermWidget
     private lateinit var connector: ResizeTrackingConnector
@@ -30,9 +27,10 @@ class TerminalResizeUiTest {
 
     @BeforeEach
     fun setUp() {
-        val settings = object : DefaultSettingsProvider() {
-            override fun enableMouseReporting(): Boolean = true
-        }
+        val settings =
+            object : DefaultSettingsProvider() {
+                override fun enableMouseReporting(): Boolean = true
+            }
 
         connector = ResizeTrackingConnector(resizeCount, lastResizeDims)
 
@@ -78,8 +76,10 @@ class TerminalResizeUiTest {
         println("[TEST] TtyConnector.resize called $count times")
         println("[TEST] Last resize dims: ${lastResizeDims.get()}")
 
-        assertTrue(count > 0,
-            "TtyConnector.resize must be called at least once after resizing, but was called $count times")
+        assertTrue(
+            count > 0,
+            "TtyConnector.resize must be called at least once after resizing, but was called $count times",
+        )
     }
 
     @Test
@@ -105,8 +105,10 @@ class TerminalResizeUiTest {
         println("[TEST] TtyConnector.resize called $count times after direct panel resize")
         println("[TEST] Last resize dims: ${lastResizeDims.get()}")
 
-        assertTrue(count > 0,
-            "TtyConnector.resize must be called after directly resizing inner panel")
+        assertTrue(
+            count > 0,
+            "TtyConnector.resize must be called after directly resizing inner panel",
+        )
     }
 
     @Test
@@ -122,8 +124,10 @@ class TerminalResizeUiTest {
 
         assertTrue(after != null, "terminalSize must not be null after resize")
         if (before != null && after != null) {
-            assertTrue(after.width != before.width || after.height != before.height,
-                "Terminal dimensions must change after resizing: before=$before after=$after")
+            assertTrue(
+                after.width != before.width || after.height != before.height,
+                "Terminal dimensions must change after resizing: before=$before after=$after",
+            )
         }
     }
 
@@ -132,14 +136,17 @@ class TerminalResizeUiTest {
         val innerCount = AtomicInteger(0)
         val innerDims = AtomicReference<Dimension>()
         val inner = ResizeTrackingConnector(innerCount, innerDims)
-        val observing = ObservingTtyConnector(inner) {}
+        val observing = ObservingTtyConnector(inner, onOutput = {})
         val dims = Dimension(100, 40)
 
         observing.resize(dims)
         Thread.sleep(100)
 
-        assertEquals(1, innerCount.get(),
-            "ObservingTtyConnector must delegate resize to inner connector")
+        assertEquals(
+            1,
+            innerCount.get(),
+            "ObservingTtyConnector must delegate resize to inner connector",
+        )
         assertEquals(100, innerDims.get()?.width)
         assertEquals(40, innerDims.get()?.height)
     }
@@ -147,8 +154,10 @@ class TerminalResizeUiTest {
     @Test
     fun `widget hierarchy - inner panel is descendant of widget`() {
         val inner = edtGet { widget.terminalPanel }
-        assertTrue(SwingUtilities.isDescendingFrom(inner, widget),
-            "Inner TerminalPanel must be a descendant of JediTermWidget for resize events to propagate")
+        assertTrue(
+            SwingUtilities.isDescendingFrom(inner, widget),
+            "Inner TerminalPanel must be a descendant of JediTermWidget for resize events to propagate",
+        )
     }
 
     @Test
@@ -163,8 +172,10 @@ class TerminalResizeUiTest {
         println("[TEST] Inner panel parent: ${inner.parent?.javaClass?.simpleName}")
         println("[TEST] Widget layout: ${widget.layout?.javaClass?.simpleName}")
 
-        assertTrue(innerSize.width > 0 && innerSize.height > 0,
-            "Inner panel must have non-zero size, got $innerSize")
+        assertTrue(
+            innerSize.width > 0 && innerSize.height > 0,
+            "Inner panel must have non-zero size, got $innerSize",
+        )
     }
 
     private fun <T> edtGet(fn: () -> T): T {
@@ -172,7 +183,13 @@ class TerminalResizeUiTest {
         val err = AtomicReference<Throwable>()
         val latch = CountDownLatch(1)
         SwingUtilities.invokeLater {
-            try { ref.set(fn()) } catch (t: Throwable) { err.set(t) } finally { latch.countDown() }
+            try {
+                ref.set(fn())
+            } catch (t: Throwable) {
+                err.set(t)
+            } finally {
+                latch.countDown()
+            }
         }
         assertTrue(latch.await(10, TimeUnit.SECONDS), "EDT call must complete")
         err.get()?.let { throw it }
@@ -183,7 +200,13 @@ class TerminalResizeUiTest {
         val err = AtomicReference<Throwable>()
         val latch = CountDownLatch(1)
         SwingUtilities.invokeLater {
-            try { fn() } catch (t: Throwable) { err.set(t) } finally { latch.countDown() }
+            try {
+                fn()
+            } catch (t: Throwable) {
+                err.set(t)
+            } finally {
+                latch.countDown()
+            }
         }
         assertTrue(latch.await(10, TimeUnit.SECONDS), "EDT call must complete")
         err.get()?.let { throw it }
@@ -211,15 +234,24 @@ class TerminalResizeUiTest {
         }
 
         override fun close() {
-            synchronized(lock) { closed = true; lock.notifyAll() }
+            synchronized(lock) {
+                closed = true
+                lock.notifyAll()
+            }
         }
 
         override fun getName(): String = "test"
 
-        override fun read(buf: CharArray, offset: Int, length: Int): Int {
+        override fun read(
+            buf: CharArray,
+            offset: Int,
+            length: Int,
+        ): Int {
             synchronized(lock) {
                 while (buffer.isEmpty() && !closed) {
-                    try { lock.wait() } catch (_: InterruptedException) {
+                    try {
+                        lock.wait()
+                    } catch (_: InterruptedException) {
                         Thread.currentThread().interrupt()
                     }
                 }
@@ -232,13 +264,20 @@ class TerminalResizeUiTest {
         }
 
         override fun write(bytes: ByteArray) {}
+
         override fun write(text: String) {}
+
         override fun isConnected(): Boolean = !closed
+
         override fun ready(): Boolean = synchronized(lock) { buffer.isNotEmpty() }
+
         override fun waitFor(): Int = 0
 
         fun feed(data: String) {
-            synchronized(lock) { buffer.append(data); lock.notifyAll() }
+            synchronized(lock) {
+                buffer.append(data)
+                lock.notifyAll()
+            }
         }
     }
 }

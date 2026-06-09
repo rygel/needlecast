@@ -8,7 +8,6 @@ import javax.swing.JSplitPane
 import javax.swing.ScrollPaneConstants
 
 class DiffContentPanel : JPanel(BorderLayout()) {
-
     enum class ViewMode { SIDE_BY_SIDE, UNIFIED }
 
     var viewMode: ViewMode = ViewMode.SIDE_BY_SIDE
@@ -18,19 +17,22 @@ class DiffContentPanel : JPanel(BorderLayout()) {
     val rightPane = DiffEditorPane(DiffEditorPane.Side.NEW)
     private val unifiedPane = DiffEditorPane(DiffEditorPane.Side.UNIFIED)
 
-    val leftScroll = JScrollPane(leftPane).apply {
-        verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER
-        horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
-        border = BorderFactory.createEmptyBorder()
-    }
-    val rightScroll = JScrollPane(rightPane).apply {
-        horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
-        border = BorderFactory.createEmptyBorder()
-    }
-    private val unifiedScroll = JScrollPane(unifiedPane).apply {
-        horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
-        border = BorderFactory.createEmptyBorder()
-    }
+    val leftScroll =
+        JScrollPane(leftPane).apply {
+            verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER
+            horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
+            border = BorderFactory.createEmptyBorder()
+        }
+    val rightScroll =
+        JScrollPane(rightPane).apply {
+            horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
+            border = BorderFactory.createEmptyBorder()
+        }
+    private val unifiedScroll =
+        JScrollPane(unifiedPane).apply {
+            horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED
+            border = BorderFactory.createEmptyBorder()
+        }
 
     private val leftGutter = DiffLineNumberGutter(leftPane, leftScroll)
     private val rightGutter = DiffLineNumberGutter(rightPane, rightScroll)
@@ -56,7 +58,10 @@ class DiffContentPanel : JPanel(BorderLayout()) {
         redisplay()
     }
 
-    fun display(result: DiffResult, fileIndex: Int = 0) {
+    fun display(
+        result: DiffResult,
+        fileIndex: Int = 0,
+    ) {
         currentResult = result
         currentFileIndex = fileIndex
         redisplay()
@@ -85,11 +90,21 @@ class DiffContentPanel : JPanel(BorderLayout()) {
     }
 
     private fun redisplay() {
-        val result = currentResult ?: run { displayEmpty("No diff"); return }
-        if (result.files.isEmpty()) { displayEmpty("No changes"); return }
+        val result =
+            currentResult ?: run {
+                displayEmpty("No diff")
+                return
+            }
+        if (result.files.isEmpty()) {
+            displayEmpty("No changes")
+            return
+        }
         if (currentFileIndex >= result.files.size) currentFileIndex = 0
         val file = result.files[currentFileIndex]
-        if (file.binary) { displayEmpty("(binary file)"); return }
+        if (file.binary) {
+            displayEmpty("(binary file)")
+            return
+        }
 
         if (viewMode == ViewMode.SIDE_BY_SIDE) {
             val split = splitLinesForSideBySide(file.hunks.flatMap { it.lines })
@@ -106,11 +121,12 @@ class DiffContentPanel : JPanel(BorderLayout()) {
 
     private fun showSideBySide() {
         removeAll()
-        val split = JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftScroll, rightScroll).apply {
-            resizeWeight = 0.5
-            dividerSize = 2
-            border = BorderFactory.createEmptyBorder()
-        }
+        val split =
+            JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftScroll, rightScroll).apply {
+                resizeWeight = 0.5
+                dividerSize = 2
+                border = BorderFactory.createEmptyBorder()
+            }
         add(split, BorderLayout.CENTER)
         revalidate()
         repaint()
@@ -123,30 +139,43 @@ class DiffContentPanel : JPanel(BorderLayout()) {
         repaint()
     }
 
-    private fun renderPane(lines: List<DiffLine>, side: DiffEditorPane.Side) {
-        val pane = when (side) {
-            DiffEditorPane.Side.OLD -> leftPane
-            DiffEditorPane.Side.NEW -> rightPane
-            DiffEditorPane.Side.UNIFIED -> unifiedPane
-        }
+    private fun renderPane(
+        lines: List<DiffLine>,
+        side: DiffEditorPane.Side,
+    ) {
+        val pane =
+            when (side) {
+                DiffEditorPane.Side.OLD -> leftPane
+                DiffEditorPane.Side.NEW -> rightPane
+                DiffEditorPane.Side.UNIFIED -> unifiedPane
+            }
         pane.renderLines(lines)
     }
 
-    private fun updateGutter(lines: List<DiffLine>, gutter: DiffLineNumberGutter, side: DiffEditorPane.Side) {
-        val infos = lines.map { line ->
-            DiffLineNumberGutter.LineInfo(
-                number = when (side) {
-                    DiffEditorPane.Side.OLD -> line.oldLineNum
-                    DiffEditorPane.Side.NEW -> line.newLineNum
-                    DiffEditorPane.Side.UNIFIED -> line.oldLineNum ?: line.newLineNum
-                },
-                type = line.type,
-            )
-        }
+    private fun updateGutter(
+        lines: List<DiffLine>,
+        gutter: DiffLineNumberGutter,
+        side: DiffEditorPane.Side,
+    ) {
+        val infos =
+            lines.map { line ->
+                DiffLineNumberGutter.LineInfo(
+                    number =
+                        when (side) {
+                            DiffEditorPane.Side.OLD -> line.oldLineNum
+                            DiffEditorPane.Side.NEW -> line.newLineNum
+                            DiffEditorPane.Side.UNIFIED -> line.oldLineNum ?: line.newLineNum
+                        },
+                    type = line.type,
+                )
+            }
         gutter.setLineInfos(infos)
     }
 
-    internal data class SideBySideSplit(val left: List<DiffLine>, val right: List<DiffLine>)
+    internal data class SideBySideSplit(
+        val left: List<DiffLine>,
+        val right: List<DiffLine>,
+    )
 
     internal fun splitLinesForSideBySide(lines: List<DiffLine>): SideBySideSplit {
         val left = mutableListOf<DiffLine>()
@@ -159,6 +188,7 @@ class DiffContentPanel : JPanel(BorderLayout()) {
                     right.add(lines[i])
                     i++
                 }
+
                 DiffLineType.REMOVED -> {
                     val removedStart = i
                     while (i < lines.size && lines[i].type == DiffLineType.REMOVED) {
@@ -179,6 +209,7 @@ class DiffContentPanel : JPanel(BorderLayout()) {
                         repeat(-padCount) { left.add(DiffLine(DiffLineType.CONTEXT, null, null, "")) }
                     }
                 }
+
                 DiffLineType.ADDED -> {
                     right.add(lines[i])
                     left.add(DiffLine(DiffLineType.CONTEXT, null, null, ""))

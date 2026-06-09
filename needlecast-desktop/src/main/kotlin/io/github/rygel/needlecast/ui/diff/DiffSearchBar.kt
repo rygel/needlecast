@@ -11,27 +11,29 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTextField
 import javax.swing.text.DefaultHighlighter
-import javax.swing.text.Highlighter
 
 class DiffSearchBar : JPanel(BorderLayout()) {
-
-    private val searchField = JTextField().apply {
-        preferredSize = Dimension(200, 28)
-        maximumSize = Dimension(400, 28)
-    }
+    private val searchField =
+        JTextField().apply {
+            preferredSize = Dimension(200, 28)
+            maximumSize = Dimension(400, 28)
+        }
     private val countLabel = JLabel("")
-    private val prevButton = JButton("\u25C0").apply {
-        toolTipText = "Previous match"
-        isFocusable = false
-    }
-    private val nextButton = JButton("\u25B6").apply {
-        toolTipText = "Next match"
-        isFocusable = false
-    }
-    private val closeButton = JButton("\u2715").apply {
-        toolTipText = "Close (Escape)"
-        isFocusable = false
-    }
+    private val prevButton =
+        JButton("\u25C0").apply {
+            toolTipText = "Previous match"
+            isFocusable = false
+        }
+    private val nextButton =
+        JButton("\u25B6").apply {
+            toolTipText = "Next match"
+            isFocusable = false
+        }
+    private val closeButton =
+        JButton("\u2715").apply {
+            toolTipText = "Close (Escape)"
+            isFocusable = false
+        }
 
     private var targetPanes: List<DiffEditorPane> = emptyList()
     private var highlights = mutableListOf<List<Pair<Int, Int>>>()
@@ -41,32 +43,40 @@ class DiffSearchBar : JPanel(BorderLayout()) {
     var onClose: (() -> Unit)? = null
 
     init {
-        border = BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 1, 0, java.awt.Color(0x3C, 0x3C, 0x3C)),
-            BorderFactory.createEmptyBorder(4, 8, 4, 8),
-        )
+        border =
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, java.awt.Color(0x3C, 0x3C, 0x3C)),
+                BorderFactory.createEmptyBorder(4, 8, 4, 8),
+            )
 
-        val leftPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
-            add(JLabel("Find:"))
-            add(searchField)
-            add(prevButton)
-            add(nextButton)
-            add(countLabel)
-        }
-        val rightPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
-            add(closeButton)
-        }
+        val leftPanel =
+            JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+                add(JLabel("Find:"))
+                add(searchField)
+                add(prevButton)
+                add(nextButton)
+                add(countLabel)
+            }
+        val rightPanel =
+            JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0)).apply {
+                add(closeButton)
+            }
 
         add(leftPanel, BorderLayout.WEST)
         add(rightPanel, BorderLayout.EAST)
 
-        searchField.addKeyListener(object : KeyAdapter() {
-            override fun keyReleased(e: KeyEvent) {
-                if (e.keyCode == KeyEvent.VK_ENTER) nextMatch()
-                if (e.keyCode == KeyEvent.VK_ESCAPE) { onClose?.invoke(); return }
-                performSearch()
-            }
-        })
+        searchField.addKeyListener(
+            object : KeyAdapter() {
+                override fun keyReleased(e: KeyEvent) {
+                    if (e.keyCode == KeyEvent.VK_ENTER) nextMatch()
+                    if (e.keyCode == KeyEvent.VK_ESCAPE) {
+                        onClose?.invoke()
+                        return
+                    }
+                    performSearch()
+                }
+            },
+        )
 
         nextButton.addActionListener { nextMatch() }
         prevButton.addActionListener { prevMatch() }
@@ -115,7 +125,8 @@ class DiffSearchBar : JPanel(BorderLayout()) {
                     pane.highlighter.addHighlight(idx, idx + query.length, painter)
                     paneHighlights.add(idx to (idx + query.length))
                     totalMatches++
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
                 pos = idx + 1
             }
             highlights.add(paneHighlights)
@@ -158,7 +169,8 @@ class DiffSearchBar : JPanel(BorderLayout()) {
                 try {
                     val rect = targetPanes[paneIdx].modelToView(start)
                     if (rect != null) targetPanes[paneIdx].scrollRectToVisible(rect)
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
                 return
             }
             offset += paneHighlights.size

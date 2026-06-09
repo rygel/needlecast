@@ -9,26 +9,27 @@ import java.nio.file.WatchKey
 import java.nio.file.WatchService
 import java.util.concurrent.ConcurrentHashMap
 
-private val BUILD_FILE_NAMES = setOf(
-    "pom.xml",
-    "build.gradle",
-    "build.gradle.kts",
-    "package.json",
-    "apm.yml",
-    "pyproject.toml",
-    "requirements.txt",
-    "Cargo.toml",
-    "go.mod",
-    "composer.json",
-    "Gemfile",
-    "Package.swift",
-    "pubspec.yaml",
-    "CMakeLists.txt",
-    "Makefile",
-    "build.sbt",
-    "mix.exs",
-    "build.zig",
-)
+private val BUILD_FILE_NAMES =
+    setOf(
+        "pom.xml",
+        "build.gradle",
+        "build.gradle.kts",
+        "package.json",
+        "apm.yml",
+        "pyproject.toml",
+        "requirements.txt",
+        "Cargo.toml",
+        "go.mod",
+        "composer.json",
+        "Gemfile",
+        "Package.swift",
+        "pubspec.yaml",
+        "CMakeLists.txt",
+        "Makefile",
+        "build.sbt",
+        "mix.exs",
+        "build.zig",
+    )
 
 private val BUILD_FILE_EXTENSIONS = setOf("sln", "csproj")
 
@@ -46,8 +47,9 @@ private fun isBuildFile(fileName: String): Boolean {
  * Call [watch] to register a directory, [unwatch] to deregister one, and [stop] to shut
  * down the background thread entirely.
  */
-class BuildFileWatcher(private val onChanged: (String) -> Unit) : io.github.rygel.needlecast.Disposable {
-
+class BuildFileWatcher(
+    private val onChanged: (String) -> Unit,
+) : io.github.rygel.needlecast.Disposable {
     private val watchService: WatchService = FileSystems.getDefault().newWatchService()
 
     /** Maps WatchKey → directory path string. */
@@ -59,18 +61,19 @@ class BuildFileWatcher(private val onChanged: (String) -> Unit) : io.github.ryge
     /** Last-fire timestamp per path, used for debouncing. */
     private val lastFired = ConcurrentHashMap<String, Long>()
 
-    private val thread = Thread(::pollLoop, "build-file-watcher").apply {
-        isDaemon = true
-        start()
-    }
+    private val thread =
+        Thread(::pollLoop, "build-file-watcher").apply {
+            isDaemon = true
+            start()
+        }
 
     @Volatile private var running = true
 
     /** Register [path] for watching. Safe to call from any thread. */
     fun watch(path: String) {
-        if (pathToKey.containsKey(path)) return  // fast path without lock
+        if (pathToKey.containsKey(path)) return // fast path without lock
         synchronized(this) {
-            if (pathToKey.containsKey(path)) return  // double-check inside lock
+            if (pathToKey.containsKey(path)) return // double-check inside lock
             try {
                 val dir: Path = Paths.get(path)
                 val key: WatchKey = dir.register(watchService, ENTRY_CREATE, ENTRY_MODIFY)
@@ -87,7 +90,10 @@ class BuildFileWatcher(private val onChanged: (String) -> Unit) : io.github.ryge
         val key = pathToKey.remove(path) ?: return
         keyToPath.remove(key)
         lastFired.remove(path)
-        try { key.cancel() } catch (_: Exception) {}
+        try {
+            key.cancel()
+        } catch (_: Exception) {
+        }
     }
 
     /** Deregister all watched paths. */
@@ -98,25 +104,30 @@ class BuildFileWatcher(private val onChanged: (String) -> Unit) : io.github.ryge
     /** Stop the watcher thread and release resources. */
     fun stop() {
         running = false
-        try { watchService.close() } catch (_: Exception) {}
+        try {
+            watchService.close()
+        } catch (_: Exception) {
+        }
     }
 
     override fun dispose() = stop()
 
     private fun pollLoop() {
         while (running) {
-            val key: WatchKey = try {
-                watchService.take()
-            } catch (_: Exception) {
-                break
-            }
+            val key: WatchKey =
+                try {
+                    watchService.take()
+                } catch (_: Exception) {
+                    break
+                }
 
             val dirPath = keyToPath[key]
             if (dirPath != null) {
-                val buildFileChanged = key.pollEvents().any { event ->
-                    val context = event.context()
-                    context is Path && isBuildFile(context.fileName.toString())
-                }
+                val buildFileChanged =
+                    key.pollEvents().any { event ->
+                        val context = event.context()
+                        context is Path && isBuildFile(context.fileName.toString())
+                    }
                 if (buildFileChanged) {
                     val now = System.currentTimeMillis()
                     val last = lastFired[dirPath] ?: 0L

@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class TourOverlayTest {
-
     @Test
     fun `TourStep holds required data`() {
         val step = TourStep("Test", "Description", "panel-id")

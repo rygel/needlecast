@@ -23,7 +23,6 @@ import javax.swing.JFrame
  * Never run locally without a virtual display.
  */
 class SettingsDialogUiTest {
-
     private lateinit var robot: Robot
     private lateinit var ownerFrame: JFrame
 
@@ -52,9 +51,10 @@ class SettingsDialogUiTest {
 
     @Test
     fun `settings dialog opens without NullPointerException`() {
-        val dialog = GuiActionRunner.execute<JDialog> {
-            SettingsDialog(ownerFrame, makeCtx(), {})
-        }
+        val dialog =
+            GuiActionRunner.execute<JDialog> {
+                SettingsDialog(ownerFrame, makeCtx(), {})
+            }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
         fixture.requireVisible()
@@ -63,9 +63,10 @@ class SettingsDialogUiTest {
 
     @Test
     fun `settings dialog has correct size`() {
-        val dialog = GuiActionRunner.execute<JDialog> {
-            SettingsDialog(ownerFrame, makeCtx(), {})
-        }
+        val dialog =
+            GuiActionRunner.execute<JDialog> {
+                SettingsDialog(ownerFrame, makeCtx(), {})
+            }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
         robot.waitForIdle()
@@ -77,9 +78,10 @@ class SettingsDialogUiTest {
 
     @Test
     fun `sidebar list is present`() {
-        val dialog = GuiActionRunner.execute<JDialog> {
-            SettingsDialog(ownerFrame, makeCtx(), {})
-        }
+        val dialog =
+            GuiActionRunner.execute<JDialog> {
+                SettingsDialog(ownerFrame, makeCtx(), {})
+            }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
         fixture.list().requireVisible()
@@ -88,16 +90,17 @@ class SettingsDialogUiTest {
 
     @Test
     fun `sidebar contains expected categories`() {
-        val dialog = GuiActionRunner.execute<JDialog> {
-            SettingsDialog(ownerFrame, makeCtx(), {})
-        }
+        val dialog =
+            GuiActionRunner.execute<JDialog> {
+                SettingsDialog(ownerFrame, makeCtx(), {})
+            }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
         val contents = fixture.list().contents()
         val labels = contents.map { it.toString() }
         assert(labels.any { it.contains("Appearance") }) { "Expected 'Appearance' in sidebar" }
-        assert(labels.any { it.contains("Shortcuts") })  { "Expected 'Shortcuts' in sidebar" }
-        assert(labels.any { it.contains("Language") })   { "Expected 'Language' in sidebar" }
+        assert(labels.any { it.contains("Shortcuts") }) { "Expected 'Shortcuts' in sidebar" }
+        assert(labels.any { it.contains("Language") }) { "Expected 'Language' in sidebar" }
         fixture.cleanUp()
     }
 
@@ -105,9 +108,10 @@ class SettingsDialogUiTest {
 
     @Test
     fun `shortcut fields are pre-filled with defaults when config is empty`() {
-        val dialog = GuiActionRunner.execute<JDialog> {
-            SettingsDialog(ownerFrame, makeCtx(), {})
-        }
+        val dialog =
+            GuiActionRunner.execute<JDialog> {
+                SettingsDialog(ownerFrame, makeCtx(), {})
+            }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
         // Navigate to Shortcuts via sidebar (index 9 in the model)
@@ -125,9 +129,10 @@ class SettingsDialogUiTest {
         val ctx = makeCtx()
         ctx.updateConfig(ctx.config.copy(shortcuts = mapOf("rescan" to "F9")))
 
-        val dialog = GuiActionRunner.execute<JDialog> {
-            SettingsDialog(ownerFrame, ctx, {})
-        }
+        val dialog =
+            GuiActionRunner.execute<JDialog> {
+                SettingsDialog(ownerFrame, ctx, {})
+            }
         val fixture = DialogFixture(robot, dialog)
         fixture.show()
         // Navigate to Shortcuts via sidebar

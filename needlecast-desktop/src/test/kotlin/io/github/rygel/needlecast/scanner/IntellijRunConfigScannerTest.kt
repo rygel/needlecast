@@ -9,27 +9,32 @@ import java.io.File
 import java.nio.file.Path
 
 class IntellijRunConfigScannerTest {
-
     private val scanner = IntellijRunConfigScanner()
 
     @Test
-    fun `returns null when no run config directories present`(@TempDir dir: Path) {
+    fun `returns null when no run config directories present`(
+        @TempDir dir: Path,
+    ) {
         val result = scanner.scan(ProjectDirectory(dir.toString()))
         assertNull(result)
     }
 
     @Test
-    fun `detects application run config from _idea_runConfigurations`(@TempDir dir: Path) {
+    fun `detects application run config from _idea_runConfigurations`(
+        @TempDir dir: Path,
+    ) {
         val configDir = File(dir.toFile(), ".idea/runConfigurations")
         configDir.mkdirs()
-        File(configDir, "MyApp.xml").writeText("""
+        File(configDir, "MyApp.xml").writeText(
+            """
             <component name="ProjectRunConfigurationManager">
               <configuration default="false" name="MyApp" type="Application" factoryName="Application">
                 <option name="MAIN_CLASS_NAME" value="com.example.Main"/>
                 <option name="VM_PARAMETERS" value="-Xmx512m"/>
               </configuration>
             </component>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
 
@@ -41,16 +46,20 @@ class IntellijRunConfigScannerTest {
     }
 
     @Test
-    fun `detects run config from _run directory`(@TempDir dir: Path) {
+    fun `detects run config from _run directory`(
+        @TempDir dir: Path,
+    ) {
         val runDir = File(dir.toFile(), ".run")
         runDir.mkdirs()
-        File(runDir, "Server.xml").writeText("""
+        File(runDir, "Server.xml").writeText(
+            """
             <component name="ProjectRunConfigurationManager">
               <configuration name="Server" type="Application">
                 <option name="MAIN_CLASS_NAME" value="com.example.Server"/>
               </configuration>
             </component>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(1, result.commands.size)
@@ -58,32 +67,40 @@ class IntellijRunConfigScannerTest {
     }
 
     @Test
-    fun `marks unsupported run config types as not supported`(@TempDir dir: Path) {
+    fun `marks unsupported run config types as not supported`(
+        @TempDir dir: Path,
+    ) {
         val configDir = File(dir.toFile(), ".idea/runConfigurations")
         configDir.mkdirs()
-        File(configDir, "Docker.xml").writeText("""
+        File(configDir, "Docker.xml").writeText(
+            """
             <component name="ProjectRunConfigurationManager">
               <configuration name="Docker Compose" type="docker-deploy">
               </configuration>
             </component>
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertFalse(result.commands[0].isSupported)
     }
 
     @Test
-    fun `collects multiple run configs`(@TempDir dir: Path) {
+    fun `collects multiple run configs`(
+        @TempDir dir: Path,
+    ) {
         val configDir = File(dir.toFile(), ".idea/runConfigurations")
         configDir.mkdirs()
         listOf("App1", "App2", "App3").forEach { name ->
-            File(configDir, "$name.xml").writeText("""
+            File(configDir, "$name.xml").writeText(
+                """
                 <component>
                   <configuration name="$name" type="Application">
                     <option name="MAIN_CLASS_NAME" value="com.example.$name"/>
                   </configuration>
                 </component>
-            """.trimIndent())
+                """.trimIndent(),
+            )
         }
 
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!

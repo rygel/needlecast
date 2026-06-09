@@ -6,7 +6,6 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 class GitAutoSyncTest {
-
     @Test
     fun `shouldFetch returns true when never fetched`() {
         val sync = GitAutoSync(intervalMinutes = 5)

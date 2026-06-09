@@ -11,8 +11,11 @@ import javax.swing.JScrollPane
 class DiffOverviewBar(
     private val scrollPane: JScrollPane,
 ) : JComponent() {
-
-    private data class ChangeBlock(val startLine: Int, val endLine: Int, val type: DiffLineType)
+    private data class ChangeBlock(
+        val startLine: Int,
+        val endLine: Int,
+        val type: DiffLineType,
+    )
 
     private var totalLines: Int = 0
     private var changeBlocks = listOf<ChangeBlock>()
@@ -21,7 +24,9 @@ class DiffOverviewBar(
         preferredSize = java.awt.Dimension(OVERVIEW_WIDTH, 0)
         object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) = jumpToY(e.y)
+
             override fun mousePressed(e: MouseEvent) = jumpToY(e.y)
+
             override fun mouseDragged(e: MouseEvent) = jumpToY(e.y)
         }.also {
             addMouseListener(it)
@@ -56,11 +61,12 @@ class DiffOverviewBar(
         for (block in changeBlocks) {
             val y1 = (block.startLine.toLong() * height / totalLines).toInt()
             val y2 = (block.endLine.toLong() * height / totalLines).toInt()
-            g2.color = when (block.type) {
-                DiffLineType.ADDED -> DiffColors.overviewAdded
-                DiffLineType.REMOVED -> DiffColors.overviewRemoved
-                DiffLineType.CONTEXT -> java.awt.Color(0, 0, 0, 0)
-            }
+            g2.color =
+                when (block.type) {
+                    DiffLineType.ADDED -> DiffColors.overviewAdded
+                    DiffLineType.REMOVED -> DiffColors.overviewRemoved
+                    DiffLineType.CONTEXT -> java.awt.Color(0, 0, 0, 0)
+                }
             g2.fillRect(2, y1, width - 4, (y2 - y1).coerceAtLeast(2))
         }
 

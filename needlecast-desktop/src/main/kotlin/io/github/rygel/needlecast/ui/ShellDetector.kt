@@ -1,33 +1,40 @@
 package io.github.rygel.needlecast.ui
 
+import io.github.rygel.needlecast.process.ProcessExecutor
 import io.github.rygel.needlecast.scanner.IS_MAC
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
-import io.github.rygel.needlecast.process.ProcessExecutor
 import java.io.File
 
-data class ShellInfo(val displayName: String, val command: String)
+data class ShellInfo(
+    val displayName: String,
+    val command: String,
+)
 
 object ShellDetector {
-
-    fun detect(): List<ShellInfo> = when {
-        IS_WINDOWS -> detectWindows()
-        IS_MAC     -> detectMac()
-        else       -> detectUnix()
-    }
+    fun detect(): List<ShellInfo> =
+        when {
+            IS_WINDOWS -> detectWindows()
+            IS_MAC -> detectMac()
+            else -> detectUnix()
+        }
 
     private fun detectWindows(): List<ShellInfo> {
         val found = mutableListOf<ShellInfo>()
 
         // PowerShell 7+ (pwsh) — preferred modern shell
-        if (onPath("pwsh")) found += ShellInfo("PowerShell 7+ (pwsh)", "pwsh")
-        else findFile(
-            "C:\\Program Files\\PowerShell",
-            "pwsh.exe",
-        )?.let { found += ShellInfo("PowerShell 7+ (pwsh)", it) }
+        if (onPath("pwsh")) {
+            found += ShellInfo("PowerShell 7+ (pwsh)", "pwsh")
+        } else {
+            findFile(
+                "C:\\Program Files\\PowerShell",
+                "pwsh.exe",
+            )?.let { found += ShellInfo("PowerShell 7+ (pwsh)", it) }
+        }
 
         // Windows PowerShell (5.x)
-        if (onPath("powershell")) found += ShellInfo("Windows PowerShell 5 (powershell)", "powershell")
-        else {
+        if (onPath("powershell")) {
+            found += ShellInfo("Windows PowerShell 5 (powershell)", "powershell")
+        } else {
             val fixed = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
             if (File(fixed).exists()) found += ShellInfo("Windows PowerShell 5 (powershell)", fixed)
         }
@@ -58,21 +65,22 @@ object ShellDetector {
         // macOS-specific paths. zsh is the default since Catalina (10.15);
         // bash ships as the legacy 3.2 build. Homebrew installs newer versions
         // under /opt/homebrew/bin (Apple Silicon) or /usr/local/bin (Intel).
-        val knownShells = listOf(
-            "/bin/zsh"               to "Zsh (macOS default)",
-            "/opt/homebrew/bin/zsh"  to "Zsh (Homebrew)",
-            "/usr/local/bin/zsh"     to "Zsh (Homebrew)",
-            "/bin/bash"              to "Bash (macOS legacy 3.2)",
-            "/opt/homebrew/bin/bash" to "Bash (Homebrew)",
-            "/usr/local/bin/bash"    to "Bash (Homebrew)",
-            "/opt/homebrew/bin/fish" to "Fish (Homebrew)",
-            "/usr/local/bin/fish"    to "Fish (Homebrew)",
-            "/bin/ksh"               to "KornShell (ksh)",
-            "/bin/tcsh"              to "tcsh",
-            "/bin/csh"               to "csh",
-            "/bin/dash"              to "dash",
-            "/bin/sh"                to "sh",
-        )
+        val knownShells =
+            listOf(
+                "/bin/zsh" to "Zsh (macOS default)",
+                "/opt/homebrew/bin/zsh" to "Zsh (Homebrew)",
+                "/usr/local/bin/zsh" to "Zsh (Homebrew)",
+                "/bin/bash" to "Bash (macOS legacy 3.2)",
+                "/opt/homebrew/bin/bash" to "Bash (Homebrew)",
+                "/usr/local/bin/bash" to "Bash (Homebrew)",
+                "/opt/homebrew/bin/fish" to "Fish (Homebrew)",
+                "/usr/local/bin/fish" to "Fish (Homebrew)",
+                "/bin/ksh" to "KornShell (ksh)",
+                "/bin/tcsh" to "tcsh",
+                "/bin/csh" to "csh",
+                "/bin/dash" to "dash",
+                "/bin/sh" to "sh",
+            )
         val seen = mutableSetOf<String>()
         val found = mutableListOf<ShellInfo>()
         for ((path, display) in knownShells) {
@@ -84,32 +92,38 @@ object ShellDetector {
     }
 
     private fun detectUnix(): List<ShellInfo> {
-        val etcShells = try {
-            File("/etc/shells").readLines()
-                .map { it.trim() }
-                .filter { it.startsWith("/") && !it.startsWith("#") }
-                .filter { File(it).canExecute() }
-        } catch (_: Exception) { emptyList() }
+        val etcShells =
+            try {
+                File("/etc/shells")
+                    .readLines()
+                    .map { it.trim() }
+                    .filter { it.startsWith("/") && !it.startsWith("#") }
+                    .filter { File(it).canExecute() }
+            } catch (_: Exception) {
+                emptyList()
+            }
 
-        val knownShells = listOf(
-            "/bin/bash"      to "Bash",
-            "/usr/bin/bash"  to "Bash",
-            "/bin/zsh"       to "Zsh",
-            "/usr/bin/zsh"   to "Zsh",
-            "/usr/bin/fish"  to "Fish",
-            "/bin/sh"        to "sh",
-            "/bin/ksh"       to "KornShell (ksh)",
-            "/bin/tcsh"      to "tcsh",
-            "/bin/csh"       to "csh",
-        )
+        val knownShells =
+            listOf(
+                "/bin/bash" to "Bash",
+                "/usr/bin/bash" to "Bash",
+                "/bin/zsh" to "Zsh",
+                "/usr/bin/zsh" to "Zsh",
+                "/usr/bin/fish" to "Fish",
+                "/bin/sh" to "sh",
+                "/bin/ksh" to "KornShell (ksh)",
+                "/bin/tcsh" to "tcsh",
+                "/bin/csh" to "csh",
+            )
 
         val seen = mutableSetOf<String>()
         val found = mutableListOf<ShellInfo>()
 
         // Prefer /etc/shells list, matched against our known display names
         for (path in etcShells) {
-            val display = knownShells.firstOrNull { (p, _) -> p == path }?.second
-                ?: path.substringAfterLast('/')
+            val display =
+                knownShells.firstOrNull { (p, _) -> p == path }?.second
+                    ?: path.substringAfterLast('/')
             if (seen.add(path)) found += ShellInfo("$display ($path)", path)
         }
 
@@ -126,8 +140,12 @@ object ShellDetector {
 
     private fun onPath(name: String): Boolean = ProcessExecutor.isOnPath(name)
 
-    private fun findFile(dir: String, filename: String): String? =
-        File(dir).walkTopDown()
+    private fun findFile(
+        dir: String,
+        filename: String,
+    ): String? =
+        File(dir)
+            .walkTopDown()
             .maxDepth(2)
             .firstOrNull { it.name.equals(filename, ignoreCase = true) && it.isFile }
             ?.absolutePath

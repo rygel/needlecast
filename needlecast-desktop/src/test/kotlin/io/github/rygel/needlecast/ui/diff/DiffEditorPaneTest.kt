@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test
 import javax.swing.SwingUtilities
 
 class DiffEditorPaneTest {
-
     companion object {
         @JvmStatic
         @BeforeAll
@@ -19,9 +18,10 @@ class DiffEditorPaneTest {
     @Test
     fun `renders added line with correct text`() {
         val pane = DiffEditorPane(DiffEditorPane.Side.NEW)
-        val lines = listOf(
-            DiffLine(DiffLineType.ADDED, null, 1, "added content"),
-        )
+        val lines =
+            listOf(
+                DiffLine(DiffLineType.ADDED, null, 1, "added content"),
+            )
         SwingUtilities.invokeAndWait { pane.renderLines(lines) }
         assertTrue(pane.styledDocument.getText(0, pane.styledDocument.length).contains("added content"))
     }
@@ -29,9 +29,10 @@ class DiffEditorPaneTest {
     @Test
     fun `renders context line with correct text`() {
         val pane = DiffEditorPane(DiffEditorPane.Side.NEW)
-        val lines = listOf(
-            DiffLine(DiffLineType.CONTEXT, 1, 1, "context"),
-        )
+        val lines =
+            listOf(
+                DiffLine(DiffLineType.CONTEXT, 1, 1, "context"),
+            )
         SwingUtilities.invokeAndWait { pane.renderLines(lines) }
         val text = pane.styledDocument.getText(0, pane.styledDocument.length)
         assertTrue(text.contains("context"))
@@ -52,10 +53,11 @@ class DiffEditorPaneTest {
     @Test
     fun `exposes line count for gutter rendering`() {
         val pane = DiffEditorPane(DiffEditorPane.Side.NEW)
-        val lines = listOf(
-            DiffLine(DiffLineType.CONTEXT, 1, 1, "ctx"),
-            DiffLine(DiffLineType.ADDED, null, 2, "add"),
-        )
+        val lines =
+            listOf(
+                DiffLine(DiffLineType.CONTEXT, 1, 1, "ctx"),
+                DiffLine(DiffLineType.ADDED, null, 2, "add"),
+            )
         SwingUtilities.invokeAndWait { pane.renderLines(lines) }
         assertEquals(2, pane.lineCount)
     }

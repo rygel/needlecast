@@ -26,13 +26,17 @@ import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
+import javax.swing.JTextField
 import javax.swing.KeyStroke
 import javax.swing.JToggleButton
 import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
 import javax.swing.SwingWorker
 
-private data class GitCommit(val hash: String, val subject: String)
+private data class GitCommit(
+    val hash: String,
+    val subject: String,
+)
 
 /**
  * Git panel with three views switched via a toolbar:
@@ -44,62 +48,75 @@ class GitLogPanel(
     private val gitService: GitService = ProcessGitService(),
     private val ctx: AppContext? = null,
 ) : JPanel(BorderLayout()) {
-
     // ── Log view ──────────────────────────────────────────────────────────────
     private val logModel = DefaultListModel<GitCommit>()
-    private val logList = JList(logModel).apply {
-        name = "log-list"
-        selectionMode = ListSelectionModel.SINGLE_SELECTION
-        setCellRenderer(CommitCellRenderer())
-        fixedCellHeight = 28
-    }
+    private val logList =
+        JList(logModel).apply {
+            name = "log-list"
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+            setCellRenderer(CommitCellRenderer())
+            fixedCellHeight = 28
+        }
     var onCommitSelected: ((DiffResult) -> Unit)? = null
 
     // ── Commit view (wired in Task 4) ─────────────────────────────────────────
     private val fileListModel = DefaultListModel<ChangedFile>()
-    private val checkedFiles  = mutableSetOf<String>()
+    private val checkedFiles = mutableSetOf<String>()
     private val fileList = JList(fileListModel).apply { name = "changed-files-list" }
-    private val commitMessageField = JTextArea().apply {
-        name = "commit-message"
-        rows = 3
-        lineWrap = true
-        wrapStyleWord = true
-    }
+    private val commitMessageField =
+        JTextField().apply {
+            name = "commit-message"
+            putClientProperty("JTextField.placeholderText", "Commit message…")
+        }
     private val commitButton = JButton("Commit").apply { name = "btn-commit-ok" }
     private val cancelButton = JButton("Cancel").apply { name = "btn-commit-cancel" }
 
     // ── Output view (wired in Task 5) ─────────────────────────────────────────
-    private val outputLabel = JLabel("").apply {
-        name = "output-label"
-        border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
-    }
-    private val outputArea = JTextArea().apply {
-        name = "output-area"
-        isEditable = false
-        font = Font(Font.MONOSPACED, Font.PLAIN, 11)
-        border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
-    }
-    private val closeButton = JButton("Close").apply { name = "btn-output-close"; isEnabled = false }
+    private val outputLabel =
+        JLabel("").apply {
+            name = "output-label"
+            border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
+        }
+    private val outputArea =
+        JTextArea().apply {
+            name = "output-area"
+            isEditable = false
+            font = Font(Font.MONOSPACED, Font.PLAIN, 11)
+            border = BorderFactory.createEmptyBorder(4, 6, 4, 6)
+        }
+    private val closeButton =
+        JButton("Close").apply {
+            name = "btn-output-close"
+            isEnabled = false
+        }
 
     // ── Toolbar ───────────────────────────────────────────────────────────────
-    private val logToggle    = JToggleButton("Log").apply    { name = "toggle-log";    isSelected = true }
+    private val logToggle =
+        JToggleButton("Log").apply {
+            name = "toggle-log"
+            isSelected = true
+        }
     private val commitToggle = JToggleButton("Commit").apply { name = "toggle-commit" }
-    private val fetchButton  = JButton("Fetch").apply { name = "btn-fetch" }
-    private val pushButton   = JButton("Push").apply  { name = "btn-push"  }
-    private val pullButton   = JButton("Pull").apply  { name = "btn-pull"  }
+    private val fetchButton = JButton("Fetch").apply { name = "btn-fetch" }
+    private val pushButton = JButton("Push").apply { name = "btn-push" }
+    private val pullButton = JButton("Pull").apply { name = "btn-pull" }
 
     // ── Card layout ───────────────────────────────────────────────────────────
     private val cardLayout = CardLayout()
-    private val cardPanel  = JPanel(cardLayout)
+    private val cardPanel = JPanel(cardLayout)
 
     private var currentPath: String? = null
     private var pendingDiffWorker: SwingWorker<*, Void>? = null
     private val maxDiffChars = 400_000
 
-    private val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
-        add(logToggle); add(commitToggle)
-        add(fetchButton); add(pushButton); add(pullButton)
-    }
+    private val toolbar =
+        JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+            add(logToggle)
+            add(commitToggle)
+            add(fetchButton)
+            add(pushButton)
+            add(pullButton)
+        }
 
     init {
         minimumSize = Dimension(0, 0)
@@ -113,18 +130,24 @@ class GitLogPanel(
             }
         }
 
-        cardPanel.add(logCard,            "log")
+        cardPanel.add(logCard, "log")
         cardPanel.add(buildCommitCard(), "commit")
         cardPanel.add(buildOutputCard(), "output")
 
-        ButtonGroup().apply { add(logToggle); add(commitToggle) }
-        logToggle.addActionListener    { cardLayout.show(cardPanel, "log") }
-        commitToggle.addActionListener { refreshChangedFiles(); cardLayout.show(cardPanel, "commit") }
+        ButtonGroup().apply {
+            add(logToggle)
+            add(commitToggle)
+        }
+        logToggle.addActionListener { cardLayout.show(cardPanel, "log") }
+        commitToggle.addActionListener {
+            refreshChangedFiles()
+            cardLayout.show(cardPanel, "commit")
+        }
         fetchButton.addActionListener { runRemoteOp("Fetch") { dir, cb -> gitService.fetchStreaming(dir, cb) } }
-        pushButton.addActionListener  { runRemoteOp("Push")  { dir, cb -> gitService.pushStreaming(dir, cb)  } }
-        pullButton.addActionListener  { runRemoteOp("Pull")  { dir, cb -> gitService.pullStreaming(dir, cb)  } }
+        pushButton.addActionListener { runRemoteOp("Push") { dir, cb -> gitService.pushStreaming(dir, cb) } }
+        pullButton.addActionListener { runRemoteOp("Pull") { dir, cb -> gitService.pullStreaming(dir, cb) } }
 
-        add(toolbar,   BorderLayout.NORTH)
+        add(toolbar, BorderLayout.NORTH)
         add(cardPanel, BorderLayout.CENTER)
     }
 
@@ -141,7 +164,8 @@ class GitLogPanel(
 
         object : SwingWorker<List<GitCommit>, Void>() {
             override fun doInBackground(): List<GitCommit> =
-                gitService.log(path)
+                gitService
+                    .log(path)
                     ?.lines()
                     ?.filter { it.isNotBlank() }
                     ?.mapNotNull { line ->
@@ -151,8 +175,12 @@ class GitLogPanel(
                     ?: emptyList()
 
             override fun done() {
-                val commits = try { get() } catch (_: Exception) { return }
-                logModel.clear()
+                val commits =
+                    try {
+                        get()
+                    } catch (_: Exception) {
+                        return
+                    }
                 commits.forEach { logModel.addElement(it) }
             }
         }.execute()
@@ -161,7 +189,12 @@ class GitLogPanel(
             appCtx.gitAutoSync.fetchIfNeeded(path) { line ->
                 javax.swing.SwingUtilities.invokeLater { outputArea.append("$line\n") }
             }
-            DynamicHelpPopup(appCtx, "git-first-open", "Fetch/Pull/Push sync with remote. Changes are fetched automatically when you select a project.", toolbar).showIfNotSeen()
+            DynamicHelpPopup(
+                appCtx,
+                "git-first-open",
+                "Fetch/Pull/Push sync with remote. Changes are fetched automatically when you select a project.",
+                toolbar,
+            ).showIfNotSeen()
         }
     }
 
@@ -169,16 +202,21 @@ class GitLogPanel(
 
     private fun buildCommitCard(): JPanel {
         fileList.setCellRenderer(FileCheckboxRenderer())
-        fileList.addMouseListener(object : java.awt.event.MouseAdapter() {
-            override fun mouseClicked(e: java.awt.event.MouseEvent) {
-                val index = fileList.locationToIndex(e.point)
-                if (index < 0 || index >= fileListModel.size) return
-                val file = fileListModel.getElementAt(index)
-                if (file.path in checkedFiles) checkedFiles.remove(file.path)
-                else checkedFiles.add(file.path)
-                fileList.repaint()
-            }
-        })
+        fileList.addMouseListener(
+            object : java.awt.event.MouseAdapter() {
+                override fun mouseClicked(e: java.awt.event.MouseEvent) {
+                    val index = fileList.locationToIndex(e.point)
+                    if (index < 0 || index >= fileListModel.size) return
+                    val file = fileListModel.getElementAt(index)
+                    if (file.path in checkedFiles) {
+                        checkedFiles.remove(file.path)
+                    } else {
+                        checkedFiles.add(file.path)
+                    }
+                    fileList.repaint()
+                }
+            },
+        )
 
         commitButton.addActionListener { onCommitClicked() }
         cancelButton.addActionListener {
@@ -188,39 +226,46 @@ class GitLogPanel(
             cardLayout.show(cardPanel, "log")
         }
 
-        commitMessageField.inputMap.put(
-            KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, java.awt.event.InputEvent.CTRL_DOWN_MASK),
-            "submit-commit",
-        )
-        commitMessageField.actionMap.put("submit-commit", object : javax.swing.AbstractAction() {
-            override fun actionPerformed(e: java.awt.event.ActionEvent?) = onCommitClicked()
-        })
-
-        val bottomPanel = JPanel(BorderLayout(4, 0)).apply {
-            border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-            add(JScrollPane(commitMessageField), BorderLayout.CENTER)
-            add(JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
-                add(commitButton); add(cancelButton)
-            }, BorderLayout.EAST)
-        }
+        val bottomPanel =
+            JPanel(BorderLayout(4, 0)).apply {
+                border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
+                add(commitMessageField, BorderLayout.CENTER)
+                add(
+                    JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+                        add(commitButton)
+                        add(cancelButton)
+                    },
+                    BorderLayout.EAST,
+                )
+            }
 
         return JPanel(BorderLayout()).apply {
             add(JScrollPane(fileList), BorderLayout.CENTER)
-            add(bottomPanel,           BorderLayout.SOUTH)
+            add(bottomPanel, BorderLayout.SOUTH)
         }
     }
 
     private fun refreshChangedFiles() {
-        val path = currentPath ?: run { fileListModel.clear(); return }
+        val path =
+            currentPath ?: run {
+                fileListModel.clear()
+                return
+            }
         object : SwingWorker<List<ChangedFile>, Void>() {
             override fun doInBackground(): List<ChangedFile> = gitService.changedFiles(path)
+
             override fun done() {
-                val files = try { get() } catch (_: Exception) { return }
+                val files =
+                    try {
+                        get()
+                    } catch (_: Exception) {
+                        return
+                    }
                 fileListModel.clear()
                 checkedFiles.clear()
                 files.forEach {
                     fileListModel.addElement(it)
-                    checkedFiles.add(it.path)   // all checked by default
+                    checkedFiles.add(it.path) // all checked by default
                 }
             }
         }.execute()
@@ -234,10 +279,11 @@ class GitLogPanel(
         }
         commitMessageField.border = null
         val path = currentPath ?: return
-        val filesToStage = (0 until fileListModel.size)
-            .map { fileListModel.getElementAt(it) }
-            .filter { it.path in checkedFiles }
-            .map { it.path }
+        val filesToStage =
+            (0 until fileListModel.size)
+                .map { fileListModel.getElementAt(it) }
+                .filter { it.path in checkedFiles }
+                .map { it.path }
 
         commitButton.isEnabled = false
         cancelButton.isEnabled = false
@@ -247,6 +293,7 @@ class GitLogPanel(
                 gitService.stage(path, filesToStage)
                 gitService.commit(path, message)
             }
+
             override fun done() {
                 commitButton.isEnabled = true
                 cancelButton.isEnabled = true
@@ -282,22 +329,32 @@ class GitLogPanel(
         }
     }
 
-    private fun runRemoteOp(label: String, op: (String, (String) -> Unit) -> Int) {
+    private fun runRemoteOp(
+        label: String,
+        op: (String, (String) -> Unit) -> Int,
+    ) {
         val path = currentPath ?: return
         outputLabel.text = "$label\u2026"
-        outputArea.text  = ""
+        outputArea.text = ""
         closeButton.isEnabled = false
         setRemoteButtonsEnabled(false)
         cardLayout.show(cardPanel, "output")
 
         object : SwingWorker<Int, String>() {
             override fun doInBackground(): Int = op(path) { line -> publish(line) }
+
             override fun process(chunks: List<String>) {
                 chunks.forEach { outputArea.append("$it\n") }
                 outputArea.caretPosition = outputArea.document.length
             }
+
             override fun done() {
-                val exitCode = try { get() } catch (_: Exception) { -1 }
+                val exitCode =
+                    try {
+                        get()
+                    } catch (_: Exception) {
+                        -1
+                    }
                 if (exitCode == 0) {
                     outputArea.append("\u2713 Done\n")
                     outputLabel.text = "$label \u2014 Done"
@@ -313,55 +370,68 @@ class GitLogPanel(
 
     private fun setRemoteButtonsEnabled(enabled: Boolean) {
         fetchButton.isEnabled = enabled
-        pushButton.isEnabled  = enabled
-        pullButton.isEnabled  = enabled
+        pushButton.isEnabled = enabled
+        pullButton.isEnabled = enabled
     }
 
     private fun showCommit(hash: String) {
         val path = currentPath ?: return
         pendingDiffWorker?.cancel(true)
-        pendingDiffWorker = object : SwingWorker<DiffResult, Void>() {
-            override fun doInBackground(): DiffResult {
-                val raw = gitService.show(path, hash) ?: return DiffResult(emptyList(), DiffStats(0, 0))
-                val truncated = if (raw.length > maxDiffChars) raw.take(maxDiffChars) else raw
-                return DiffParser.parse(truncated)
-            }
-            override fun done() {
-                if (isCancelled) return
-                val result = try { get() } catch (_: Exception) { return }
-                onCommitSelected?.invoke(result)
-            }
-        }.also { it.execute() }
+        pendingDiffWorker =
+            object : SwingWorker<DiffResult, Void>() {
+                override fun doInBackground(): DiffResult {
+                    val raw = gitService.show(path, hash) ?: return DiffResult(emptyList(), DiffStats(0, 0))
+                    val truncated = if (raw.length > maxDiffChars) raw.take(maxDiffChars) else raw
+                    return DiffParser.parse(truncated)
+                }
+
+                override fun done() {
+                    if (isCancelled) return
+                    val result =
+                        try {
+                            get()
+                        } catch (_: Exception) {
+                            return
+                        }
+                    onCommitSelected?.invoke(result)
+                }
+            }.also { it.execute() }
     }
 
     // ── Cell renderer ─────────────────────────────────────────────────────────
 
     private class CommitCellRenderer : ListCellRenderer<GitCommit> {
-        private val panel = JPanel(BorderLayout(6, 0)).apply {
-            border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
-        }
-        private val hashLabel = JLabel().apply {
-            font = Font(Font.MONOSPACED, Font.PLAIN, 10)
-            foreground = Color(0x888888)
-        }
-        private val subjectLabel = JLabel().apply {
-            font = Font(Font.SANS_SERIF, Font.PLAIN, 11)
-        }
+        private val panel =
+            JPanel(BorderLayout(6, 0)).apply {
+                border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
+            }
+        private val hashLabel =
+            JLabel().apply {
+                font = Font(Font.MONOSPACED, Font.PLAIN, 10)
+                foreground = Color(0x888888)
+            }
+        private val subjectLabel =
+            JLabel().apply {
+                font = Font(Font.SANS_SERIF, Font.PLAIN, 11)
+            }
 
         init {
-            panel.add(hashLabel,    BorderLayout.WEST)
+            panel.add(hashLabel, BorderLayout.WEST)
             panel.add(subjectLabel, BorderLayout.CENTER)
         }
 
         override fun getListCellRendererComponent(
-            list: JList<out GitCommit>, value: GitCommit?,
-            index: Int, isSelected: Boolean, cellHasFocus: Boolean,
+            list: JList<out GitCommit>,
+            value: GitCommit?,
+            index: Int,
+            isSelected: Boolean,
+            cellHasFocus: Boolean,
         ): Component {
-            hashLabel.text    = value?.hash    ?: ""
+            hashLabel.text = value?.hash ?: ""
             subjectLabel.text = value?.subject ?: ""
             val bg = if (isSelected) list.selectionBackground else list.background
-            panel.background        = bg
-            panel.isOpaque          = true
+            panel.background = bg
+            panel.isOpaque = true
             subjectLabel.foreground = if (isSelected) list.selectionForeground else list.foreground
             return panel
         }
@@ -371,27 +441,38 @@ class GitLogPanel(
         private val checkBox = JCheckBox().apply { isOpaque = true }
 
         override fun getListCellRendererComponent(
-            list: JList<out ChangedFile>, value: ChangedFile?,
-            index: Int, isSelected: Boolean, cellHasFocus: Boolean,
+            list: JList<out ChangedFile>,
+            value: ChangedFile?,
+            index: Int,
+            isSelected: Boolean,
+            cellHasFocus: Boolean,
         ): Component {
-            val file = value ?: run {
-                checkBox.text = ""
-                checkBox.isSelected = false
-                return checkBox
-            }
+            val file =
+                value ?: run {
+                    checkBox.text = ""
+                    checkBox.isSelected = false
+                    return checkBox
+                }
             val badge = file.statusCode.firstOrNull { it != ' ' }?.toString() ?: "?"
-            checkBox.text       = "[$badge] ${file.path}"
+            checkBox.text = "[$badge] ${file.path}"
             checkBox.isSelected = file.path in checkedFiles
             checkBox.background = if (isSelected) list.selectionBackground else list.background
             checkBox.foreground = statusColor(file.statusCode)
             return checkBox
         }
 
-        private fun statusColor(statusCode: String): Color = when {
-            statusCode.any { it == 'M' } -> Color(0x4070C0)   // modified — blue
-            statusCode.any { it == 'A' } -> Color(0x40A040)   // added — green
-            statusCode.any { it == 'D' } -> Color(0xC04040)   // deleted — red
-            else                          -> Color(0x888888)   // untracked / other — grey
-        }
+        private fun statusColor(statusCode: String): Color =
+            when {
+                statusCode.any { it == 'M' } -> Color(0x4070C0)
+
+                // modified — blue
+                statusCode.any { it == 'A' } -> Color(0x40A040)
+
+                // added — green
+                statusCode.any { it == 'D' } -> Color(0xC04040)
+
+                // deleted — red
+                else -> Color(0x888888) // untracked / other — grey
+            }
     }
 }

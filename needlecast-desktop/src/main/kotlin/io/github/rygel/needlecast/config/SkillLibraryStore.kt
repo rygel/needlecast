@@ -31,16 +31,20 @@ class SkillLibraryStore(
         return parseSkillFile(dir, skillFile)
     }
 
-    fun save(entry: SkillEntry, body: String) {
+    fun save(
+        entry: SkillEntry,
+        body: String,
+    ) {
         val dir = skillsDir.resolve(entry.name)
         Files.createDirectories(dir)
-        val content = buildString {
-            appendLine("---")
-            appendLine("name: ${entry.name}")
-            appendLine("description: ${entry.description}")
-            appendLine("---")
-            appendLine(body)
-        }
+        val content =
+            buildString {
+                appendLine("---")
+                appendLine("name: ${entry.name}")
+                appendLine("description: ${entry.description}")
+                appendLine("---")
+                appendLine(body)
+            }
         val target = dir.resolve("SKILL.md")
         val tmp = target.resolveSibling(target.name + ".tmp")
         Files.writeString(tmp, content)
@@ -53,7 +57,11 @@ class SkillLibraryStore(
         dir.toFile().walkBottomUp().forEach { it.delete() }
     }
 
-    fun isDeployed(skillName: String, projectPath: String, targetDir: String): Boolean {
+    fun isDeployed(
+        skillName: String,
+        projectPath: String,
+        targetDir: String,
+    ): Boolean {
         val link = Path.of(projectPath).resolve(targetDir).resolve(skillName)
         if (!Files.exists(link)) return false
         return try {
@@ -64,7 +72,11 @@ class SkillLibraryStore(
         }
     }
 
-    fun deploy(skillName: String, projectPath: String, targetDir: String) {
+    fun deploy(
+        skillName: String,
+        projectPath: String,
+        targetDir: String,
+    ) {
         val target = Path.of(projectPath).resolve(targetDir)
         Files.createDirectories(target)
         val link = target.resolve(skillName)
@@ -77,7 +89,11 @@ class SkillLibraryStore(
         }
     }
 
-    fun undeploy(skillName: String, projectPath: String, targetDir: String) {
+    fun undeploy(
+        skillName: String,
+        projectPath: String,
+        targetDir: String,
+    ) {
         val link = Path.of(projectPath).resolve(targetDir).resolve(skillName)
         if (!Files.exists(link)) return
         try {
@@ -88,7 +104,10 @@ class SkillLibraryStore(
         cleanupEmptyTarget(Path.of(projectPath).resolve(targetDir))
     }
 
-    fun deployedSkills(projectPath: String, targetDir: String): List<String> {
+    fun deployedSkills(
+        projectPath: String,
+        targetDir: String,
+    ): List<String> {
         val target = Path.of(projectPath).resolve(targetDir)
         if (!Files.isDirectory(target)) return emptyList()
         val result = mutableListOf<String>()
@@ -96,12 +115,13 @@ class SkillLibraryStore(
         for (entry in entries) {
             if (!Files.isDirectory(entry)) continue
             val name = entry.name
-            val pointsTo = try {
-                Files.readSymbolicLink(entry)
-            } catch (_: Exception) {
-                if (isJunction(entry, skillsDir.resolve(name))) result.add(name)
-                continue
-            }
+            val pointsTo =
+                try {
+                    Files.readSymbolicLink(entry)
+                } catch (_: Exception) {
+                    if (isJunction(entry, skillsDir.resolve(name))) result.add(name)
+                    continue
+                }
             if (pointsTo == skillsDir.resolve(name)) {
                 result.add(name)
             }
@@ -118,7 +138,10 @@ class SkillLibraryStore(
         return null
     }
 
-    private fun parseSkillFile(dir: Path, file: Path): SkillEntry? {
+    private fun parseSkillFile(
+        dir: Path,
+        file: Path,
+    ): SkillEntry? {
         val raw = Files.readString(file)
         val (frontmatter, _) = FrontmatterParser.split(raw)
         val name = frontmatter["name"] ?: dir.name
@@ -126,12 +149,17 @@ class SkillLibraryStore(
         return SkillEntry(name = name, description = description, skillDir = dir)
     }
 
-    private fun isJunction(link: Path, expectedTarget: Path): Boolean {
+    private fun isJunction(
+        link: Path,
+        expectedTarget: Path,
+    ): Boolean {
         return try {
             val attr = Files.readAttributes(link, java.nio.file.attribute.BasicFileAttributes::class.java)
             if (!attr.isOther) return false
-            val proc = ProcessBuilder("cmd", "/c", "fsutil", "reparsepoint", "query", link.toString())
-                .redirectErrorStream(true).start()
+            val proc =
+                ProcessBuilder("cmd", "/c", "fsutil", "reparsepoint", "query", link.toString())
+                    .redirectErrorStream(true)
+                    .start()
             val output = proc.inputStream.bufferedReader().readText()
             proc.waitFor()
             output.contains(expectedTarget.toString().replace('/', '\\'))
@@ -140,17 +168,24 @@ class SkillLibraryStore(
         }
     }
 
-    private fun createJunction(link: Path, target: Path) {
-        val proc = ProcessBuilder("cmd", "/c", "mklink", "/J", link.toString(), target.toString())
-            .redirectErrorStream(true).start()
+    private fun createJunction(
+        link: Path,
+        target: Path,
+    ) {
+        val proc =
+            ProcessBuilder("cmd", "/c", "mklink", "/J", link.toString(), target.toString())
+                .redirectErrorStream(true)
+                .start()
         proc.inputStream.bufferedReader().readText()
         val exit = proc.waitFor()
         if (exit != 0) throw RuntimeException("Failed to create junction: $link -> $target (exit=$exit)")
     }
 
     private fun deleteJunction(link: Path) {
-        val proc = ProcessBuilder("cmd", "/c", "rmdir", link.toString())
-            .redirectErrorStream(true).start()
+        val proc =
+            ProcessBuilder("cmd", "/c", "rmdir", link.toString())
+                .redirectErrorStream(true)
+                .start()
         proc.inputStream.bufferedReader().readText()
         proc.waitFor()
     }
@@ -160,6 +195,7 @@ class SkillLibraryStore(
         try {
             val remaining = Files.list(target).use { it.toList() }
             if (remaining.isEmpty()) Files.deleteIfExists(target)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 }

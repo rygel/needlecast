@@ -9,16 +9,19 @@ import java.io.File
 import java.nio.file.Path
 
 class SbtProjectScannerTest {
-
     private val scanner = SbtProjectScanner()
 
     @Test
-    fun `returns null when no build_sbt`(@TempDir dir: Path) {
+    fun `returns null when no build_sbt`(
+        @TempDir dir: Path,
+    ) {
         assertNull(scanner.scan(ProjectDirectory(dir.toString())))
     }
 
     @Test
-    fun `detects scala project`(@TempDir dir: Path) {
+    fun `detects scala project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "build.sbt").writeText("name := \"my-app\"\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(setOf(BuildTool.SBT), result.buildTools)

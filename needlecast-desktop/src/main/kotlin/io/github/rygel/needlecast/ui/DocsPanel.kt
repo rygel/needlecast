@@ -2,13 +2,12 @@ package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.ui.components.ContextualHintPanel
-import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants
-import org.fife.ui.rsyntaxtextarea.Theme as RstaTheme
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.gfm.tables.TablesExtension
 import org.commonmark.parser.Parser
 import org.commonmark.renderer.html.HtmlRenderer
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rtextarea.RTextScrollPane
 import java.awt.BorderLayout
 import java.awt.CardLayout
@@ -34,44 +33,51 @@ import javax.swing.JSplitPane
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
 import javax.swing.UIManager
+import org.fife.ui.rsyntaxtextarea.Theme as RstaTheme
 
-class DocsPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
-
+class DocsPanel(
+    private val ctx: AppContext,
+) : JPanel(BorderLayout()) {
     // ── UI components ────────────────────────────────────────────────────────
     private val fileListModel = DefaultListModel<String>()
-    private val fileList      = JList(fileListModel).apply {
-        selectionMode = ListSelectionModel.SINGLE_SELECTION
-    }
-    private val renderedPane  = JEditorPane("text/html", "").apply {
-        isEditable = false
-        putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true)
-    }
-    private val rawArea       = RSyntaxTextArea().apply {
-        syntaxEditingStyle   = SyntaxConstants.SYNTAX_STYLE_MARKDOWN
-        isEditable           = false
-        isCodeFoldingEnabled = false
-    }
-    private val cardLayout   = CardLayout()
+    private val fileList =
+        JList(fileListModel).apply {
+            selectionMode = ListSelectionModel.SINGLE_SELECTION
+        }
+    private val renderedPane =
+        JEditorPane("text/html", "").apply {
+            isEditable = false
+            putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, true)
+        }
+    private val rawArea =
+        RSyntaxTextArea().apply {
+            syntaxEditingStyle = SyntaxConstants.SYNTAX_STYLE_MARKDOWN
+            isEditable = false
+            isCodeFoldingEnabled = false
+        }
+    private val cardLayout = CardLayout()
     private val contentCards = JPanel(cardLayout)
 
     private val renderedToggle = JRadioButton("Rendered", true)
-    private val rawToggle      = JRadioButton("Raw",      false)
-    private val refreshButton  = JButton("⟳ Refresh")
+    private val rawToggle = JRadioButton("Raw", false)
+    private val refreshButton = JButton("⟳ Refresh")
 
     private val placeholder = JLabel("No project selected", JLabel.CENTER)
     private var hintPanel: ContextualHintPanel? = null
 
     // ── State ────────────────────────────────────────────────────────────────
     private var projectRoot: File? = null
+
     /** Cache: relative path → Pair(lastModified, rendered HTML) */
     private val htmlCache = HashMap<String, Pair<Long, String>>()
-    private val executor  = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "docs-panel-worker").apply { isDaemon = true }
-    }
+    private val executor =
+        Executors.newSingleThreadExecutor { r ->
+            Thread(r, "docs-panel-worker").apply { isDaemon = true }
+        }
 
     // ── commonmark ───────────────────────────────────────────────────────────
     private val extensions = listOf(TablesExtension.create(), StrikethroughExtension.create())
-    private val mdParser   = Parser.builder().extensions(extensions).build()
+    private val mdParser = Parser.builder().extensions(extensions).build()
     private val mdRenderer = HtmlRenderer.builder().extensions(extensions).build()
 
     init {
@@ -80,26 +86,28 @@ class DocsPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
             add(rawToggle)
         }
 
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
-            add(refreshButton)
-            add(renderedToggle)
-            add(rawToggle)
-        }
+        val toolbar =
+            JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+                add(refreshButton)
+                add(renderedToggle)
+                add(rawToggle)
+            }
 
         contentCards.add(JScrollPane(renderedPane), CARD_RENDERED)
-        contentCards.add(RTextScrollPane(rawArea),  CARD_RAW)
+        contentCards.add(RTextScrollPane(rawArea), CARD_RAW)
         cardLayout.show(contentCards, CARD_RENDERED)
 
-        val splitPane = JSplitPane(
-            JSplitPane.HORIZONTAL_SPLIT,
-            JScrollPane(fileList),
-            contentCards,
-        ).apply {
-            dividerLocation = 200
-            resizeWeight    = 0.0
-        }
+        val splitPane =
+            JSplitPane(
+                JSplitPane.HORIZONTAL_SPLIT,
+                JScrollPane(fileList),
+                contentCards,
+            ).apply {
+                dividerLocation = 200
+                resizeWeight = 0.0
+            }
 
-        add(toolbar,   BorderLayout.NORTH)
+        add(toolbar, BorderLayout.NORTH)
         add(splitPane, BorderLayout.CENTER)
 
         // ── Listeners ────────────────────────────────────────────────────────
@@ -135,14 +143,17 @@ class DocsPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         try {
             val stream = RstaTheme::class.java.getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/$themeFile")
             if (stream != null) RstaTheme.load(stream).apply(rawArea)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
 
-        val bg = UIManager.getColor("TextArea.background")
-            ?: UIManager.getColor("Panel.background")
-            ?: if (dark) Color(0x1E1E1E) else Color.WHITE
-        val fg = UIManager.getColor("TextArea.foreground")
-            ?: UIManager.getColor("Panel.foreground")
-            ?: if (dark) Color(0xD4D4D4) else Color(0x1E1E1E)
+        val bg =
+            UIManager.getColor("TextArea.background")
+                ?: UIManager.getColor("Panel.background")
+                ?: if (dark) Color(0x1E1E1E) else Color.WHITE
+        val fg =
+            UIManager.getColor("TextArea.foreground")
+                ?: UIManager.getColor("Panel.foreground")
+                ?: if (dark) Color(0xD4D4D4) else Color(0x1E1E1E)
         rawArea.background = bg
         rawArea.foreground = fg
         rawArea.caretColor = fg
@@ -155,7 +166,10 @@ class DocsPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private fun refresh() {
         val root = projectRoot
-        if (root == null) { showPlaceholder("No project selected"); return }
+        if (root == null) {
+            showPlaceholder("No project selected")
+            return
+        }
 
         executor.execute {
             val files = collectMarkdownFiles(root)
@@ -178,35 +192,43 @@ class DocsPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
 
     private fun loadSelectedFile() {
         val relativePath = fileList.selectedValue ?: return
-        val root         = projectRoot             ?: return
-        val file         = File(root, relativePath)
+        val root = projectRoot ?: return
+        val file = File(root, relativePath)
 
         executor.execute {
-            val text = try {
-                file.readText()
-            } catch (e: Exception) {
-                SwingUtilities.invokeLater { showContentError("Could not read file: $relativePath") }
-                return@execute
-            }
+            val text =
+                try {
+                    file.readText()
+                } catch (e: Exception) {
+                    SwingUtilities.invokeLater { showContentError("Could not read file: $relativePath") }
+                    return@execute
+                }
 
             if (renderedToggle.isSelected) {
                 val lastMod = file.lastModified()
-                val cached  = htmlCache[relativePath]
-                val html    = if (cached != null && cached.first == lastMod) {
-                    cached.second
-                } else {
-                    buildHtml(text).also { htmlCache[relativePath] = lastMod to it }
+                val cached = htmlCache[relativePath]
+                val html =
+                    if (cached != null && cached.first == lastMod) {
+                        cached.second
+                    } else {
+                        buildHtml(text).also { htmlCache[relativePath] = lastMod to it }
+                    }
+                SwingUtilities.invokeLater {
+                    renderedPane.text = html
+                    renderedPane.caretPosition = 0
                 }
-                SwingUtilities.invokeLater { renderedPane.text = html; renderedPane.caretPosition = 0 }
             } else {
-                SwingUtilities.invokeLater { rawArea.text = text; rawArea.caretPosition = 0 }
+                SwingUtilities.invokeLater {
+                    rawArea.text = text
+                    rawArea.caretPosition = 0
+                }
             }
         }
     }
 
     private fun buildHtml(markdown: String): String {
-        val bg   = colorHex(UIManager.getColor("Panel.background")    ?: Color(0x1E, 0x1E, 0x1E))
-        val fg   = colorHex(UIManager.getColor("Label.foreground")    ?: Color(0xD4, 0xD4, 0xD4))
+        val bg = colorHex(UIManager.getColor("Panel.background") ?: Color(0x1E, 0x1E, 0x1E))
+        val fg = colorHex(UIManager.getColor("Label.foreground") ?: Color(0xD4, 0xD4, 0xD4))
         val code = colorHex(UIManager.getColor("TextArea.background") ?: Color(0x2D, 0x2D, 0x2D))
         val link = colorHex(UIManager.getColor("Component.linkColor") ?: Color(0x4F, 0xC3, 0xF7))
         val body = mdRenderer.render(mdParser.parse(markdown))
@@ -223,29 +245,40 @@ class DocsPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
     private fun colorHex(c: Color) = "#%02x%02x%02x".format(c.red, c.green, c.blue)
 
     private fun showPlaceholder(message: String) {
-        hintPanel?.let { remove(it); hintPanel = null }
+        hintPanel?.let {
+            remove(it)
+            hintPanel = null
+        }
         if (message == "No project selected" && ctx.config.showContextualHints && "docs-empty" !in ctx.config.dismissedHints) {
-            val hint = ContextualHintPanel("docs-empty", "No project selected",
-                "Select a project to browse its documentation.", onDismiss = { id ->
-                ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
-                SwingUtilities.invokeLater {
-                    hintPanel = null
-                    placeholder.text = "No project selected"
-                    removeAll()
-                    add(placeholder, BorderLayout.CENTER)
-                    revalidate(); repaint()
-                }
-            })
+            val hint =
+                ContextualHintPanel(
+                    "docs-empty",
+                    "No project selected",
+                    "Select a project to browse its documentation.",
+                    onDismiss = { id ->
+                        ctx.updateConfig(ctx.config.copy(dismissedHints = ctx.config.dismissedHints + id))
+                        SwingUtilities.invokeLater {
+                            hintPanel = null
+                            placeholder.text = "No project selected"
+                            removeAll()
+                            add(placeholder, BorderLayout.CENTER)
+                            revalidate()
+                            repaint()
+                        }
+                    },
+                )
             hintPanel = hint
             removeAll()
             add(hint, BorderLayout.CENTER)
-            revalidate(); repaint()
+            revalidate()
+            repaint()
         } else {
             placeholder.text = message
             if (placeholder.parent == null) {
                 removeAll()
                 add(placeholder, BorderLayout.CENTER)
-                revalidate(); repaint()
+                revalidate()
+                repaint()
             }
         }
     }
@@ -255,59 +288,86 @@ class DocsPanel(private val ctx: AppContext) : JPanel(BorderLayout()) {
         if (center !is JSplitPane) {
             hintPanel = null
             removeAll()
-            val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
-                add(refreshButton)
-                add(renderedToggle)
-                add(rawToggle)
-            }
-            val splitPane = JSplitPane(
-                JSplitPane.HORIZONTAL_SPLIT,
-                JScrollPane(fileList),
-                contentCards,
-            ).apply { dividerLocation = 200; resizeWeight = 0.0 }
-            add(toolbar,   BorderLayout.NORTH)
+            val toolbar =
+                JPanel(FlowLayout(FlowLayout.LEFT, 4, 2)).apply {
+                    add(refreshButton)
+                    add(renderedToggle)
+                    add(rawToggle)
+                }
+            val splitPane =
+                JSplitPane(
+                    JSplitPane.HORIZONTAL_SPLIT,
+                    JScrollPane(fileList),
+                    contentCards,
+                ).apply {
+                    dividerLocation = 200
+                    resizeWeight = 0.0
+                }
+            add(toolbar, BorderLayout.NORTH)
             add(splitPane, BorderLayout.CENTER)
-            revalidate(); repaint()
+            revalidate()
+            repaint()
         }
     }
 
     private fun showContentError(message: String) {
         renderedPane.text = "<html><body><em>$message</em></body></html>"
-        rawArea.text      = message
+        rawArea.text = message
     }
 
     // ── Companion ─────────────────────────────────────────────────────────────
 
     companion object {
         private const val CARD_RENDERED = "rendered"
-        private const val CARD_RAW      = "raw"
+        private const val CARD_RAW = "raw"
         private val SKIP_DIRS = setOf(".git", "target", "node_modules", "build", ".gradle")
 
         fun collectMarkdownFiles(root: File?): List<String> {
             if (root == null || !root.isDirectory) return emptyList()
             val found = mutableListOf<String>()
-            Files.walkFileTree(root.toPath(), object : SimpleFileVisitor<Path>() {
-                override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
-                    val name = dir.fileName?.toString() ?: return FileVisitResult.CONTINUE
-                    return if (name in SKIP_DIRS) FileVisitResult.SKIP_SUBTREE
-                    else FileVisitResult.CONTINUE
-                }
-                override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
-                    if (file.fileName.toString().endsWith(".md", ignoreCase = true)) {
-                        found.add(root.toPath().relativize(file).toString().replace(File.separatorChar, '/'))
+            Files.walkFileTree(
+                root.toPath(),
+                object : SimpleFileVisitor<Path>() {
+                    override fun preVisitDirectory(
+                        dir: Path,
+                        attrs: BasicFileAttributes,
+                    ): FileVisitResult {
+                        val name = dir.fileName?.toString() ?: return FileVisitResult.CONTINUE
+                        return if (name in SKIP_DIRS) {
+                            FileVisitResult.SKIP_SUBTREE
+                        } else {
+                            FileVisitResult.CONTINUE
+                        }
                     }
-                    return FileVisitResult.CONTINUE
-                }
-            })
-            return found.sortedWith(Comparator { a, b ->
-                val aIsReadme = a.substringAfterLast('/').equals("README.md", ignoreCase = true)
-                val bIsReadme = b.substringAfterLast('/').equals("README.md", ignoreCase = true)
-                when {
-                    aIsReadme && !bIsReadme -> -1
-                    !aIsReadme && bIsReadme ->  1
-                    else -> a.compareTo(b, ignoreCase = true)
-                }
-            })
+
+                    override fun visitFile(
+                        file: Path,
+                        attrs: BasicFileAttributes,
+                    ): FileVisitResult {
+                        if (file.fileName.toString().endsWith(".md", ignoreCase = true)) {
+                            found.add(
+                                root
+                                    .toPath()
+                                    .relativize(file)
+                                    .toString()
+                                    .replace(File.separatorChar, '/'),
+                            )
+                        }
+                        return FileVisitResult.CONTINUE
+                    }
+                },
+            )
+            return found.sortedWith(
+                Comparator { a, b ->
+                    val aIsReadme = a.substringAfterLast('/').equals("README.md", ignoreCase = true)
+                    val bIsReadme = b.substringAfterLast('/').equals("README.md", ignoreCase = true)
+                    when {
+                        aIsReadme && !bIsReadme -> -1
+                        !aIsReadme && bIsReadme -> 1
+                        else -> a.compareTo(b, ignoreCase = true)
+                    }
+                },
+            )
         }
     }
 }

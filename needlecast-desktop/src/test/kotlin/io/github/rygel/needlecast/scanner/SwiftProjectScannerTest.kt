@@ -9,16 +9,19 @@ import java.io.File
 import java.nio.file.Path
 
 class SwiftProjectScannerTest {
-
     private val scanner = SwiftProjectScanner()
 
     @Test
-    fun `returns null when no Package_swift`(@TempDir dir: Path) {
+    fun `returns null when no Package_swift`(
+        @TempDir dir: Path,
+    ) {
         assertNull(scanner.scan(ProjectDirectory(dir.toString())))
     }
 
     @Test
-    fun `detects swift project`(@TempDir dir: Path) {
+    fun `detects swift project`(
+        @TempDir dir: Path,
+    ) {
         File(dir.toFile(), "Package.swift").writeText("// swift-tools-version:5.9\n")
         val result = scanner.scan(ProjectDirectory(dir.toString()))!!
         assertEquals(setOf(BuildTool.SPM), result.buildTools)

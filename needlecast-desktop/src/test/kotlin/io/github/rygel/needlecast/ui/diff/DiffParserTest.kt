@@ -5,10 +5,10 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DiffParserTest {
-
     @Test
     fun `parses a single-file diff with added and removed lines`() {
-        val raw = """
+        val raw =
+            """
 commit abc123
 Author: Test
 Date:   Now
@@ -28,7 +28,7 @@ index 111..222 100644
 +        println("extra")
      }
  }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = DiffParser.parse(raw)
         assertEquals(1, result.files.size)
@@ -42,7 +42,8 @@ index 111..222 100644
 
     @Test
     fun `skips commit header and stat lines`() {
-        val raw = """
+        val raw =
+            """
 commit deadbeef
 Author: Test
 Date:   Now
@@ -59,7 +60,7 @@ diff --git a/A.kt b/A.kt
 -line2
 +LINE2
  line3
-        """.trimIndent()
+            """.trimIndent()
 
         val result = DiffParser.parse(raw)
         assertEquals(1, result.files.size)
@@ -68,10 +69,11 @@ diff --git a/A.kt b/A.kt
 
     @Test
     fun `handles binary files`() {
-        val raw = """
+        val raw =
+            """
 diff --git a/image.png b/image.png
 Binary files /dev/null and b/image.png differ
-        """.trimIndent()
+            """.trimIndent()
 
         val result = DiffParser.parse(raw)
         assertEquals(1, result.files.size)
@@ -81,7 +83,8 @@ Binary files /dev/null and b/image.png differ
 
     @Test
     fun `handles file renames`() {
-        val raw = """
+        val raw =
+            """
 diff --git a/old.txt b/new.txt
 similarity index 100%
 rename from old.txt
@@ -91,7 +94,7 @@ rename to new.txt
 @@ -1 +1 @@
 -old content
 +new content
-        """.trimIndent()
+            """.trimIndent()
 
         val result = DiffParser.parse(raw)
         assertEquals(1, result.files.size)
@@ -101,7 +104,8 @@ rename to new.txt
 
     @Test
     fun `parses multi-file diff`() {
-        val raw = """
+        val raw =
+            """
 diff --git a/A.kt b/A.kt
 --- a/A.kt
 +++ b/A.kt
@@ -114,7 +118,7 @@ diff --git a/B.kt b/B.kt
 @@ -1 +1,2 @@
  old
 +added
-        """.trimIndent()
+            """.trimIndent()
 
         val result = DiffParser.parse(raw)
         assertEquals(2, result.files.size)
@@ -126,7 +130,8 @@ diff --git a/B.kt b/B.kt
 
     @Test
     fun `assigns correct line numbers`() {
-        val raw = """
+        val raw =
+            """
 diff --git a/F.kt b/F.kt
 --- a/F.kt
 +++ b/F.kt
@@ -136,9 +141,14 @@ diff --git a/F.kt b/F.kt
 +added1
 +added2
  context2
-        """.trimIndent()
+            """.trimIndent()
 
-        val lines = DiffParser.parse(raw).files[0].hunks[0].lines
+        val lines =
+            DiffParser
+                .parse(raw)
+                .files[0]
+                .hunks[0]
+                .lines
         assertEquals(5, lines[0].oldLineNum)
         assertEquals(5, lines[0].newLineNum)
         assertEquals(6, lines[1].oldLineNum)
@@ -160,16 +170,22 @@ diff --git a/F.kt b/F.kt
 
     @Test
     fun `computes word diffs for consecutive removed-added pairs`() {
-        val raw = """
+        val raw =
+            """
 diff --git a/F.kt b/F.kt
 --- a/F.kt
 +++ b/F.kt
 @@ -1 +1 @@
 -old text here
 +new text here
-        """.trimIndent()
+            """.trimIndent()
 
-        val lines = DiffParser.parse(raw).files[0].hunks[0].lines
+        val lines =
+            DiffParser
+                .parse(raw)
+                .files[0]
+                .hunks[0]
+                .lines
         val removed = lines[0]
         val added = lines[1]
 
@@ -181,7 +197,8 @@ diff --git a/F.kt b/F.kt
 
     @Test
     fun `computes stats from parsed data`() {
-        val raw = """
+        val raw =
+            """
 diff --git a/A.kt b/A.kt
 --- a/A.kt
 +++ b/A.kt
@@ -191,7 +208,7 @@ diff --git a/A.kt b/A.kt
 +LINE2
 +extra
  line3
-        """.trimIndent()
+            """.trimIndent()
 
         val result = DiffParser.parse(raw)
         assertEquals(2, result.stats.totalAdditions)
