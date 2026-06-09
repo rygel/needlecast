@@ -159,6 +159,7 @@ class TerminalPtyPlatformTest {
                 java.awt.Color::class.java,
                 Int::class.javaPrimitiveType,
                 String::class.java,
+                java.nio.charset.Charset::class.java,
             )
         constructor.isAccessible = true
         val panel =
@@ -172,6 +173,8 @@ class TerminalPtyPlatformTest {
                 null,
                 13,
                 null,
+                java.nio.charset.Charset
+                    .forName("UTF-8"),
             )
         val m = TerminalPanel::class.java.getDeclaredMethod("resolveShellCommand")
         m.isAccessible = true

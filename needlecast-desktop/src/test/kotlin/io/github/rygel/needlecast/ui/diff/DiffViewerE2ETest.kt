@@ -66,6 +66,15 @@ private class E2EFakeGitService(
         dir: String,
         onLine: (String) -> Unit,
     ): Int = 0
+
+    override fun branches(dir: String): List<String> = emptyList()
+
+    override fun currentBranch(dir: String): String? = null
+
+    override fun checkout(
+        dir: String,
+        branch: String,
+    ): String? = null
 }
 
 class DiffViewerE2ETest {

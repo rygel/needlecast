@@ -30,6 +30,7 @@ class LayoutSettingsPanel(
         add(JLabel("Layout").apply { font = font.deriveFont(Font.BOLD) }, gc)
 
         val tabsOnTopCb = JCheckBox("Show panel tabs at the top", ctx.config.tabsOnTop)
+        tabsOnTopCb.name = "tabsOnTop"
         gc.gridy = 1
         add(tabsOnTopCb, gc)
         tabsOnTopCb.addActionListener {

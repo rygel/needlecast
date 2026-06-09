@@ -15,6 +15,7 @@ import java.awt.Window
 import javax.swing.BorderFactory
 import javax.swing.Box
 import javax.swing.BoxLayout
+import javax.swing.DefaultComboBoxModel
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JLabel
@@ -60,6 +61,7 @@ class SkillsPanel(
     private var deployedNames: Set<String> = emptySet()
     private var allSkills: List<SkillEntry> = emptyList()
     private val searchTimer = javax.swing.Timer(150) { applyFilter() }.apply { isRepeats = false }
+    private val categoryCombo = DefaultComboBoxModel<String>()
 
     init {
         newButton.toolTipText = "Create new skill"
@@ -67,12 +69,20 @@ class SkillsPanel(
         deleteButton.toolTipText = "Delete selected skill"
         deployButton.toolTipText = "Select a project first to deploy skills to it."
 
+        val categoryFilter = javax.swing.JComboBox(categoryCombo)
+        categoryFilter.toolTipText = "Filter by category"
+        categoryFilter.isFocusable = false
+        categoryFilter.addActionListener { applyFilter() }
+
         val toolbar =
             JPanel(FlowLayout(FlowLayout.LEFT, 2, 2)).apply {
                 add(newButton)
                 add(editButton)
                 add(deleteButton)
                 add(Box.createHorizontalStrut(8))
+                add(JLabel("Category:"))
+                add(categoryFilter)
+                add(Box.createHorizontalStrut(4))
                 add(JLabel("Search:"))
                 add(searchField.apply { preferredSize = java.awt.Dimension(140, 26) })
             }
@@ -125,14 +135,25 @@ class SkillsPanel(
 
     private fun refreshList() {
         allSkills = ctx.skillLibraryStore.loadLibrary()
+        val selectedCategory = categoryCombo.selectedItem as? String
+        val cats = listOf("All") + allSkills.map { it.category }.distinct().sorted()
+        categoryCombo.removeAllElements()
+        cats.forEach { categoryCombo.addElement(it) }
+        if (selectedCategory != null && selectedCategory in cats) {
+            categoryCombo.selectedItem = selectedCategory
+        } else {
+            categoryCombo.selectedItem = "All"
+        }
         applyFilter()
     }
 
     private fun applyFilter() {
         val query = searchField.text.trim().lowercase()
+        val selectedCategory = categoryCombo.selectedItem as? String
         val selected = skillList.selectedValue
         listModel.clear()
         allSkills
+            .filter { selectedCategory == null || selectedCategory == "All" || it.category == selectedCategory }
             .filter { query.isEmpty() || it.name.lowercase().contains(query) || it.description.lowercase().contains(query) }
             .forEach { listModel.addElement(it) }
         if (selected != null) {
@@ -285,7 +306,7 @@ class SkillsPanel(
         ): Component {
             if (value == null) return label
             val deployed = value.name in deployedNames
-            label.text = value.name
+            label.text = if (value.category != "General") "${value.name}  [${value.category}]" else value.name
             label.icon = if (deployed) RemixIcons.icon("ri-checkbox-circle-fill", 12, java.awt.Color(0x4CAF50)) else null
             label.toolTipText = value.description.ifBlank { null }
             label.foreground = if (isSelected) list.selectionForeground else list.foreground

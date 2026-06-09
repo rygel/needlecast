@@ -104,6 +104,7 @@ data class AppConfig(
     val shownHints: Set<String> = emptySet(),
     val diffLegendDismissed: Boolean = false,
     val tourCompleted: Boolean = false,
+    val terminalEncoding: String = "UTF-8",
 )
 
 data class AiCliDefinition(

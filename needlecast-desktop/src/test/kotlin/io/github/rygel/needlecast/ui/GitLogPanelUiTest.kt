@@ -82,6 +82,15 @@ private class FakeGitService(
         streamingLines.forEach { onLine(it) }
         return streamingExitCode
     }
+
+    override fun branches(dir: String): List<String> = emptyList()
+
+    override fun currentBranch(dir: String): String? = null
+
+    override fun checkout(
+        dir: String,
+        branch: String,
+    ): String? = null
 }
 
 class GitLogPanelUiTest {
