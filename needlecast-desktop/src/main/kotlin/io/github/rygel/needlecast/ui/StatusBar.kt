@@ -25,11 +25,21 @@ class StatusBar : JPanel(BorderLayout()) {
             border = BorderFactory.createEmptyBorder(0, 8, 0, 6)
         }
 
+    private val warningBadge =
+        JLabel().apply {
+            isVisible = false
+            cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+            border = BorderFactory.createEmptyBorder(0, 8, 0, 6)
+        }
+
     init {
         border = BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY)
         add(label, BorderLayout.WEST)
         add(quotaLabel, BorderLayout.CENTER)
-        add(updateBadge, BorderLayout.EAST)
+        val eastPanel = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 0, 0))
+        eastPanel.add(warningBadge)
+        eastPanel.add(updateBadge)
+        add(eastPanel, BorderLayout.EAST)
     }
 
     fun showUpdateAvailable(
@@ -51,6 +61,19 @@ class StatusBar : JPanel(BorderLayout()) {
 
     fun setStatus(msg: String) {
         label.text = " $msg"
+    }
+
+    fun showUpdateCheckWarning() {
+        warningBadge.icon = RemixIcons.icon("ri-error-warning-line", 12, Color(0xFF9800))
+        warningBadge.text = " Update checks failing  "
+        warningBadge.toolTipText = "Update checks are failing repeatedly. Check your network connection."
+        warningBadge.isVisible = true
+        revalidate()
+    }
+
+    fun hideUpdateCheckWarning() {
+        warningBadge.isVisible = false
+        revalidate()
     }
 
     fun setRunning(commandLabel: String) {
