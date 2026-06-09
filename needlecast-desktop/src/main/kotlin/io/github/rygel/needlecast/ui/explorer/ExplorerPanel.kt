@@ -50,10 +50,11 @@ class ExplorerPanel(
     private var showHidden = false
     private var fullEntries: List<FileEntry> = emptyList()
     private val addressField = JTextField()
-    private val filterField = JTextField().apply {
-        toolTipText = "Filter files"
-        putClientProperty("JTextField.placeholderText", "Filter\u2026")
-    }
+    private val filterField =
+        JTextField().apply {
+            toolTipText = "Filter files"
+            putClientProperty("JTextField.placeholderText", "Filter\u2026")
+        }
     private val filterTimer = javax.swing.Timer(150) { applyFileFilter() }.apply { isRepeats = false }
     private val tableModel = FileTableModel()
     private val table =
@@ -136,19 +137,25 @@ class ExplorerPanel(
         addressField.addActionListener { navigateTo(File(addressField.text)) }
 
         // Filter field — debounced, Escape clears
-        filterField.document.addDocumentListener(object : javax.swing.event.DocumentListener {
-            override fun insertUpdate(e: javax.swing.event.DocumentEvent?) = filterTimer.restart()
-            override fun removeUpdate(e: javax.swing.event.DocumentEvent?) = filterTimer.restart()
-            override fun changedUpdate(e: javax.swing.event.DocumentEvent?) = filterTimer.restart()
-        })
-        filterField.addKeyListener(object : KeyAdapter() {
-            override fun keyPressed(e: KeyEvent) {
-                if (e.keyCode == KeyEvent.VK_ESCAPE) {
-                    filterField.text = ""
-                    applyFileFilter()
+        filterField.document.addDocumentListener(
+            object : javax.swing.event.DocumentListener {
+                override fun insertUpdate(e: javax.swing.event.DocumentEvent?) = filterTimer.restart()
+
+                override fun removeUpdate(e: javax.swing.event.DocumentEvent?) = filterTimer.restart()
+
+                override fun changedUpdate(e: javax.swing.event.DocumentEvent?) = filterTimer.restart()
+            },
+        )
+        filterField.addKeyListener(
+            object : KeyAdapter() {
+                override fun keyPressed(e: KeyEvent) {
+                    if (e.keyCode == KeyEvent.VK_ESCAPE) {
+                        filterField.text = ""
+                        applyFileFilter()
+                    }
                 }
-            }
-        })
+            },
+        )
 
         // Keyboard shortcuts on the table
         table.addKeyListener(
@@ -200,9 +207,12 @@ class ExplorerPanel(
 
         // File browser — address bar + table only.
         // The editor tabs are exposed via [editorComponent] so MainWindow can dock them separately.
-        add(JPanel(BorderLayout()).apply {
-            add(addressBar, BorderLayout.NORTH)
-        }, BorderLayout.NORTH)
+        add(
+            JPanel(BorderLayout()).apply {
+                add(addressBar, BorderLayout.NORTH)
+            },
+            BorderLayout.NORTH,
+        )
         add(JScrollPane(table).apply { minimumSize = java.awt.Dimension(0, 0) }, BorderLayout.CENTER)
         minimumSize = java.awt.Dimension(0, 0)
         navigateTo(currentDir)
@@ -401,12 +411,28 @@ class ExplorerPanel(
 
     private fun applyFileFilter() {
         val query = filterField.text.trim().lowercase()
-        val filtered = if (query.isEmpty()) fullEntries
-            else fullEntries.filter { entry ->
-                when (entry) {
-                    is FileEntry.ParentDir -> true
-                    is FileEntry.Dir -> entry.file.name.lowercase().contains(query)
-                    is FileEntry.RegularFile -> entry.file.name.lowercase().contains(query)
+        val filtered =
+            if (query.isEmpty()) {
+                fullEntries
+            } else {
+                fullEntries.filter { entry ->
+                    when (entry) {
+                        is FileEntry.ParentDir -> {
+                            true
+                        }
+
+                        is FileEntry.Dir -> {
+                            entry.file.name
+                                .lowercase()
+                                .contains(query)
+                        }
+
+                        is FileEntry.RegularFile -> {
+                            entry.file.name
+                                .lowercase()
+                                .contains(query)
+                        }
+                    }
                 }
             }
         tableModel.setEntries(filtered)
@@ -796,20 +822,29 @@ class ExplorerPanel(
             column: Int,
         ): Component {
             val entry = tableModel.entryAt(row)
-            val displayText = when (column) {
-                COL_SIZE -> when (entry) {
-                    is FileEntry.RegularFile -> formatSize(entry.file.length())
-                    else -> ""
+            val displayText =
+                when (column) {
+                    COL_SIZE -> {
+                        when (entry) {
+                            is FileEntry.RegularFile -> formatSize(entry.file.length())
+                            else -> ""
+                        }
+                    }
+
+                    COL_MODIFIED -> {
+                        when (entry) {
+                            is FileEntry.ParentDir -> ""
+                            is FileEntry.Dir -> dateFmt.format(Date(entry.file.lastModified()))
+                            is FileEntry.RegularFile -> dateFmt.format(Date(entry.file.lastModified()))
+                        }
+                    }
+
+                    else -> {
+                        value?.toString() ?: ""
+                    }
                 }
-                COL_MODIFIED -> when (entry) {
-                    is FileEntry.ParentDir -> ""
-                    is FileEntry.Dir -> dateFmt.format(Date(entry.file.lastModified()))
-                    is FileEntry.RegularFile -> dateFmt.format(Date(entry.file.lastModified()))
-                }
-                else -> value?.toString() ?: ""
-            }
-            val c = super.getTableCellRendererComponent(
-                table, displayText, isSelected, hasFocus, row, column)
+            val c =
+                super.getTableCellRendererComponent(table, displayText, isSelected, hasFocus, row, column)
             if (c is JLabel) {
                 c.font =
                     when {

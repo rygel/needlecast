@@ -496,10 +496,11 @@ private class ProjectTerminalPane(
     }
 
     private fun addPlusTab() {
-        val plusLabel = JLabel("+", SwingConstants.CENTER).apply {
-            preferredSize = Dimension(20, 20)
-            isFocusable = false
-        }
+        val plusLabel =
+            JLabel("+", SwingConstants.CENTER).apply {
+                preferredSize = Dimension(20, 20)
+                isFocusable = false
+            }
         tabs.addTab("+", JPanel())
         tabs.setTabComponentAt(tabs.tabCount - 1, plusLabel)
     }
@@ -519,13 +520,15 @@ private class ProjectTerminalPane(
     }
 
     fun requestFocusOnActive() {
-        if (tabs.selectedIndex < realTabCount)
+        if (tabs.selectedIndex < realTabCount) {
             (tabs.selectedComponent as? TerminalPanel)?.requestFocusInWindow()
+        }
     }
 
     fun sendInputToActive(text: String) {
-        if (tabs.selectedIndex < realTabCount)
+        if (tabs.selectedIndex < realTabCount) {
             (tabs.selectedComponent as? TerminalPanel)?.sendInput(text)
+        }
     }
 
     fun applyTheme(dark: Boolean) {

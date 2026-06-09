@@ -19,14 +19,13 @@ import java.awt.FlowLayout
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
 import java.awt.Insets
-import javax.swing.Box
-import javax.swing.BoxLayout
 import java.io.File
 import javax.swing.BorderFactory
+import javax.swing.Box
+import javax.swing.BoxLayout
 import javax.swing.DefaultListModel
 import javax.swing.DropMode
 import javax.swing.JButton
-import javax.swing.JToggleButton
 import javax.swing.JCheckBoxMenuItem
 import javax.swing.JColorChooser
 import javax.swing.JFileChooser
@@ -39,6 +38,7 @@ import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JTextField
+import javax.swing.JToggleButton
 import javax.swing.JTree
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
@@ -224,26 +224,30 @@ class ProjectTreePanel(
             )
         }
 
-    private val treeScroll = JScrollPane(tree).apply {
-        horizontalScrollBarPolicy = javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
-    }
-    private val emptyPlaceholder = JPanel(GridBagLayout()).apply {
-        val label = JLabel("<html><div style='text-align:center;font-size:14px;color:#888;'>Add a project to get started</div></html>")
-        val button = JButton("Add Project").apply { addActionListener { addProject(null) } }
-        val inner = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.Y_AXIS)
-            add(label)
-            add(Box.createVerticalStrut(12))
-            add(button)
-            button.alignmentX = Component.CENTER_ALIGNMENT
-            label.alignmentX = Component.CENTER_ALIGNMENT
+    private val treeScroll =
+        JScrollPane(tree).apply {
+            horizontalScrollBarPolicy = javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
         }
-        add(inner, GridBagConstraints())
-    }
-    private val centerPanel = JPanel(CardLayout()).apply {
-        add(treeScroll, "tree")
-        add(emptyPlaceholder, "empty")
-    }
+    private val emptyPlaceholder =
+        JPanel(GridBagLayout()).apply {
+            val label = JLabel("<html><div style='text-align:center;font-size:14px;color:#888;'>Add a project to get started</div></html>")
+            val button = JButton("Add Project").apply { addActionListener { addProject(null) } }
+            val inner =
+                JPanel().apply {
+                    layout = BoxLayout(this, BoxLayout.Y_AXIS)
+                    add(label)
+                    add(Box.createVerticalStrut(12))
+                    add(button)
+                    button.alignmentX = Component.CENTER_ALIGNMENT
+                    label.alignmentX = Component.CENTER_ALIGNMENT
+                }
+            add(inner, GridBagConstraints())
+        }
+    private val centerPanel =
+        JPanel(CardLayout()).apply {
+            add(treeScroll, "tree")
+            add(emptyPlaceholder, "empty")
+        }
 
     companion object {
         private val logger = LoggerFactory.getLogger(ProjectTreePanel::class.java)
@@ -806,21 +810,28 @@ class ProjectTreePanel(
         if (filter.isEmpty() && !activeOnly) expandAll()
     }
 
-    private fun filterEntry(entry: ProjectTreeEntry, textFilter: String): ProjectTreeEntry? {
-        return when (entry) {
+    private fun filterEntry(
+        entry: ProjectTreeEntry,
+        textFilter: String,
+    ): ProjectTreeEntry? =
+        when (entry) {
             is ProjectTreeEntry.Project -> {
-                val matchesText = textFilter.isEmpty() ||
-                    entry.directory.label().lowercase().contains(textFilter) ||
-                    entry.tags.any { it.lowercase().contains(textFilter) }
+                val matchesText =
+                    textFilter.isEmpty() ||
+                        entry.directory
+                            .label()
+                            .lowercase()
+                            .contains(textFilter) ||
+                        entry.tags.any { it.lowercase().contains(textFilter) }
                 val matchesActive = !activeOnly || entry.directory.path in activePaths
                 if (matchesText && matchesActive) entry else null
             }
+
             is ProjectTreeEntry.Folder -> {
                 val filteredChildren = entry.children.mapNotNull { filterEntry(it, textFilter) }
                 if (filteredChildren.isNotEmpty()) entry.copy(children = filteredChildren) else null
             }
         }
-    }
 
     private fun ensureScans(entries: List<ProjectTreeEntry>) {
         fun walk(entry: ProjectTreeEntry) {
