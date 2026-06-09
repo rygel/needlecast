@@ -12,14 +12,14 @@ class LayoutSettingsPanelUiTest : SettingsPanelUiTestBase() {
         robot.waitForIdle()
 
         val toggle = fixture.checkBox("tabsOnTop")
-        toggle.requireNotSelected()
-        toggle.check()
-        robot.waitForIdle()
-        assert(ctx.config.tabsOnTop) { "Expected tabsOnTop=true" }
-
+        toggle.requireSelected()
         toggle.uncheck()
         robot.waitForIdle()
         assert(ctx.config.tabsOnTop == false) { "Expected tabsOnTop=false" }
+
+        toggle.check()
+        robot.waitForIdle()
+        assert(ctx.config.tabsOnTop) { "Expected tabsOnTop=true" }
 
         fixture.cleanUp()
     }
