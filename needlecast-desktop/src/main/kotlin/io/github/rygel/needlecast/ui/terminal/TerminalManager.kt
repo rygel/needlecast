@@ -421,9 +421,18 @@ private class ProjectTerminalPane(
                 isFocusable = false
                 addActionListener { addTerminalTab() }
             }
+        val restartButton =
+            JButton(RemixIcons.icon("ri-refresh-line", 14)).apply {
+                toolTipText = "Restart terminal"
+                isFocusable = false
+                isBorderPainted = false
+                isContentAreaFilled = false
+                addActionListener { restartActiveTab() }
+            }
         val toolbar =
             JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
                 isOpaque = false
+                add(restartButton)
                 add(addButton)
             }
         val topBar =
@@ -487,6 +496,48 @@ private class ProjectTerminalPane(
         tabStatuses.remove(terminal)
         recomputeStatus()
         terminal.dispose()
+    }
+
+    private fun restartActiveTab() {
+        val idx = tabs.selectedIndex
+        if (idx < 0 || idx >= realTabCount) return
+        val old = tabs.getComponentAt(idx) as? TerminalPanel ?: return
+        val title = tabs.getTitleAt(idx)
+        old.dispose()
+        val replacement =
+            TerminalPanel(
+                initialDir = path,
+                dark = isDark,
+                extraEnv = extraEnv,
+                shellExecutable = shellExecutable,
+                startupCommand = startupCommand,
+                initialFg = customFg,
+                initialBg = customBg,
+                initialFontSize = currentFontSize,
+                initialFontFamily = currentFontFamily,
+            )
+        replacement.onStatusChanged = { status ->
+            tabStatuses[replacement] = status
+            tabStatuses.remove(old)
+            recomputeStatus()
+        }
+        replacement.onFontSizeChanged = { size ->
+            currentFontSize = size
+            for (i in 0 until realTabCount) {
+                val t = tabs.getComponentAt(i) as? TerminalPanel ?: continue
+                if (t !== replacement) t.applyFontSize(size)
+            }
+            onFontSizeChanged?.invoke(size)
+        }
+        tabs.setComponentAt(idx, replacement)
+        tabs.setTitleAt(idx, title)
+        tabs.setTabComponentAt(
+            idx,
+            TerminalTabHeader(title, canClose = { tabs.tabCount > 1 }) {
+                closeTab(replacement)
+            },
+        )
+        replacement.requestFocusInWindow()
     }
 
     private fun removePlusTab() {
@@ -557,8 +608,9 @@ private class TerminalTabHeader(
         border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
         add(JLabel(title))
         add(
-            JButton(RemixIcons.icon("ri-close-line", 12)).apply {
+            JButton(RemixIcons.icon("ri-close-line", 16)).apply {
                 toolTipText = "Close tab"
+                preferredSize = Dimension(20, 20)
                 isFocusable = false
                 isBorderPainted = false
                 isContentAreaFilled = false

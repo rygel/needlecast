@@ -78,6 +78,26 @@ class ProcessGitService : GitService {
         onLine: (String) -> Unit,
     ): Int = runGitStreaming(dir, listOf("pull"), onLine)
 
+    override fun branches(dir: String): List<String> {
+        val raw = runGit(dir, "branch", "--list") ?: return emptyList()
+        return raw
+            .lines()
+            .map { it.removePrefix("*").trim() }
+            .filter { it.isNotBlank() }
+    }
+
+    override fun currentBranch(dir: String): String? = runGit(dir, "symbolic-ref", "--short", "HEAD")?.trim()
+
+    override fun checkout(
+        dir: String,
+        branch: String,
+    ): String? {
+        val result =
+            ProcessExecutor.run(listOf("git", "-C", dir, "checkout", branch), timeoutMs = 10_000L)
+                ?: return "git process failed to start or timed out"
+        return if (result.exitCode == 0) null else result.output.trim()
+    }
+
     /** Runs git and returns combined stdout+stderr, or null on failure/timeout. */
     private fun runGit(
         dir: String,

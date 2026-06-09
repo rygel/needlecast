@@ -79,4 +79,25 @@ interface GitService {
         dir: String,
         onLine: (String) -> Unit,
     ): Int
+
+    /**
+     * Returns local branch names, or an empty list if not a repo.
+     * The current branch is listed first (marked with `*` in git output).
+     */
+    fun branches(dir: String): List<String>
+
+    /**
+     * Returns the current branch name, or null if detached HEAD or not a repo.
+     */
+    fun currentBranch(dir: String): String?
+
+    /**
+     * Checks out [branch]. Throws [RuntimeException] on failure
+     * (e.g. uncommitted changes would be overwritten).
+     * @return error message on failure, or null on success.
+     */
+    fun checkout(
+        dir: String,
+        branch: String,
+    ): String?
 }
