@@ -7,6 +7,7 @@ import io.github.rygel.needlecast.ui.settings.SettingsCallbacks
 import io.github.rygel.needlecast.ui.terminal.ClaudeHookServer
 import io.github.rygel.needlecast.ui.terminal.ClaudeUsageService
 import java.io.File
+import java.nio.charset.Charset
 import javax.swing.Timer
 
 class PanelCoordinator(
@@ -55,10 +56,15 @@ class PanelCoordinator(
         if (initFg != null || initBg != null) terminalPanel.applyTerminalColors(initFg, initBg)
         terminalPanel.applyFontSize(ctx.config.terminalFontSize)
         terminalPanel.applyFontFamily(ctx.config.terminalFontFamily)
+        terminalPanel.applyCharset(Charset.forName(ctx.config.terminalEncoding))
         explorerPanel.applyEditorFont(ctx.config.editorFontFamily, ctx.config.editorFontSize)
 
         terminalPanel.onFontSizeChanged = { size ->
             ctx.updateConfig(ctx.config.copy(terminalFontSize = size))
+        }
+
+        terminalPanel.onCharsetChanged = { charset ->
+            ctx.updateConfig(ctx.config.copy(terminalEncoding = charset.name()))
         }
 
         if (ctx.config.claudeHooksEnabled) {

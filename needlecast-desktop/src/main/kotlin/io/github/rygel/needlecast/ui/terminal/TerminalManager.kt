@@ -14,8 +14,10 @@ import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.nio.charset.Charset
 import javax.swing.BorderFactory
 import javax.swing.JButton
+import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JMenuItem
 import javax.swing.JPanel
@@ -127,12 +129,18 @@ class TerminalManager(
                     currentBg,
                     currentFontSize,
                     currentFontFamily,
+                    currentCharset,
                 )
             pane.onStatusChanged = { status -> onProjectStatusChanged?.invoke(path, status) }
             pane.onFontSizeChanged = { size ->
                 currentFontSize = size
                 terminals.values.forEach { if (it !== pane) it.applyFontSize(size) }
                 onFontSizeChanged?.invoke(size)
+            }
+            pane.onCharsetChanged = { charset ->
+                currentCharset = charset
+                terminals.values.forEach { if (it !== pane) it.restartAllWithCharset(charset) }
+                onCharsetChanged?.invoke(charset)
             }
             terminals[path] = pane
             add(pane, path)
@@ -192,9 +200,10 @@ class TerminalManager(
     private var currentBg: java.awt.Color? = null
     private var currentFontSize: Int = 13
     private var currentFontFamily: String? = null
+    private var currentCharset: Charset = Charsets.UTF_8
 
-    /** Fired whenever any terminal changes its font size (e.g. Ctrl+scroll). */
     var onFontSizeChanged: ((Int) -> Unit)? = null
+    var onCharsetChanged: ((Charset) -> Unit)? = null
 
     fun applyTerminalColors(
         fg: java.awt.Color?,
@@ -213,6 +222,11 @@ class TerminalManager(
     fun applyFontFamily(name: String?) {
         currentFontFamily = name
         terminals.values.forEach { it.applyFontFamily(name) }
+    }
+
+    fun applyCharset(charset: Charset) {
+        currentCharset = charset
+        terminals.values.forEach { it.restartAllWithCharset(charset) }
     }
 
     fun dispose() {
@@ -360,13 +374,16 @@ private class ProjectTerminalPane(
     initialBg: java.awt.Color? = null,
     initialFontSize: Int = 13,
     initialFontFamily: String? = null,
+    initialCharset: Charset = Charsets.UTF_8,
 ) : JPanel(BorderLayout()) {
     private var customFg: java.awt.Color? = initialFg
     private var customBg: java.awt.Color? = initialBg
     private var currentFontSize: Int = initialFontSize
     private var currentFontFamily: String? = initialFontFamily
+    private var currentCharset: Charset = initialCharset
 
     var onFontSizeChanged: ((Int) -> Unit)? = null
+    var onCharsetChanged: ((Charset) -> Unit)? = null
 
     fun applyTerminalColors(
         fg: java.awt.Color?,
@@ -429,9 +446,23 @@ private class ProjectTerminalPane(
                 isContentAreaFilled = false
                 addActionListener { restartActiveTab() }
             }
+        val encodingCombo = JComboBox<String>(ENCODINGS)
+        encodingCombo.toolTipText = "Terminal character encoding"
+        encodingCombo.isFocusable = false
+        encodingCombo.selectedItem = currentCharset.name()
+        encodingCombo.addActionListener {
+            val selected = encodingCombo.selectedItem as? String ?: return@addActionListener
+            val newCharset = tryRun { Charset.forName(selected) } ?: return@addActionListener
+            if (newCharset != currentCharset) {
+                currentCharset = newCharset
+                onCharsetChanged?.invoke(newCharset)
+                restartActiveTab()
+            }
+        }
         val toolbar =
             JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
                 isOpaque = false
+                add(encodingCombo)
                 add(restartButton)
                 add(addButton)
             }
@@ -460,6 +491,7 @@ private class ProjectTerminalPane(
                 initialBg = customBg,
                 initialFontSize = currentFontSize,
                 initialFontFamily = currentFontFamily,
+                charset = currentCharset,
             )
         terminal.onStatusChanged = { status ->
             tabStatuses[terminal] = status
@@ -515,6 +547,7 @@ private class ProjectTerminalPane(
                 initialBg = customBg,
                 initialFontSize = currentFontSize,
                 initialFontFamily = currentFontFamily,
+                charset = currentCharset,
             )
         replacement.onStatusChanged = { status ->
             tabStatuses[replacement] = status
@@ -589,6 +622,49 @@ private class ProjectTerminalPane(
         }
     }
 
+    fun restartAllWithCharset(charset: Charset) {
+        currentCharset = charset
+        for (i in 0 until realTabCount) {
+            val old = tabs.getComponentAt(i) as? TerminalPanel ?: continue
+            val title = tabs.getTitleAt(i)
+            old.dispose()
+            val replacement =
+                TerminalPanel(
+                    initialDir = path,
+                    dark = isDark,
+                    extraEnv = extraEnv,
+                    shellExecutable = shellExecutable,
+                    startupCommand = startupCommand,
+                    initialFg = customFg,
+                    initialBg = customBg,
+                    initialFontSize = currentFontSize,
+                    initialFontFamily = currentFontFamily,
+                    charset = charset,
+                )
+            replacement.onStatusChanged = { status ->
+                tabStatuses[replacement] = status
+                tabStatuses.remove(old)
+                recomputeStatus()
+            }
+            replacement.onFontSizeChanged = { size ->
+                currentFontSize = size
+                for (j in 0 until realTabCount) {
+                    val t = tabs.getComponentAt(j) as? TerminalPanel ?: continue
+                    if (t !== replacement) t.applyFontSize(size)
+                }
+                onFontSizeChanged?.invoke(size)
+            }
+            tabs.setComponentAt(i, replacement)
+            tabs.setTitleAt(i, title)
+            tabs.setTabComponentAt(
+                i,
+                TerminalTabHeader(title, canClose = { tabs.tabCount > 1 }) {
+                    closeTab(replacement)
+                },
+            )
+        }
+    }
+
     fun dispose() {
         tabStatuses.clear()
         for (i in 0 until realTabCount) {
@@ -619,3 +695,12 @@ private class TerminalTabHeader(
         )
     }
 }
+
+private val ENCODINGS = arrayOf("UTF-8", "ISO-8859-1", "Windows-1252", "US-ASCII", "GBK", "Big5", "Shift_JIS", "EUC-JP", "KOI8-R", "Windows-1251")
+
+private inline fun <T> tryRun(block: () -> T): T? =
+    try {
+        block()
+    } catch (_: Exception) {
+        null
+    }
