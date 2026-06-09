@@ -15,11 +15,15 @@ import java.awt.Component
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
+import java.awt.event.FocusEvent
+import java.awt.event.FocusListener
 import javax.swing.BorderFactory
 import javax.swing.ButtonGroup
+import javax.swing.DefaultComboBoxModel
 import javax.swing.DefaultListModel
 import javax.swing.JButton
 import javax.swing.JCheckBox
+import javax.swing.JComboBox
 import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JOptionPane
@@ -101,6 +105,14 @@ class GitLogPanel(
     private val pushButton = JButton("Push").apply { name = "btn-push" }
     private val pullButton = JButton("Pull").apply { name = "btn-pull" }
 
+    private val branchSelector =
+        JComboBox<String>().apply {
+            name = "branch-selector"
+            preferredSize = Dimension(160, 26)
+            isFocusable = true
+        }
+    private var branchChanging = false
+
     // ── Card layout ───────────────────────────────────────────────────────────
     private val cardLayout = CardLayout()
     private val cardPanel = JPanel(cardLayout)
@@ -116,6 +128,7 @@ class GitLogPanel(
             add(fetchButton)
             add(pushButton)
             add(pullButton)
+            add(branchSelector)
         }
 
     init {
@@ -147,6 +160,24 @@ class GitLogPanel(
         pushButton.addActionListener { runRemoteOp("Push") { dir, cb -> gitService.pushStreaming(dir, cb) } }
         pullButton.addActionListener { runRemoteOp("Pull") { dir, cb -> gitService.pullStreaming(dir, cb) } }
 
+        branchSelector.addActionListener {
+            if (branchChanging) return@addActionListener
+            val branch = branchSelector.selectedItem as? String ?: return@addActionListener
+            val path = currentPath ?: return@addActionListener
+            val current = gitService.currentBranch(path)
+            if (branch == current) return@addActionListener
+            checkoutBranch(path, branch)
+        }
+        branchSelector.addFocusListener(
+            object : FocusListener {
+                override fun focusGained(e: FocusEvent?) {
+                    refreshBranches()
+                }
+
+                override fun focusLost(e: FocusEvent?) {}
+            },
+        )
+
         add(toolbar, BorderLayout.NORTH)
         add(cardPanel, BorderLayout.CENTER)
     }
@@ -156,6 +187,7 @@ class GitLogPanel(
     fun loadProject(path: String?) {
         currentPath = path
         logModel.clear()
+        branchSelector.model = DefaultComboBoxModel()
         if (path == null) {
             return
         }
@@ -185,6 +217,8 @@ class GitLogPanel(
             }
         }.execute()
 
+        refreshBranches()
+
         ctx?.let { appCtx ->
             appCtx.gitAutoSync.fetchIfNeeded(path) { line ->
                 javax.swing.SwingUtilities.invokeLater { outputArea.append("$line\n") }
@@ -196,6 +230,66 @@ class GitLogPanel(
                 toolbar,
             ).showIfNotSeen()
         }
+    }
+
+    private fun refreshBranches() {
+        val path = currentPath ?: return
+        object : SwingWorker<Pair<List<String>, String?>, Void>() {
+            override fun doInBackground(): Pair<List<String>, String?> {
+                val all = gitService.branches(path)
+                val current = gitService.currentBranch(path)
+                return Pair(all, current)
+            }
+
+            override fun done() {
+                val (branches, current) =
+                    try {
+                        get()
+                    } catch (_: Exception) {
+                        return
+                    }
+                branchChanging = true
+                branchSelector.model = DefaultComboBoxModel(branches.toTypedArray())
+                if (current != null) {
+                    branchSelector.selectedItem = current
+                }
+                branchChanging = false
+            }
+        }.execute()
+    }
+
+    private fun checkoutBranch(
+        path: String,
+        branch: String,
+    ) {
+        setRemoteButtonsEnabled(false)
+        branchSelector.isEnabled = false
+        object : SwingWorker<String?, Void>() {
+            override fun doInBackground(): String? = gitService.checkout(path, branch)
+
+            override fun done() {
+                branchSelector.isEnabled = true
+                setRemoteButtonsEnabled(true)
+                val error =
+                    try {
+                        get()
+                    } catch (e: Exception) {
+                        e.message
+                    }
+                if (error != null) {
+                    JOptionPane.showMessageDialog(
+                        this@GitLogPanel,
+                        error,
+                        "Checkout failed",
+                        JOptionPane.WARNING_MESSAGE,
+                    )
+                    refreshBranches()
+                    return
+                }
+                refreshBranches()
+                loadProject(path)
+            }
+        }.execute()
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
