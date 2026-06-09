@@ -82,6 +82,6 @@ if (-not (Test-Path $iscc)) {
     $issScript = Join-Path (Join-Path $root "scripts") "needlecast.iss"
     Write-Host "Building Inno Setup installer (version $appVersionClean)..."
     & $iscc "/DAppVersion=$appVersionClean" $issScript
-    $installer = Join-Path $buildDir "needlecast-$appVersionForFiles-windows.exe"
+    $installer = Join-Path $buildDir "needlecast-$appVersionForFiles-win64.exe"
     Write-Host "Installer: $installer"
 }

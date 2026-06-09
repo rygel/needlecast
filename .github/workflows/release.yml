@@ -173,6 +173,9 @@ jobs:
           for f in needlecast_*_amd64.deb; do
             [ -f "$f" ] && mv "$f" "needlecast-${VERSION}-linux-amd64.deb"
           done
+          for f in needlecast-*-win64.exe; do
+            [ -f "$f" ] && mv "$f" "needlecast-${VERSION}-win64.exe"
+          done
           ls -la needlecast-* 2>/dev/null || true
 
       - name: Upload installer artifact (Windows)
@@ -181,7 +184,7 @@ jobs:
         with:
           name: needlecast-windows-installer
           path: |
-            build/needlecast-*-windows.exe
+            build/needlecast-*-win64.exe
             build/needlecast-*-windows-portable.zip
           retention-days: 90
 
