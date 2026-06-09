@@ -439,7 +439,7 @@ private class ProjectTerminalPane(
                 addActionListener { addTerminalTab() }
             }
         val restartButton =
-            JButton(RemixIcons.icon("ri-refresh-line", 14)).apply {
+            JButton(RemixIcons.icon("ri-refresh-line", 12)).apply {
                 toolTipText = "Restart terminal"
                 isFocusable = false
                 isBorderPainted = false
