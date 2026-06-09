@@ -11,7 +11,7 @@ class LayoutSettingsPanelUiTest : SettingsPanelUiTestBase() {
         fixture.list().selectItem("Layout")
         robot.waitForIdle()
 
-        val toggle = fixture.checkBox("Show panel tabs at the top")
+        val toggle = fixture.checkBox("tabsOnTop")
         toggle.requireNotSelected()
         toggle.check()
         robot.waitForIdle()
