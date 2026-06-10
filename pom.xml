@@ -12,7 +12,6 @@
 
     <modules>
         <module>needlecast-desktop</module>
-        <module>needlecast-web</module>
     </modules>
 
     <properties>
