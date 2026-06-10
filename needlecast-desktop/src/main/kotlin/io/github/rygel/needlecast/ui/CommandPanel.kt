@@ -412,6 +412,16 @@ class CommandPanel(
                 addActionListener { editSelectedCommand() }
             },
         )
+        val activeOverride = cmd?.let { findActiveOverride(it) }
+        if (activeOverride != null) {
+            menu.addSeparator()
+            menu.add(
+                JMenuItem("Reset to Default").apply {
+                    icon = RemixIcons.icon("ri-arrow-go-back-line", 12)
+                    addActionListener { resetSelectedCommand(activeOverride) }
+                },
+            )
+        }
         menu.show(commandList, e.x, e.y)
     }
 
@@ -448,6 +458,37 @@ class CommandPanel(
                 commandOverrides = ctx.config.commandOverrides + (workDir to (existing + newOverride)),
             ),
         )
+    }
+
+    private fun findActiveOverride(cmd: CommandDescriptor): CommandOverride? {
+        val workDir = currentProjectPath ?: return null
+        val overrides = ctx.config.commandOverrides[workDir] ?: return null
+        return overrides.firstOrNull { it.argv == cmd.argv }
+            ?: overrides.firstOrNull { it.originalArgv == cmd.argv }
+    }
+
+    private fun resetSelectedCommand(override: CommandOverride) {
+        val idx = commandList.selectedIndex.takeIf { it >= 0 } ?: return
+        val workDir = currentProjectPath ?: return
+        val restored =
+            CommandDescriptor(
+                label = override.originalArgv.joinToString(" "),
+                buildTool = commandModel.getElementAt(idx).buildTool,
+                argv = override.originalArgv,
+                workingDirectory = commandModel.getElementAt(idx).workingDirectory,
+            )
+        commandModel.set(idx, restored)
+        val remaining =
+            ctx.config.commandOverrides[workDir]
+                ?.filterNot { it.originalArgv == override.originalArgv }
+                ?: emptyList()
+        val newOverrides =
+            if (remaining.isEmpty()) {
+                ctx.config.commandOverrides - workDir
+            } else {
+                ctx.config.commandOverrides + (workDir to remaining)
+            }
+        ctx.updateConfig(ctx.config.copy(commandOverrides = newOverrides))
     }
 }
 
