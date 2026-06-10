@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class LogParserTest {
-
     @Test
     fun `parses Logback format`() {
         val line = "14:23:45.123 [main] INFO  io.github.rygel.needlecast.App - Application started"
@@ -46,13 +45,14 @@ class LogParserTest {
 
     @Test
     fun `groups stack trace lines with preceding entry`() {
-        val lines = listOf(
-            "14:23:45.123 [main] ERROR app.Main - Something broke",
-            "    at com.example.Service.doWork(Service.java:42)",
-            "    at com.example.App.run(App.java:10)",
-            "Caused by: java.lang.NullPointerException",
-            "    at com.example.Util.process(Util.java:99)",
-        )
+        val lines =
+            listOf(
+                "14:23:45.123 [main] ERROR app.Main - Something broke",
+                "    at com.example.Service.doWork(Service.java:42)",
+                "    at com.example.App.run(App.java:10)",
+                "Caused by: java.lang.NullPointerException",
+                "    at com.example.Util.process(Util.java:99)",
+            )
         val entries = LogParser.parse(lines)
         assertEquals(1, entries.size)
         assertNotNull(entries[0].stackTrace)
@@ -70,23 +70,25 @@ class LogParserTest {
 
     @Test
     fun `skips blank lines`() {
-        val lines = listOf(
-            "14:23:45.123 [main] INFO  app - hello",
-            "",
-            "14:23:46.000 [main] INFO  app - world",
-        )
+        val lines =
+            listOf(
+                "14:23:45.123 [main] INFO  app - hello",
+                "",
+                "14:23:46.000 [main] INFO  app - world",
+            )
         val entries = LogParser.parse(lines)
         assertEquals(2, entries.size)
     }
 
     @Test
     fun `assigns correct line numbers`() {
-        val lines = listOf(
-            "",
-            "14:23:45.123 [main] INFO  app - first",
-            "",
-            "14:23:46.000 [main] WARN  app - second",
-        )
+        val lines =
+            listOf(
+                "",
+                "14:23:45.123 [main] INFO  app - first",
+                "",
+                "14:23:46.000 [main] WARN  app - second",
+            )
         val entries = LogParser.parse(lines)
         assertEquals(2, entries[0].lineNumber)
         assertEquals(4, entries[1].lineNumber)
