@@ -382,6 +382,15 @@ class MainWindow(
         bind("ctrl 2", "focus-explorer") { explorerPanel.requestFocusOnTree() }
         bind("ctrl 3", "focus-terminal") { terminalPanel.requestFocusOnActive() }
         bind("ctrl P", "project-switcher") { showProjectSwitcher() }
+        bind("ctrl shift T", "new-terminal-tab") { terminalPanel.activePane?.addTerminalTab() }
+        bind("ctrl W", "close-terminal-tab") { terminalPanel.activePane?.closeActiveTab() }
+        bind("ctrl TAB", "next-terminal-tab") { terminalPanel.activePane?.nextTab() }
+        bind("ctrl shift TAB", "prev-terminal-tab") { terminalPanel.activePane?.prevTab() }
+        bind("ctrl EQUALS", "zoom-in") { terminalPanel.zoomIn() }
+        bind("ctrl MINUS", "zoom-out") { terminalPanel.zoomOut() }
+        bind("ctrl 0", "zoom-reset") { terminalPanel.zoomReset() }
+        bind("ctrl B", "toggle-sidebar") { docking.toggleProjectTree() }
+        bind("ctrl 4", "focus-commands") { docking.selectTab("commands") }
         bind("ctrl shift F", "find-in-files") { showSearchPanel() }
     }
 
