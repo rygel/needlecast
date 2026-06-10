@@ -519,6 +519,7 @@ private class ProjectTerminalPane(
                 header.setTitle(newTitle)
             }
         }
+        terminal.onBell = { header.flashBell() }
         tabs.selectedIndex = idx
         addPlusTab()
         addingTab = false
@@ -582,6 +583,7 @@ private class ProjectTerminalPane(
                 header.setTitle(newTitle)
             }
         }
+        replacement.onBell = { header.flashBell() }
         replacement.requestFocusInWindow()
     }
 
@@ -698,6 +700,15 @@ private class TerminalTabHeader(
     onClose: () -> Unit,
 ) : JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)) {
     private val titleLabel = JLabel(title)
+    private var originalTitle: String? = null
+    private val bellTimer =
+        javax.swing
+            .Timer(500) {
+                if (originalTitle != null) {
+                    titleLabel.text = originalTitle
+                    originalTitle = null
+                }
+            }.apply { isRepeats = false }
 
     init {
         isOpaque = false
@@ -717,6 +728,15 @@ private class TerminalTabHeader(
 
     fun setTitle(title: String) {
         titleLabel.text = title
+        if (originalTitle != null) originalTitle = title
+    }
+
+    /** Briefly shows a bell glyph in the tab to indicate a terminal bell was received. */
+    fun flashBell() {
+        if (bellTimer.isRunning) return
+        if (originalTitle == null) originalTitle = titleLabel.text
+        titleLabel.text = "🔔 ${titleLabel.text}"
+        bellTimer.restart()
     }
 }
 
