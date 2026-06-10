@@ -144,6 +144,17 @@ class TerminalPanel(
             if (text != null) sendInput(text)
         }
         termWidget.onTextInput = { text -> sendInput(text) }
+        addHierarchyListener {
+            if (it.changeFlags and
+                java.awt.event.HierarchyEvent.PARENT_CHANGED
+                    .toLong() != 0L
+            ) {
+                SwingUtilities.invokeLater {
+                    termWidget.revalidate()
+                    termWidget.repaint()
+                }
+            }
+        }
         startShell()
     }
 

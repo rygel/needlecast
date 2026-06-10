@@ -148,6 +148,7 @@ class TerminalManager(
         }
         shownKey = path
         cardLayout.show(this, path)
+        SwingUtilities.invokeLater { terminals[path]?.requestFocusOnActive() }
     }
 
     /** Dispose and remove the terminal pane for [path]. Shows placeholder if it was visible. */
@@ -461,19 +462,14 @@ private class ProjectTerminalPane(
                 restartActiveTab()
             }
         }
-        val toolbar =
+        val trailingToolbar =
             JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
                 isOpaque = false
                 add(encodingCombo)
                 add(restartButton)
                 add(addButton)
             }
-        val topBar =
-            JPanel(BorderLayout()).apply {
-                add(JLabel(), BorderLayout.CENTER) // spacer
-                add(toolbar, BorderLayout.EAST)
-            }
-        add(topBar, BorderLayout.NORTH)
+        tabs.putClientProperty("JTabbedPane.trailingComponent", trailingToolbar)
         add(tabs, BorderLayout.CENTER)
         tabs.addChangeListener { if (!addingTab && !removingTab && tabs.selectedIndex == realTabCount) addTerminalTab() }
         addTerminalTab()
