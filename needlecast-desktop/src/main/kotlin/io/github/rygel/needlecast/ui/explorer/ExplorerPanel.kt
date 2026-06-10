@@ -3,12 +3,11 @@ package io.github.rygel.needlecast.ui.explorer
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.model.ProjectTreeEntry
-import io.github.rygel.needlecast.scanner.IS_MAC
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.RemixIcons
+import io.github.rygel.needlecast.ui.util.DesktopUtils
 import java.awt.BorderLayout
 import java.awt.Component
-import java.awt.Desktop
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
@@ -111,12 +110,7 @@ class ExplorerPanel(
 
         val openFmButton =
             JButton(RemixIcons.icon("ri-external-link-line", 16)).apply {
-                toolTipText =
-                    when {
-                        IS_MAC -> "Open in Finder"
-                        IS_WINDOWS -> "Open in Explorer"
-                        else -> "Open in File Manager"
-                    }
+                toolTipText = DesktopUtils.openInFileManagerLabel
                 addActionListener { openInFileManager(currentDir) }
             }
 
@@ -369,29 +363,11 @@ class ExplorerPanel(
     }
 
     private fun openInFileManager(dir: File) {
-        try {
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
-                Desktop.getDesktop().open(dir)
-            } else if (IS_WINDOWS) {
-                ProcessBuilder("explorer.exe", dir.absolutePath).start()
-            } else if (IS_MAC) {
-                ProcessBuilder("open", dir.absolutePath).start()
-            } else {
-                ProcessBuilder("xdg-open", dir.absolutePath).start()
-            }
-        } catch (_: Exception) {
-        }
+        DesktopUtils.openInFileManager(dir)
     }
 
     private fun revealInFileManager(file: File) {
-        try {
-            when {
-                IS_WINDOWS -> ProcessBuilder("explorer.exe", "/select,${file.absolutePath}").start()
-                IS_MAC -> ProcessBuilder("open", "-R", file.absolutePath).start()
-                else -> openInFileManager(file.parentFile ?: return)
-            }
-        } catch (_: Exception) {
-        }
+        DesktopUtils.revealInFileManager(file)
     }
 
     private fun loadDirectory(dir: File) {
@@ -636,11 +612,7 @@ class ExplorerPanel(
                 menu.add(JMenuItem("Delete").apply { addActionListener { deleteEntry(entry.file) } })
                 menu.add(
                     JMenuItem(
-                        when {
-                            IS_MAC -> "Open in Finder"
-                            IS_WINDOWS -> "Open in Explorer"
-                            else -> "Open in File Manager"
-                        },
+                        DesktopUtils.openInFileManagerLabel,
                     ).apply {
                         icon = RemixIcons.icon("ri-folder-open-line", 12)
                         addActionListener { openInFileManager(entry.file) }
@@ -672,11 +644,7 @@ class ExplorerPanel(
                 menu.add(JMenuItem("Delete").apply { addActionListener { deleteEntry(entry.file) } })
                 menu.add(
                     JMenuItem(
-                        when {
-                            IS_MAC -> "Reveal in Finder"
-                            IS_WINDOWS -> "Reveal in Explorer"
-                            else -> "Open Containing Folder"
-                        },
+                        DesktopUtils.revealInFileManagerLabel,
                     ).apply {
                         addActionListener { revealInFileManager(entry.file) }
                     },

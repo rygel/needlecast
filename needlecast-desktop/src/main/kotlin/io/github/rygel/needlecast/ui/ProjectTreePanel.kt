@@ -9,12 +9,12 @@ import io.github.rygel.needlecast.scanner.BuildFileWatcher
 import io.github.rygel.needlecast.scanner.IS_MAC
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
+import io.github.rygel.needlecast.ui.util.DesktopUtils
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
 import java.awt.Component
-import java.awt.Desktop
 import java.awt.FlowLayout
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
@@ -1308,20 +1308,7 @@ class ProjectTreePanel(
     }
 
     private fun openInFileManager(path: String) {
-        val file = File(path)
-        try {
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
-                Desktop.getDesktop().open(file)
-            } else if (IS_WINDOWS) {
-                ProcessBuilder("explorer.exe", path).start()
-            } else if (IS_MAC) {
-                ProcessBuilder("open", path).start()
-            } else {
-                ProcessBuilder("xdg-open", path).start()
-            }
-        } catch (e: Exception) {
-            logger.warn("Failed to open file manager for '$path'", e)
-        }
+        DesktopUtils.openInFileManager(File(path))
     }
 
     private fun buildColorMenu(
@@ -1428,7 +1415,7 @@ class ProjectTreePanel(
                 if (menu.componentCount > 0) menu.addSeparator()
                 val dir = File(entry.directory.path)
                 if (dir.exists()) {
-                    val label = if (IS_MAC) "Open in Finder" else "Open in Explorer"
+                    val label = DesktopUtils.openInFileManagerLabel
                     menu.add(
                         JMenuItem(label).apply {
                             addActionListener { openInFileManager(entry.directory.path) }
