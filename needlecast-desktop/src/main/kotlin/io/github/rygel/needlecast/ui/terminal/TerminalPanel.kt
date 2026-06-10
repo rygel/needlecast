@@ -141,6 +141,14 @@ class TerminalPanel(
             if (text != null) sendInput(text)
         }
         termWidget.onTextInput = { text -> sendInput(text) }
+        termWidget.onModifiedEnter = { sequence ->
+            if (isClaudeSession) {
+                sendInput(sequence)
+                true
+            } else {
+                false
+            }
+        }
         startShell()
     }
 
@@ -420,6 +428,14 @@ class TerminalPanel(
         var onPasteRequested: (() -> Unit)? = null
         var onTextInput: ((String) -> Unit)? = null
 
+        /**
+         * Invoked when Enter is pressed with Ctrl or Shift held, carrying the
+         * CSI-u escape sequence a kitty-protocol terminal would emit for that
+         * combination. Return true to consume the event (the sequence was sent
+         * to the PTY), false to let JediTerm handle it as a plain Enter.
+         */
+        var onModifiedEnter: ((String) -> Boolean)? = null
+
         override fun getMinimumSize(): Dimension = Dimension(0, 0)
 
         override fun getPreferredSize(): Dimension = Dimension(1, 1)
@@ -449,10 +465,43 @@ class TerminalPanel(
                 }
             }
 
+        /**
+         * Plain terminals send the same byte (CR) for Enter, Ctrl+Enter and
+         * Shift+Enter, so TUI apps (e.g. Claude Code) cannot distinguish them.
+         * Terminals implementing the kitty keyboard protocol disambiguate via
+         * CSI-u sequences: ESC [13;5u for Ctrl+Enter, ESC [13;2u for
+         * Shift+Enter. This dispatcher synthesises those sequences and offers
+         * them to [onModifiedEnter]; if the handler declines (returns false),
+         * the event falls through to JediTerm as a normal Enter.
+         */
+        private val modifiedEnterDispatcher =
+            java.awt.KeyEventDispatcher { e ->
+                if (e.id == java.awt.event.KeyEvent.KEY_PRESSED &&
+                    e.keyCode == java.awt.event.KeyEvent.VK_ENTER &&
+                    SwingUtilities.isDescendingFrom(e.component, this)
+                ) {
+                    val ctrl = (e.modifiersEx and java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0
+                    val shift = (e.modifiersEx and java.awt.event.InputEvent.SHIFT_DOWN_MASK) != 0
+                    val sequence =
+                        when {
+                            ctrl && !shift -> "\u001b[13;5u"
+                            shift && !ctrl -> "\u001b[13;2u"
+                            ctrl && shift -> "\u001b[13;6u"
+                            else -> null
+                        }
+                    sequence != null && onModifiedEnter?.invoke(sequence) == true
+                } else {
+                    false
+                }
+            }
+
         init {
             java.awt.KeyboardFocusManager
                 .getCurrentKeyboardFocusManager()
                 .addKeyEventDispatcher(pasteDispatcher)
+            java.awt.KeyboardFocusManager
+                .getCurrentKeyboardFocusManager()
+                .addKeyEventDispatcher(modifiedEnterDispatcher)
 
             // Catch text from input methods (voice-to-text, IME, etc.)
             enableInputMethods(true)
