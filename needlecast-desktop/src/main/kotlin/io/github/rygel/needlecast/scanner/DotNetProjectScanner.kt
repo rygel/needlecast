@@ -8,6 +8,8 @@ import java.io.File
 import java.nio.file.Path
 
 class DotNetProjectScanner : ProjectScanner {
+    private val logger = org.slf4j.LoggerFactory.getLogger(DotNetProjectScanner::class.java)
+
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path).toFile()
 
@@ -34,7 +36,8 @@ class DotNetProjectScanner : ProjectScanner {
                 val content =
                     try {
                         projectFile.readText()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to read {}", projectFile.name, e)
                         continue
                     }
 
@@ -77,7 +80,8 @@ class DotNetProjectScanner : ProjectScanner {
             val content =
                 try {
                     projectFile.readText()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Failed to read {}", projectFile.name, e)
                     ""
                 }
             val kind = detectProjectKind(content)
@@ -113,7 +117,8 @@ class DotNetProjectScanner : ProjectScanner {
         val content =
             try {
                 slnFile.readText()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to read {}", slnFile.name, e)
                 return emptyList()
             }
         // Format: Project("{GUID}") = "Name", "path\to\project.csproj", "{GUID}"

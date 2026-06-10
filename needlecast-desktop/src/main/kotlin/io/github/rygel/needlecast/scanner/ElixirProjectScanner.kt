@@ -12,6 +12,8 @@ import java.nio.file.Path
  * Detects Phoenix framework via presence of `phoenix` in mix.exs.
  */
 class ElixirProjectScanner : ProjectScanner {
+    private val logger = org.slf4j.LoggerFactory.getLogger(ElixirProjectScanner::class.java)
+
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val mixExs = dir.resolve("mix.exs").toFile()
@@ -20,7 +22,8 @@ class ElixirProjectScanner : ProjectScanner {
         val content =
             try {
                 mixExs.readText(Charsets.UTF_8)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to read {}", mixExs.name, e)
                 ""
             }
         val isPhoenix = ":phoenix" in content

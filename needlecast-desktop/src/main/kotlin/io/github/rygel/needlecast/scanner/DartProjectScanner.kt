@@ -13,6 +13,8 @@ import java.nio.file.Path
  * dependency in pubspec.yaml.
  */
 class DartProjectScanner : ProjectScanner {
+    private val logger = org.slf4j.LoggerFactory.getLogger(DartProjectScanner::class.java)
+
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val pubspec = dir.resolve("pubspec.yaml").toFile()
@@ -21,7 +23,8 @@ class DartProjectScanner : ProjectScanner {
         val content =
             try {
                 pubspec.readText(Charsets.UTF_8)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to read {}", pubspec.name, e)
                 ""
             }
         val isFlutter = "flutter:" in content && "sdk: flutter" in content

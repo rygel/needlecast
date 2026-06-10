@@ -15,6 +15,8 @@ import java.nio.file.Path
  * 3. **pip** — fallback when only `pyproject.toml` or `requirements.txt` exists
  */
 class PythonProjectScanner : ProjectScanner {
+    private val logger = org.slf4j.LoggerFactory.getLogger(PythonProjectScanner::class.java)
+
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val pyproject = dir.resolve("pyproject.toml").toFile()
@@ -26,7 +28,8 @@ class PythonProjectScanner : ProjectScanner {
             if (pyproject.exists()) {
                 try {
                     pyproject.readText(Charsets.UTF_8)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Failed to read {}", pyproject.name, e)
                     ""
                 }
             } else {

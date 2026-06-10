@@ -8,6 +8,7 @@ import io.github.rygel.needlecast.model.ProjectDirectory
 import java.nio.file.Path
 
 class NpmProjectScanner : ProjectScanner {
+    private val logger = org.slf4j.LoggerFactory.getLogger(NpmProjectScanner::class.java)
     private val mapper = ObjectMapper()
 
     // Scripts surfaced first, in this order; anything else follows alphabetically
@@ -38,7 +39,8 @@ class NpmProjectScanner : ProjectScanner {
                         )
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to parse {}", packageJson.name, e)
         }
 
         // Always include install as a fallback command
