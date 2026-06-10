@@ -226,6 +226,20 @@ class TerminalManager(
         terminals.values.forEach { it.applyFontFamily(name) }
     }
 
+    internal val activePane: ProjectTerminalPane? get() = terminals[shownKey]
+
+    fun zoomIn() {
+        activePane?.zoomActive(+1)
+    }
+
+    fun zoomOut() {
+        activePane?.zoomActive(-1)
+    }
+
+    fun zoomReset() {
+        activePane?.zoomReset()
+    }
+
     fun applyCharset(charset: Charset) {
         currentCharset = charset
         terminals.values.forEach { it.restartAllWithCharset(charset) }
@@ -366,7 +380,7 @@ class TerminalManager(
  * A container for one or more [TerminalPanel] instances belonging to a single project.
  * A "+" button at the end of the tab row adds new terminal tabs. Tabs can be closed (except the last one).
  */
-private class ProjectTerminalPane(
+internal class ProjectTerminalPane(
     private val path: String,
     private var isDark: Boolean,
     private val extraEnv: Map<String, String> = emptyMap(),
@@ -475,7 +489,7 @@ private class ProjectTerminalPane(
         addTerminalTab()
     }
 
-    private fun addTerminalTab() {
+    internal fun addTerminalTab() {
         addingTab = true
         tabCounter++
         val terminal =
@@ -535,6 +549,37 @@ private class ProjectTerminalPane(
         tabStatuses.remove(terminal)
         recomputeStatus()
         terminal.dispose()
+    }
+
+    fun closeActiveTab() {
+        val idx = tabs.selectedIndex
+        if (idx < 0 || idx >= realTabCount) return
+        val terminal = tabs.getComponentAt(idx) as? TerminalPanel ?: return
+        closeTab(terminal)
+    }
+
+    fun nextTab() {
+        if (realTabCount <= 1) return
+        tabs.selectedIndex = (tabs.selectedIndex + 1) % realTabCount
+    }
+
+    fun prevTab() {
+        if (realTabCount <= 1) return
+        tabs.selectedIndex = (tabs.selectedIndex - 1 + realTabCount) % realTabCount
+    }
+
+    fun zoomActive(delta: Int) {
+        val idx = tabs.selectedIndex
+        if (idx < 0 || idx >= realTabCount) return
+        val terminal = tabs.getComponentAt(idx) as? TerminalPanel ?: return
+        terminal.changeFontSize(delta)
+    }
+
+    fun zoomReset() {
+        for (i in 0 until realTabCount) {
+            (tabs.getComponentAt(i) as? TerminalPanel)?.applyFontSize(13)
+        }
+        onFontSizeChanged?.invoke(13)
     }
 
     private fun restartActiveTab() {
