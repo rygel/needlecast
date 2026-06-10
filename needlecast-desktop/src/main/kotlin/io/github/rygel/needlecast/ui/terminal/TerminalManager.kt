@@ -6,6 +6,7 @@ import io.github.rygel.needlecast.ui.AiCli
 import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.ShellDetector
 import io.github.rygel.needlecast.ui.components.ContextualHintPanel
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -701,9 +702,12 @@ private class TerminalTabHeader(
 
 private val ENCODINGS = arrayOf("UTF-8", "ISO-8859-1", "Windows-1252", "US-ASCII", "GBK", "Big5", "Shift_JIS", "EUC-JP", "KOI8-R", "Windows-1251")
 
+private val logger = LoggerFactory.getLogger("io.github.rygel.needlecast.ui.terminal.TerminalManager")
+
 private inline fun <T> tryRun(block: () -> T): T? =
     try {
         block()
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        logger.debug("tryRun failed", e)
         null
     }

@@ -1,6 +1,7 @@
 package io.github.rygel.needlecast.ui.logviewer
 
 import io.github.rygel.needlecast.ui.RemixIcons
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -49,6 +50,9 @@ internal fun appLogFiles(logDir: File = File(System.getProperty("user.home"), ".
  * follow mode, and search.
  */
 class LogViewerPanel : JPanel(BorderLayout()) {
+    companion object {
+        private val logger = LoggerFactory.getLogger(LogViewerPanel::class.java)
+    }
     // ── State ────────────────────────────────────────────────────────────────
 
     private var currentProjectPath: String? = null
@@ -384,7 +388,8 @@ class LogViewerPanel : JPanel(BorderLayout()) {
                     }
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Log tailing failed", e)
         }
     }
 

@@ -346,7 +346,8 @@ class DirectoryPanel(
             override fun doInBackground(): DetectedProject? =
                 try {
                     ctx.scanner.scan(dir)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Project rescan failed", e)
                     null
                 }
 

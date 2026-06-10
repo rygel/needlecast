@@ -580,7 +580,8 @@ class ProjectTreePanel(
             val result =
                 try {
                     ctx.scanner.scan(dir)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Project rescan failed", e)
                     null
                 } ?: return@execute
             scanQueue.add(dir to result)

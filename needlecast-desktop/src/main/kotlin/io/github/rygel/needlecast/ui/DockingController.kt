@@ -8,6 +8,7 @@ import io.github.andrewauclair.moderndocking.app.RootDockingPanel
 import io.github.andrewauclair.moderndocking.ext.ui.DockingUI
 import io.github.andrewauclair.moderndocking.settings.Settings
 import io.github.rygel.needlecast.AppContext
+import org.slf4j.LoggerFactory
 import java.awt.AWTEvent
 import java.awt.BorderLayout
 import java.awt.Component
@@ -31,6 +32,10 @@ class DockingController(
     private val registry: PanelRegistry,
     private val ctx: AppContext,
 ) {
+    companion object {
+        private val logger = LoggerFactory.getLogger(DockingController::class.java)
+    }
+
     private val layoutFile: File =
         Path
             .of(
@@ -96,7 +101,8 @@ class DockingController(
         val restored =
             try {
                 AppState.restore()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Layout restoration failed, applying default", e)
                 false
             }
 
