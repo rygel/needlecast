@@ -66,6 +66,7 @@ class ProjectTreePanel(
     private val gitStatusCache = mutableMapOf<String, GitStatus>()
     private var activePaths: Set<String> = emptySet()
     private var activeOnly = false
+    private var lastActiveOnly = false
     private val missingPaths = mutableSetOf<String>()
     private var pendingSelectPath: String? = null
     private val agentStatuses = mutableMapOf<String, AgentStatus>()
@@ -804,8 +805,9 @@ class ProjectTreePanel(
 
     private fun doApplyFilter() {
         val filter = pendingFilterText.trim()
-        if (filter == lastFilter && !activeOnly) return
+        if (filter == lastFilter && activeOnly == lastActiveOnly) return
         lastFilter = filter
+        lastActiveOnly = activeOnly
         rootNode.removeAllChildren()
         if (filter.isEmpty() && !activeOnly) {
             val all = cachedAllEntries ?: migrateOrLoad().also { cachedAllEntries = it }
