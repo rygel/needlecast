@@ -92,6 +92,9 @@ class TerminalPanel(
     var onTerminalTitleChanged: ((String) -> Unit)? = null
     private var currentStatus: AgentStatus = AgentStatus.NONE
 
+    /** Fired when a BEL character is received from the shell. Used for visual flash instead of system beep. */
+    var onBell: (() -> Unit)? = null
+
     // ── Heuristic state (non-Claude sessions only) ────────────────────────────
 
     /** Timestamp of the last bytes written to the PTY input (user input / sendInput). */
@@ -144,6 +147,17 @@ class TerminalPanel(
             if (text != null) sendInput(text)
         }
         termWidget.onTextInput = { text -> sendInput(text) }
+        addHierarchyListener {
+            if (it.changeFlags and
+                java.awt.event.HierarchyEvent.PARENT_CHANGED
+                    .toLong() != 0L
+            ) {
+                SwingUtilities.invokeLater {
+                    termWidget.revalidate()
+                    termWidget.repaint()
+                }
+            }
+        }
         startShell()
     }
 
@@ -334,6 +348,7 @@ class TerminalPanel(
                                 startShell()
                             }
                         },
+                        onBell = { SwingUtilities.invokeLater { onBell?.invoke() } },
                     )
                 currentSession?.close()
                 val session = termWidget.createTerminalSession(observed)

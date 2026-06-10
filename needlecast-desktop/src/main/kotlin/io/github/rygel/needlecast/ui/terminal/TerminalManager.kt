@@ -148,6 +148,7 @@ class TerminalManager(
         }
         shownKey = path
         cardLayout.show(this, path)
+        SwingUtilities.invokeLater { terminals[path]?.requestFocusOnActive() }
     }
 
     /** Dispose and remove the terminal pane for [path]. Shows placeholder if it was visible. */
@@ -461,19 +462,14 @@ private class ProjectTerminalPane(
                 restartActiveTab()
             }
         }
-        val toolbar =
+        val trailingToolbar =
             JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
                 isOpaque = false
                 add(encodingCombo)
                 add(restartButton)
                 add(addButton)
             }
-        val topBar =
-            JPanel(BorderLayout()).apply {
-                add(JLabel(), BorderLayout.CENTER) // spacer
-                add(toolbar, BorderLayout.EAST)
-            }
-        add(topBar, BorderLayout.NORTH)
+        tabs.putClientProperty("JTabbedPane.trailingComponent", trailingToolbar)
         add(tabs, BorderLayout.CENTER)
         tabs.addChangeListener { if (!addingTab && !removingTab && tabs.selectedIndex == realTabCount) addTerminalTab() }
         addTerminalTab()
@@ -523,6 +519,7 @@ private class ProjectTerminalPane(
                 header.setTitle(newTitle)
             }
         }
+        terminal.onBell = { header.flashBell() }
         tabs.selectedIndex = idx
         addPlusTab()
         addingTab = false
@@ -586,6 +583,7 @@ private class ProjectTerminalPane(
                 header.setTitle(newTitle)
             }
         }
+        replacement.onBell = { header.flashBell() }
         replacement.requestFocusInWindow()
     }
 
@@ -702,6 +700,15 @@ private class TerminalTabHeader(
     onClose: () -> Unit,
 ) : JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)) {
     private val titleLabel = JLabel(title)
+    private var originalTitle: String? = null
+    private val bellTimer =
+        javax.swing
+            .Timer(500) {
+                if (originalTitle != null) {
+                    titleLabel.text = originalTitle
+                    originalTitle = null
+                }
+            }.apply { isRepeats = false }
 
     init {
         isOpaque = false
@@ -721,6 +728,15 @@ private class TerminalTabHeader(
 
     fun setTitle(title: String) {
         titleLabel.text = title
+        if (originalTitle != null) originalTitle = title
+    }
+
+    /** Briefly shows a bell glyph in the tab to indicate a terminal bell was received. */
+    fun flashBell() {
+        if (bellTimer.isRunning) return
+        if (originalTitle == null) originalTitle = titleLabel.text
+        titleLabel.text = "🔔 ${titleLabel.text}"
+        bellTimer.restart()
     }
 }
 
