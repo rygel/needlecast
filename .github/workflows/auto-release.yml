@@ -1,7 +1,9 @@
 name: "Release: Manual"
 
 # Manually create a GitHub release. Bumps pom.xml, commits, tags, and creates
-# a GitHub Release — which triggers release.yml for native builds + appcast.xml.
+# a GitHub Release — then triggers release.yml for native builds + appcast.xml.
+# NOTE: Uses workflow_dispatch to trigger release.yml because GITHUB_TOKEN-created
+# releases do not fire the `release` event (GitHub prevents infinite loops).
 
 on:
   workflow_dispatch:
@@ -18,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -74,3 +77,13 @@ jobs:
             --target main \
             --title "Needlecast $VERSION" \
             --generate-notes
+
+      - name: Trigger build workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ inputs.version }}"
+          echo "Triggering release.yml for v$VERSION"
+          gh workflow run release.yml \
+            --ref main \
+            -f version="$VERSION"
