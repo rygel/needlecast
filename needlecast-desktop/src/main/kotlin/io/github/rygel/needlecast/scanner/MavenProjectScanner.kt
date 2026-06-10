@@ -7,6 +7,8 @@ import io.github.rygel.needlecast.model.ProjectDirectory
 import java.nio.file.Path
 
 class MavenProjectScanner : ProjectScanner {
+    private val logger = org.slf4j.LoggerFactory.getLogger(MavenProjectScanner::class.java)
+
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val pomFile = dir.resolve("pom.xml").toFile()
@@ -15,7 +17,8 @@ class MavenProjectScanner : ProjectScanner {
         val pom =
             try {
                 pomFile.readText()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to read {}", pomFile.name, e)
                 ""
             }
 
@@ -36,7 +39,8 @@ class MavenProjectScanner : ProjectScanner {
             val modulePomText =
                 try {
                     modulePom.readText()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Failed to read {}", modulePom.name, e)
                     continue
                 }
 

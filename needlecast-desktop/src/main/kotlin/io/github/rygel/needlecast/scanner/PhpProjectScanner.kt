@@ -13,6 +13,7 @@ import java.nio.file.Path
  * Extracts Composer scripts and detects Laravel (artisan).
  */
 class PhpProjectScanner : ProjectScanner {
+    private val logger = org.slf4j.LoggerFactory.getLogger(PhpProjectScanner::class.java)
     private val mapper = ObjectMapper()
 
     override fun scan(directory: ProjectDirectory): DetectedProject? {
@@ -40,7 +41,8 @@ class PhpProjectScanner : ProjectScanner {
                         commands += cmd("composer run $script", directory, "composer", "run", script)
                     }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to parse {}", composerJson.name, e)
         }
 
         // Laravel detection

@@ -13,6 +13,8 @@ import java.nio.file.Path
  * per-crate commands (e.g. `cargo test -p my-crate`).
  */
 class RustProjectScanner : ProjectScanner {
+    private val logger = org.slf4j.LoggerFactory.getLogger(RustProjectScanner::class.java)
+
     override fun scan(directory: ProjectDirectory): DetectedProject? {
         val dir = Path.of(directory.path)
         val cargoToml = dir.resolve("Cargo.toml").toFile()
@@ -21,7 +23,8 @@ class RustProjectScanner : ProjectScanner {
         val content =
             try {
                 cargoToml.readText(Charsets.UTF_8)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to read {}", cargoToml.name, e)
                 ""
             }
         val commands = mutableListOf<CommandDescriptor>()

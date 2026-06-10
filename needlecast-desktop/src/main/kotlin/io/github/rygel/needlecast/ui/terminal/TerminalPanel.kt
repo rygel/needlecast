@@ -5,6 +5,7 @@ import com.jediterm.terminal.TextStyle
 import com.jediterm.terminal.TtyConnector
 import com.jediterm.terminal.model.StyleState
 import com.jediterm.terminal.ui.JediTermWidget
+import com.jediterm.terminal.ui.TerminalPanelListener
 import com.jediterm.terminal.ui.TerminalSession
 import com.pty4j.PtyProcess
 import com.pty4j.PtyProcessBuilder
@@ -87,6 +88,8 @@ class TerminalPanel(
 
     /** Fired when the font size changes via Ctrl+scroll. Argument is the new absolute size. */
     var onFontSizeChanged: ((Int) -> Unit)? = null
+
+    var onTerminalTitleChanged: ((String) -> Unit)? = null
     private var currentStatus: AgentStatus = AgentStatus.NONE
 
     // ── Heuristic state (non-Claude sessions only) ────────────────────────────
@@ -335,6 +338,15 @@ class TerminalPanel(
                 currentSession?.close()
                 val session = termWidget.createTerminalSession(observed)
                 currentSession = session
+                termWidget.setTerminalPanelListener(
+                    object : TerminalPanelListener {
+                        override fun onPanelResize(origin: com.jediterm.terminal.RequestOrigin) {}
+
+                        override fun onTitleChanged(title: String) {
+                            SwingUtilities.invokeLater { onTerminalTitleChanged?.invoke(title) }
+                        }
+                    },
+                )
                 session.start()
 
                 SwingUtilities.invokeLater {

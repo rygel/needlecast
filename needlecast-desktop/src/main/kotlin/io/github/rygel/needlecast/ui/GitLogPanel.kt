@@ -8,6 +8,7 @@ import io.github.rygel.needlecast.ui.components.DynamicHelpPopup
 import io.github.rygel.needlecast.ui.diff.DiffParser
 import io.github.rygel.needlecast.ui.diff.DiffResult
 import io.github.rygel.needlecast.ui.diff.DiffStats
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -52,6 +53,10 @@ class GitLogPanel(
     private val gitService: GitService = ProcessGitService(),
     private val ctx: AppContext? = null,
 ) : JPanel(BorderLayout()) {
+    companion object {
+        private val logger = LoggerFactory.getLogger(GitLogPanel::class.java)
+    }
+
     // ── Log view ──────────────────────────────────────────────────────────────
     private val logModel = DefaultListModel<GitCommit>()
     private val logList =
@@ -446,7 +451,8 @@ class GitLogPanel(
                 val exitCode =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Git streaming operation failed", e)
                         -1
                     }
                 if (exitCode == 0) {

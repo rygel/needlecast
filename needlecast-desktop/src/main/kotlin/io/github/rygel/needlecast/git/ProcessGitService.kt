@@ -135,7 +135,8 @@ class ProcessGitService : GitService {
         val proc =
             try {
                 pb.start()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Git streaming operation failed", e)
                 return -1
             }
         return try {
@@ -153,7 +154,8 @@ class ProcessGitService : GitService {
             }
             reader.join(1_000L)
             proc.exitValue()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Git streaming operation failed", e)
             -1
         } finally {
             proc.destroyForcibly()

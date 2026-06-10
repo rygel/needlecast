@@ -1,6 +1,7 @@
 package io.github.rygel.needlecast.git
 
 import io.github.rygel.needlecast.AppContext
+import org.slf4j.LoggerFactory
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -8,6 +9,7 @@ class GitAutoSync(
     private val intervalMinutes: Int = 5,
     private val autoFetchEnabled: Boolean = true,
 ) {
+    private val logger = LoggerFactory.getLogger(GitAutoSync::class.java)
     private val lastFetch = mutableMapOf<String, Instant>()
     private var _gitService: GitService? = null
 
@@ -41,7 +43,8 @@ class GitAutoSync(
         Thread({
             try {
                 service.fetchStreaming(projectPath, onLine)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Auto-fetch failed for {}", projectPath, e)
                 lastFetch.remove(projectPath)
             }
         }, "git-auto-fetch").apply { isDaemon = true }.start()

@@ -2,6 +2,7 @@ package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.ThemeRegistry
+import org.slf4j.LoggerFactory
 import java.awt.Cursor
 import java.awt.Desktop
 import java.awt.Font
@@ -45,6 +46,10 @@ class MenuBarBuilder(
 
     private var cliCache: List<Pair<AiCli, Boolean>> = emptyList()
     private var cliCacheReady = false
+
+    companion object {
+        private val logger = LoggerFactory.getLogger(MenuBarBuilder::class.java)
+    }
 
     fun build(): JMenuBar {
         val i18n = ctx.i18n
@@ -460,7 +465,8 @@ class MenuBarBuilder(
                         override fun mouseClicked(e: MouseEvent) {
                             try {
                                 Desktop.getDesktop().browse(URI(repoUrl))
-                            } catch (_: Exception) {
+                            } catch (e: Exception) {
+                                logger.warn("Failed to open URL in browser", e)
                             }
                         }
                     },

@@ -6,6 +6,7 @@ import io.github.rygel.needlecast.ui.AiCli
 import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.ShellDetector
 import io.github.rygel.needlecast.ui.components.ContextualHintPanel
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.CardLayout
 import java.awt.Color
@@ -510,12 +511,18 @@ private class ProjectTerminalPane(
         val title = "Terminal $tabCounter"
         tabs.addTab(title, terminal)
         val idx = tabs.tabCount - 1
-        tabs.setTabComponentAt(
-            idx,
+        val header =
             TerminalTabHeader(title, canClose = { tabs.tabCount > 1 }) {
                 closeTab(terminal)
-            },
-        )
+            }
+        tabs.setTabComponentAt(idx, header)
+        terminal.onTerminalTitleChanged = { newTitle ->
+            val tidx = tabs.indexOfComponent(terminal)
+            if (tidx >= 0) {
+                tabs.setTitleAt(tidx, newTitle)
+                header.setTitle(newTitle)
+            }
+        }
         tabs.selectedIndex = idx
         addPlusTab()
         addingTab = false
@@ -567,12 +574,18 @@ private class ProjectTerminalPane(
         }
         tabs.setComponentAt(idx, replacement)
         tabs.setTitleAt(idx, title)
-        tabs.setTabComponentAt(
-            idx,
+        val header =
             TerminalTabHeader(title, canClose = { tabs.tabCount > 1 }) {
                 closeTab(replacement)
-            },
-        )
+            }
+        tabs.setTabComponentAt(idx, header)
+        replacement.onTerminalTitleChanged = { newTitle ->
+            val tidx = tabs.indexOfComponent(replacement)
+            if (tidx >= 0) {
+                tabs.setTitleAt(tidx, newTitle)
+                header.setTitle(newTitle)
+            }
+        }
         replacement.requestFocusInWindow()
     }
 
@@ -659,12 +672,18 @@ private class ProjectTerminalPane(
             }
             tabs.setComponentAt(i, replacement)
             tabs.setTitleAt(i, title)
-            tabs.setTabComponentAt(
-                i,
+            val header =
                 TerminalTabHeader(title, canClose = { tabs.tabCount > 1 }) {
                     closeTab(replacement)
-                },
-            )
+                }
+            tabs.setTabComponentAt(i, header)
+            replacement.onTerminalTitleChanged = { newTitle ->
+                val tidx = tabs.indexOfComponent(replacement)
+                if (tidx >= 0) {
+                    tabs.setTitleAt(tidx, newTitle)
+                    header.setTitle(newTitle)
+                }
+            }
         }
     }
 
@@ -682,10 +701,12 @@ private class TerminalTabHeader(
     private val canClose: () -> Boolean,
     onClose: () -> Unit,
 ) : JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)) {
+    private val titleLabel = JLabel(title)
+
     init {
         isOpaque = false
         border = BorderFactory.createEmptyBorder(0, 0, 0, 0)
-        add(JLabel(title))
+        add(titleLabel)
         add(
             JButton(RemixIcons.icon("ri-close-line", 16)).apply {
                 toolTipText = "Close tab"
@@ -697,13 +718,20 @@ private class TerminalTabHeader(
             },
         )
     }
+
+    fun setTitle(title: String) {
+        titleLabel.text = title
+    }
 }
 
 private val ENCODINGS = arrayOf("UTF-8", "ISO-8859-1", "Windows-1252", "US-ASCII", "GBK", "Big5", "Shift_JIS", "EUC-JP", "KOI8-R", "Windows-1251")
 
+private val logger = LoggerFactory.getLogger("io.github.rygel.needlecast.ui.terminal.TerminalManager")
+
 private inline fun <T> tryRun(block: () -> T): T? =
     try {
         block()
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        logger.debug("tryRun failed", e)
         null
     }
