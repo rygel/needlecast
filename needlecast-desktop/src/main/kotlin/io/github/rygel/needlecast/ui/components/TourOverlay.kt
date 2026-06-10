@@ -15,6 +15,7 @@ import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JRootPane
+import javax.swing.JTabbedPane
 import javax.swing.JWindow
 import javax.swing.SwingUtilities
 
@@ -54,8 +55,26 @@ class TourOverlay(
                 nextStep()
                 return
             }
-        showScrim(target)
-        showBubble(target, step)
+        selectTargetTab(target)
+        SwingUtilities.invokeLater {
+            try {
+                showScrim(target)
+                showBubble(target, step)
+            } catch (_: Exception) {
+                nextStep()
+            }
+        }
+    }
+
+    private fun selectTargetTab(target: java.awt.Component) {
+        val tabbed = SwingUtilities.getAncestorOfClass(JTabbedPane::class.java, target) as? JTabbedPane ?: return
+        for (i in 0 until tabbed.tabCount) {
+            val comp = tabbed.getComponentAt(i)
+            if (SwingUtilities.isDescendingFrom(target, comp)) {
+                tabbed.selectedIndex = i
+                return
+            }
+        }
     }
 
     private fun showScrim(target: java.awt.Component) {
