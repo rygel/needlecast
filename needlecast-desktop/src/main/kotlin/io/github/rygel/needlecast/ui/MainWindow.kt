@@ -62,7 +62,9 @@ class MainWindow(
     private val projectSelectionTimer =
         javax.swing
             .Timer(75) {
-                coordinator.propagateProjectSelection(pendingProjectSelection.getAndSet(null))
+                val selected = pendingProjectSelection.getAndSet(null)
+                coordinator.propagateProjectSelection(selected)
+                title = buildTitle(selected?.directory?.label())
             }.apply { isRepeats = false }
 
     private val statusBar = registry.statusBar
@@ -744,9 +746,10 @@ class MainWindow(
                 null
             }
 
-        private fun buildTitle(): String {
+        private fun buildTitle(projectName: String? = null): String {
             val version = currentVersion() ?: ""
-            return if (version.isNotEmpty()) "Needlecast $version" else "Needlecast"
+            val base = if (version.isNotEmpty()) "Needlecast $version" else "Needlecast"
+            return if (!projectName.isNullOrBlank()) "$base [$projectName]" else base
         }
     }
 }
