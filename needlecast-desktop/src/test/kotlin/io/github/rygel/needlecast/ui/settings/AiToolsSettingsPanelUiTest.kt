@@ -10,7 +10,7 @@ class AiToolsSettingsPanelUiTest : SettingsPanelUiTestBase() {
         fixture.list().selectItem("AI Tools")
         robot.waitForIdle()
 
-        val toggle = fixture.checkBox("Show Claude quota in status bar")
+        val toggle = fixture.checkBox("quotaToggle")
         toggle.requireSelected()
         toggle.uncheck()
         robot.waitForIdle()

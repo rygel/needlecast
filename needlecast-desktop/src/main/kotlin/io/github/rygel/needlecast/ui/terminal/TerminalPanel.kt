@@ -38,6 +38,7 @@ class TerminalPanel(
     initialBg: java.awt.Color? = null,
     initialFontSize: Int = 13,
     initialFontFamily: String? = null,
+    private val charset: Charset = Charsets.UTF_8,
 ) : JPanel(BorderLayout()) {
     private val logger = LoggerFactory.getLogger(TerminalPanel::class.java)
 
@@ -310,7 +311,7 @@ class TerminalPanel(
                 val process = builder.start()
                 ptyProcess = process
                 logger.info("PTY started: pid={}, alive={}", process.pid(), process.isAlive)
-                val rawConnector = PtyProcessTtyConnector(process, Charset.forName("UTF-8"))
+                val rawConnector = PtyProcessTtyConnector(process, charset)
                 val connector =
                     object : TtyConnector by rawConnector {
                         override fun resize(d: Dimension) {

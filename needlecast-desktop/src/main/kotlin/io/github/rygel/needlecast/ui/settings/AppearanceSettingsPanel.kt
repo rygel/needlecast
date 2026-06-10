@@ -157,6 +157,7 @@ class AppearanceSettingsPanel(
             )
         val themeKeys = syntaxThemes.keys.toList()
         val syntaxThemeCombo = JComboBox(syntaxThemes.values.toTypedArray())
+        syntaxThemeCombo.name = "syntaxThemeCombo"
         syntaxThemeCombo.selectedIndex = themeKeys.indexOf(ctx.config.syntaxTheme).takeIf { it >= 0 } ?: 0
         syntaxThemeCombo.addActionListener {
             val key = themeKeys[syntaxThemeCombo.selectedIndex]

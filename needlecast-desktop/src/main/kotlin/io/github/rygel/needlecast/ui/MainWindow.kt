@@ -594,6 +594,9 @@ class MainWindow(
         }
     }
 
+    private var updateCheckFailures = 0
+    private val updateCheckFailureThreshold = 3
+
     private val updateTimer =
         javax.swing.Timer(15 * 60 * 1000) { checkForUpdates() }.apply {
             isRepeats = true
@@ -605,6 +608,8 @@ class MainWindow(
             try {
                 updateLogger.info("Periodic update check")
                 val item = buildSparkle4j(0)?.checkNow()?.orElse(null)
+                updateCheckFailures = 0
+                SwingUtilities.invokeLater { statusBar.hideUpdateCheckWarning() }
                 if (item != null) {
                     updateLogger.info("Update available: {}", item.version())
                     SwingUtilities.invokeLater {
@@ -613,6 +618,11 @@ class MainWindow(
                 }
             } catch (e: Exception) {
                 logUpdateCheckFailure("Periodic update check", e)
+                updateCheckFailures++
+                if (updateCheckFailures >= updateCheckFailureThreshold) {
+                    updateLogger.warn("Update checks have failed {} consecutive times", updateCheckFailures)
+                    SwingUtilities.invokeLater { statusBar.showUpdateCheckWarning() }
+                }
             }
         }.also {
             it.isDaemon = true

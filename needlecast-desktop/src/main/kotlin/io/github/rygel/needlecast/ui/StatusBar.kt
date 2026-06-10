@@ -12,14 +12,27 @@ import javax.swing.JPanel
 import javax.swing.UIManager
 
 class StatusBar : JPanel(BorderLayout()) {
-    private val label = JLabel(" Ready")
+    private val label =
+        JLabel(" Ready").apply {
+            accessibleContext.accessibleName = "Status message"
+        }
     private val quotaLabel =
         JLabel().apply {
+            accessibleContext.accessibleName = "Claude usage quota"
             isVisible = false
             border = BorderFactory.createEmptyBorder(0, 8, 0, 8)
         }
     private val updateBadge =
         JLabel().apply {
+            accessibleContext.accessibleName = "Update available"
+            isVisible = false
+            cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+            border = BorderFactory.createEmptyBorder(0, 8, 0, 6)
+        }
+
+    private val warningBadge =
+        JLabel().apply {
+            accessibleContext.accessibleName = "Update check warning"
             isVisible = false
             cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
             border = BorderFactory.createEmptyBorder(0, 8, 0, 6)
@@ -29,7 +42,10 @@ class StatusBar : JPanel(BorderLayout()) {
         border = BorderFactory.createMatteBorder(1, 0, 0, 0, Color.GRAY)
         add(label, BorderLayout.WEST)
         add(quotaLabel, BorderLayout.CENTER)
-        add(updateBadge, BorderLayout.EAST)
+        val eastPanel = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 0, 0))
+        eastPanel.add(warningBadge)
+        eastPanel.add(updateBadge)
+        add(eastPanel, BorderLayout.EAST)
     }
 
     fun showUpdateAvailable(
@@ -51,6 +67,19 @@ class StatusBar : JPanel(BorderLayout()) {
 
     fun setStatus(msg: String) {
         label.text = " $msg"
+    }
+
+    fun showUpdateCheckWarning() {
+        warningBadge.icon = RemixIcons.icon("ri-error-warning-line", 12, Color(0xFF9800))
+        warningBadge.text = " Update checks failing  "
+        warningBadge.toolTipText = "Update checks are failing repeatedly. Check your network connection."
+        warningBadge.isVisible = true
+        revalidate()
+    }
+
+    fun hideUpdateCheckWarning() {
+        warningBadge.isVisible = false
+        revalidate()
     }
 
     fun setRunning(commandLabel: String) {

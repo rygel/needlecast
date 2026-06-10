@@ -34,6 +34,7 @@ class AiToolsSettingsPanel(
 
         val quotaToggle =
             JCheckBox("Show Claude quota in status bar", ctx.config.claudeQuotaEnabled).apply {
+                name = "quotaToggle"
                 toolTipText =
                     "Display 5-hour and 7-day usage percentages from your Claude subscription in the status bar. Requires Claude Code credentials."
                 addActionListener {
