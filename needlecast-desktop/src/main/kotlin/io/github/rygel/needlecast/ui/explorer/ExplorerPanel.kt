@@ -383,6 +383,17 @@ class ExplorerPanel(
         }
     }
 
+    private fun revealInFileManager(file: File) {
+        try {
+            when {
+                IS_WINDOWS -> ProcessBuilder("explorer.exe", "/select,${file.absolutePath}").start()
+                IS_MAC -> ProcessBuilder("open", "-R", file.absolutePath).start()
+                else -> openInFileManager(file.parentFile ?: return)
+            }
+        } catch (_: Exception) {
+        }
+    }
+
     private fun loadDirectory(dir: File) {
         object : SwingWorker<List<FileEntry>, Void>() {
             override fun doInBackground(): List<FileEntry> {
@@ -623,6 +634,18 @@ class ExplorerPanel(
                 menu.addSeparator()
                 menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameEntry(entry.file) } })
                 menu.add(JMenuItem("Delete").apply { addActionListener { deleteEntry(entry.file) } })
+                menu.add(
+                    JMenuItem(
+                        when {
+                            IS_MAC -> "Open in Finder"
+                            IS_WINDOWS -> "Open in Explorer"
+                            else -> "Open in File Manager"
+                        },
+                    ).apply {
+                        icon = RemixIcons.icon("ri-folder-open-line", 12)
+                        addActionListener { openInFileManager(entry.file) }
+                    },
+                )
                 menu.addSeparator()
                 menu.add(copyPathItem(entry.file))
             }
@@ -647,6 +670,17 @@ class ExplorerPanel(
                 menu.addSeparator()
                 menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameEntry(entry.file) } })
                 menu.add(JMenuItem("Delete").apply { addActionListener { deleteEntry(entry.file) } })
+                menu.add(
+                    JMenuItem(
+                        when {
+                            IS_MAC -> "Reveal in Finder"
+                            IS_WINDOWS -> "Reveal in Explorer"
+                            else -> "Open Containing Folder"
+                        },
+                    ).apply {
+                        addActionListener { revealInFileManager(entry.file) }
+                    },
+                )
                 menu.addSeparator()
                 menu.add(copyPathItem(entry.file))
             }
