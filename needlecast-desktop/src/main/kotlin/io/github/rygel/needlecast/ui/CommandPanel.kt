@@ -290,7 +290,7 @@ class CommandPanel(
     private fun runSelected() {
         val cmd = commandList.selectedValue ?: return
         if (!cmd.isSupported) return
-        executeCommand(cmd.label, cmd.argv, cmd.workingDirectory)
+        executeCommand(cmd.label, cmd.argv, cmd.workingDirectory, cmd.buildTool)
     }
 
     private fun rerunHistoryEntry() {
@@ -302,6 +302,7 @@ class CommandPanel(
         label: String,
         argv: List<String>,
         workingDir: String,
+        buildTool: BuildTool = BuildTool.MAVEN,
     ) {
         consolePanel.clear()
         consolePanel.appendLine("> ${argv.joinToString(" ")}")
@@ -338,7 +339,7 @@ class CommandPanel(
                 }
             }
 
-        val descriptor = CommandDescriptor(label, BuildTool.MAVEN, argv, workingDir, currentProjectEnv)
+        val descriptor = CommandDescriptor(label, buildTool, argv, workingDir, currentProjectEnv)
         val running = ctx.commandRunner.run(descriptor, listener)
         processResult = ProcessResult.Running(running)
     }
@@ -587,10 +588,23 @@ private object TrayNotifier {
 }
 
 private class CommandCellRenderer : ListCellRenderer<CommandDescriptor> {
-    private val label =
-        JLabel().apply {
+    private val panel =
+        JPanel(BorderLayout(4, 0)).apply {
             border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
+            isOpaque = true
         }
+    private val badgeLabel =
+        JLabel().apply {
+            font = font.deriveFont(Font.BOLD, 10f)
+            border = BorderFactory.createEmptyBorder(0, 4, 0, 4)
+            isOpaque = true
+        }
+    private val nameLabel = JLabel()
+
+    init {
+        panel.add(badgeLabel, BorderLayout.WEST)
+        panel.add(nameLabel, BorderLayout.CENTER)
+    }
 
     override fun getListCellRendererComponent(
         list: JList<out CommandDescriptor>,
@@ -599,22 +613,38 @@ private class CommandCellRenderer : ListCellRenderer<CommandDescriptor> {
         isSelected: Boolean,
         cellHasFocus: Boolean,
     ): Component {
-        label.text = (value?.label ?: "").toHtmlLabel()
-        label.toolTipText =
+        val tool = value?.buildTool
+        if (tool != null) {
+            badgeLabel.text = tool.tagLabel
+            val bgColor =
+                try {
+                    java.awt.Color.decode(tool.tagColor)
+                } catch (_: Exception) {
+                    java.awt.Color.GRAY
+                }
+            badgeLabel.background = bgColor
+            badgeLabel.foreground = java.awt.Color.WHITE
+            badgeLabel.isVisible = true
+        } else {
+            badgeLabel.isVisible = false
+        }
+        nameLabel.text = (value?.label ?: "").toHtmlLabel()
+        nameLabel.toolTipText =
             if (value?.isSupported == true) {
                 value.argv.joinToString(" ")
             } else {
                 "This run configuration type is not directly executable"
             }
-        label.foreground =
+        nameLabel.foreground =
             when {
                 isSelected -> list.selectionForeground
-                value?.isSupported == false -> Color.GRAY
+                value?.isSupported == false -> java.awt.Color.GRAY
                 else -> list.foreground
             }
-        label.background = if (isSelected) list.selectionBackground else list.background
-        label.isOpaque = true
-        return label
+        panel.background = if (isSelected) list.selectionBackground else list.background
+        nameLabel.background = panel.background
+        nameLabel.isOpaque = false
+        return panel
     }
 }
 
