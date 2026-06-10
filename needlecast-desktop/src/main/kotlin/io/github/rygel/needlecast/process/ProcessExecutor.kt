@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.process
 
+import org.slf4j.LoggerFactory
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -16,6 +17,8 @@ private val IS_WINDOWS: Boolean = System.getProperty("os.name").lowercase().cont
  * timeout-aware implementation.
  */
 object ProcessExecutor {
+    private val logger = LoggerFactory.getLogger(ProcessExecutor::class.java)
+
     data class Result(
         val output: String,
         val exitCode: Int,
@@ -56,7 +59,8 @@ object ProcessExecutor {
             }
             reader.join(1_000L) // brief wait for the reader to drain any remaining bytes
             Result(output.trimEnd(), proc.exitValue())
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Process execution failed", e)
             null
         }
     }
