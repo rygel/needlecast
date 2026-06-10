@@ -17,12 +17,7 @@ import java.awt.GraphicsEnvironment
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
-import java.net.ConnectException
-import java.net.SocketTimeoutException
 import java.net.URI
-import java.net.UnknownHostException
-import javax.net.ssl.SSLException
-import javax.net.ssl.SSLHandshakeException
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JFrame
@@ -694,10 +689,11 @@ class MainWindow(
                 }
             } catch (e: Exception) {
                 logUpdateCheckFailure("Manual update check", e)
+                val details = UpdateCheckErrors.details(e)
                 SwingUtilities.invokeLater {
                     JOptionPane.showMessageDialog(
                         this@MainWindow,
-                        "Could not check for updates: ${e.message}",
+                        details.userMessage,
                         "Check for Updates",
                         JOptionPane.ERROR_MESSAGE,
                     )
@@ -713,8 +709,9 @@ class MainWindow(
         context: String,
         error: Throwable,
     ) {
-        val root = rootCause(error)
-        val category = classifyUpdateError(root)
+        val details = UpdateCheckErrors.details(error)
+        val root = details.root
+        val category = details.category
         val appcastHost = runCatching { URI(APPCAST_URL).host }.getOrNull() ?: "unknown"
         updateLogger.warn(
             "{} failed: category={}, appcastHost={}, exceptionType={}, message={}, rootType={}, rootMessage={}",
@@ -722,9 +719,9 @@ class MainWindow(
             category,
             appcastHost,
             error::class.java.name,
-            sanitizeLogField(error.message),
+            UpdateCheckErrors.sanitizeLogField(error.message),
             root::class.java.name,
-            sanitizeLogField(root.message),
+            UpdateCheckErrors.sanitizeLogField(root.message),
         )
         if (category.startsWith("tls")) {
             updateLogger.warn(
@@ -733,51 +730,6 @@ class MainWindow(
             )
         }
         updateLogger.debug("{} stacktrace", context, error)
-    }
-
-    private fun rootCause(error: Throwable): Throwable {
-        var current = error
-        while (current.cause != null && current.cause !== current) {
-            current = current.cause!!
-        }
-        return current
-    }
-
-    private fun classifyUpdateError(error: Throwable): String =
-        when (error) {
-            is SSLHandshakeException -> {
-                "tls_handshake"
-            }
-
-            is SSLException -> {
-                "tls_ssl"
-            }
-
-            is UnknownHostException -> {
-                "dns_unresolved_host"
-            }
-
-            is SocketTimeoutException -> {
-                "network_timeout"
-            }
-
-            is ConnectException -> {
-                "network_connect_refused"
-            }
-
-            else -> {
-                val message = (error.message ?: "").lowercase()
-                when {
-                    message.contains("pkix") || message.contains("certification path") -> "tls_cert_path"
-                    message.contains("certificate") -> "tls_certificate"
-                    else -> "unknown"
-                }
-            }
-        }
-
-    private fun sanitizeLogField(value: String?): String {
-        if (value.isNullOrBlank()) return "-"
-        return value.replace(Regex("[\\r\\n\\t]+"), " ").trim()
     }
 
     companion object {
