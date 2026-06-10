@@ -163,17 +163,29 @@ class TerminalPanel(
 
     fun changeFontSize(delta: Int) {
         settingsProvider.changeFontSize(delta)
-        termWidget.repaint()
+        reinitFont()
         onFontSizeChanged?.invoke(settingsProvider.fontSize)
     }
 
     fun applyFontSize(size: Int) {
         settingsProvider.setFontSize(size)
-        termWidget.repaint()
+        reinitFont()
     }
 
     fun applyFontFamily(name: String?) {
         settingsProvider.setFontFamily(name)
+        reinitFont()
+    }
+
+    private fun reinitFont() {
+        try {
+            val method = embeddedTerminalPanel.javaClass.getDeclaredMethod("reinitFontAndResize")
+            method.isAccessible = true
+            method.invoke(embeddedTerminalPanel)
+        } catch (_: Exception) {
+            termWidget.repaint()
+        }
+        termWidget.revalidate()
         termWidget.repaint()
     }
 
