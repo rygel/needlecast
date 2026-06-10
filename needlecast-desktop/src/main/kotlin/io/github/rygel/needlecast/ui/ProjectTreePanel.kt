@@ -6,41 +6,26 @@ import io.github.rygel.needlecast.model.GitStatus
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.scanner.BuildFileWatcher
-import io.github.rygel.needlecast.scanner.IS_MAC
-import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
-import io.github.rygel.needlecast.ui.util.DesktopUtils
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.CardLayout
-import java.awt.Color
 import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
-import java.awt.Insets
 import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.Box
 import javax.swing.BoxLayout
-import javax.swing.DefaultListModel
 import javax.swing.DropMode
 import javax.swing.JButton
-import javax.swing.JCheckBoxMenuItem
-import javax.swing.JColorChooser
-import javax.swing.JFileChooser
 import javax.swing.JLabel
-import javax.swing.JList
-import javax.swing.JMenu
-import javax.swing.JMenuItem
-import javax.swing.JOptionPane
 import javax.swing.JPanel
-import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JTextField
 import javax.swing.JToggleButton
 import javax.swing.JTree
-import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
 import javax.swing.Timer
@@ -53,21 +38,22 @@ import javax.swing.tree.TreePath
 import javax.swing.tree.TreeSelectionModel
 
 class ProjectTreePanel(
-    private val ctx: AppContext,
-    private val onProjectSelected: (DetectedProject?) -> Unit,
-    private val onActivate: (DetectedProject) -> Unit = {},
-    private val onDeactivate: (DetectedProject) -> Unit = {},
+    override val ctx: AppContext,
+    override val onProjectSelected: (DetectedProject?) -> Unit,
+    override val onActivate: (DetectedProject) -> Unit = {},
+    override val onDeactivate: (DetectedProject) -> Unit = {},
     private val onExternalFilesDropped: (List<File>) -> Unit = {},
-) : JPanel(BorderLayout()) {
-    private val rootNode = DefaultMutableTreeNode("root")
-    private val treeModel = DefaultTreeModel(rootNode)
+) : JPanel(BorderLayout()),
+    ProjectTreePanelAccess {
+    override val rootNode = DefaultMutableTreeNode("root")
+    override val treeModel = DefaultTreeModel(rootNode)
 
-    private val scanResults = mutableMapOf<String, DetectedProject>()
+    override val scanResults = mutableMapOf<String, DetectedProject>()
     private val gitStatusCache = mutableMapOf<String, GitStatus>()
     private var activePaths: Set<String> = emptySet()
     private var activeOnly = false
     private var lastActiveOnly = false
-    private val missingPaths = mutableSetOf<String>()
+    override val missingPaths = mutableSetOf<String>()
     private var pendingSelectPath: String? = null
     private val agentStatuses = mutableMapOf<String, AgentStatus>()
     private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
@@ -120,7 +106,7 @@ class ProjectTreePanel(
 
     private var dndHandler: ProjectTreeDndHandler? = null
 
-    private val tree =
+    override val tree =
         object : JTree(treeModel) {
             override fun getScrollableTracksViewportWidth(): Boolean = true
 
@@ -250,6 +236,10 @@ class ProjectTreePanel(
             add(treeScroll, "tree")
             add(emptyPlaceholder, "empty")
         }
+
+    override val component: java.awt.Component get() = this
+    private val dialogs = ProjectTreeDialogs(this)
+    private val contextMenu = ProjectTreeContextMenu(this, dialogs)
 
     companion object {
         private val logger = LoggerFactory.getLogger(ProjectTreePanel::class.java)
@@ -506,7 +496,7 @@ class ProjectTreePanel(
         updateEmptyState()
     }
 
-    private fun updateEmptyState() {
+    override fun updateEmptyState() {
         val hasEntries = rootNode.childCount > 0
         (centerPanel.layout as CardLayout).show(centerPanel, if (hasEntries) "tree" else "empty")
     }
@@ -547,7 +537,7 @@ class ProjectTreePanel(
         }
     }
 
-    private fun updateMissingPath(path: String): Boolean {
+    override fun updateMissingPath(path: String): Boolean {
         val missing = !File(path).isDirectory
         if (missing) missingPaths += path else missingPaths.remove(path)
         return missing
@@ -560,7 +550,7 @@ class ProjectTreePanel(
 
     // ── Scanning ─────────────────────────────────────────────────────────────
 
-    private fun scanProject(dir: ProjectDirectory) {
+    override fun scanProject(dir: ProjectDirectory) {
         scanExecutor.execute {
             val result =
                 try {
@@ -645,6 +635,16 @@ class ProjectTreePanel(
     fun setActivePaths(paths: Set<String>) {
         activePaths = paths
         requestTreeRepaint()
+    }
+
+    override fun isActivePath(path: String): Boolean = path in activePaths
+
+    override fun addActivePath(path: String) {
+        activePaths = activePaths + path
+    }
+
+    override fun removeActivePath(path: String) {
+        activePaths = activePaths - path
     }
 
     fun updateProjectStatus(
@@ -747,7 +747,7 @@ class ProjectTreePanel(
         }
     }
 
-    private fun selectedProjectEntry(): ProjectTreeEntry.Project? {
+    override fun selectedProjectEntry(): ProjectTreeEntry.Project? {
         val node = selectedNode() ?: return null
         return when (val entry = node.userObject) {
             is ProjectTreeEntry.Project -> entry
@@ -773,7 +773,7 @@ class ProjectTreePanel(
         path: String,
     ): ProjectTreeEntry.Project? = findProjectNode(parent, path)?.userObject as? ProjectTreeEntry.Project
 
-    private fun treePath(node: DefaultMutableTreeNode) = TreePath(node.path)
+    override fun treePath(node: DefaultMutableTreeNode) = TreePath(node.path)
 
     // ── Persistence ──────────────────────────────────────────────────────────
 
@@ -798,7 +798,7 @@ class ProjectTreePanel(
         }
     }
 
-    private fun persist() {
+    override fun persist() {
         ctx.updateConfig(ctx.config.copy(projectTree = buildTree()))
     }
 
@@ -898,609 +898,71 @@ class ProjectTreePanel(
         }
     }
 
-    // ── Mutations ────────────────────────────────────────────────────────────
+    // ── Mutations (delegated) ──────────────────────────────────────────────────
 
-    private fun addFolder(parentNode: DefaultMutableTreeNode?) {
-        val name =
-            JOptionPane
-                .showInputDialog(this, "Folder name:", "New Folder", JOptionPane.PLAIN_MESSAGE)
-                ?.trim() ?: return
-        if (name.isBlank()) return
-        val node = DefaultMutableTreeNode(ProjectTreeEntry.Folder(name = name))
-        val parent = parentNode ?: rootNode
-        treeModel.insertNodeInto(node, parent, parent.childCount)
-        tree.expandPath(treePath(parent))
-        tree.selectionPath = treePath(node)
-        persist()
-        updateEmptyState()
-    }
+    private fun addFolder(parentNode: DefaultMutableTreeNode?) = dialogs.addFolder(parentNode)
 
-    private fun addProject(parentNode: DefaultMutableTreeNode?) {
-        val startDir =
-            selectedProjectEntry()?.directory?.path?.let { File(it).parentFile }
-                ?: File(System.getProperty("user.home"))
-        val chooser =
-            JFileChooser(startDir).apply {
-                dialogTitle = "Select Project Directory"
-                fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
-            }
-        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return
-        val dir = ProjectDirectory(path = chooser.selectedFile.absolutePath)
-        val entry = ProjectTreeEntry.Project(directory = dir)
-        val node = DefaultMutableTreeNode(entry)
-        val parent = parentNode ?: rootNode
-        treeModel.insertNodeInto(node, parent, parent.childCount)
-        tree.expandPath(treePath(parent))
-        tree.selectionPath = treePath(node)
-        persist()
-        updateEmptyState()
-        val missing = updateMissingPath(dir.path)
-        if (!missing) scanProject(dir)
-        tree.repaint()
-    }
+    private fun addProject(parentNode: DefaultMutableTreeNode?) = dialogs.addProject(parentNode)
 
     private fun renameFolder(
         node: DefaultMutableTreeNode,
         folder: ProjectTreeEntry.Folder,
-    ) {
-        val name =
-            JOptionPane
-                .showInputDialog(this, "Folder name:", "Rename", JOptionPane.PLAIN_MESSAGE, null, null, folder.name)
-                ?.toString()
-                ?.trim() ?: return
-        if (name.isBlank()) return
-        node.userObject = folder.copy(name = name)
-        treeModel.nodeChanged(node)
-        persist()
-    }
+    ) = dialogs.renameFolder(node, folder)
 
-    private fun removeNode(node: DefaultMutableTreeNode) {
-        val label =
-            when (val e = node.userObject) {
-                is ProjectTreeEntry.Folder -> "folder '${e.name}'"
-                is ProjectTreeEntry.Project -> "project '${e.directory.label()}'"
-                else -> "item"
-            }
-        if (JOptionPane.showConfirmDialog(
-                this,
-                "Remove $label from the project list?\n(The directory on disk is not affected.)",
-                "Remove",
-                JOptionPane.OK_CANCEL_OPTION,
-            ) != JOptionPane.OK_OPTION
-        ) {
-            return
-        }
-        (node.userObject as? ProjectTreeEntry.Project)?.let { missingPaths.remove(it.directory.path) }
-        treeModel.removeNodeFromParent(node)
-        onProjectSelected(null)
-        persist()
-    }
+    private fun removeNode(node: DefaultMutableTreeNode) = dialogs.removeNode(node)
 
     private fun deleteProjectFromDisk(
         node: DefaultMutableTreeNode,
         entry: ProjectTreeEntry.Project,
-    ) {
-        val dir = File(entry.directory.path)
-        val name = entry.directory.label()
-        object : SwingWorker<Long, Void>() {
-            override fun doInBackground(): Long = runCatching { dir.walkTopDown().count().toLong() }.getOrDefault(-1L)
-
-            override fun done() {
-                val fileCount =
-                    try {
-                        get()
-                    } catch (_: Exception) {
-                        -1
-                    }
-                val countLine = if (fileCount >= 0) "Contains: $fileCount files/directories\n\n" else ""
-                val confirm =
-                    JOptionPane.showConfirmDialog(
-                        this@ProjectTreePanel,
-                        "Permanently delete '$name' from disk?\n\n" +
-                            "Path: ${dir.absolutePath}\n" +
-                            countLine +
-                            "This cannot be undone.",
-                        "Delete from Disk",
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.WARNING_MESSAGE,
-                    )
-                if (confirm != JOptionPane.YES_OPTION) return
-
-                Thread {
-                    val deleted = dir.deleteRecursively()
-                    SwingUtilities.invokeLater {
-                        if (deleted) {
-                            treeModel.removeNodeFromParent(node)
-                            onProjectSelected(null)
-                            persist()
-                            updateEmptyState()
-                        } else {
-                            JOptionPane.showMessageDialog(
-                                this@ProjectTreePanel,
-                                "Could not delete '$name'. Some files may be locked or protected.",
-                                "Delete Failed",
-                                JOptionPane.ERROR_MESSAGE,
-                            )
-                        }
-                    }
-                }.start()
-            }
-        }.execute()
-    }
+    ) = dialogs.deleteProjectFromDisk(node, entry)
 
     private fun deleteFolderFromDisk(
         node: DefaultMutableTreeNode,
         entry: ProjectTreeEntry.Folder,
-    ) {
-        val projects = mutableListOf<String>()
-
-        fun collect(n: javax.swing.tree.TreeNode) {
-            val obj = (n as? DefaultMutableTreeNode)?.userObject
-            if (obj is ProjectTreeEntry.Project) projects.add(obj.directory.path)
-            for (i in 0 until n.childCount) collect(n.getChildAt(i))
-        }
-        collect(node)
-
-        if (projects.isEmpty()) {
-            removeNode(node)
-            return
-        }
-
-        val dirList = projects.joinToString("\n") { "  - $it" }
-        val confirm =
-            JOptionPane.showConfirmDialog(
-                this,
-                "Permanently delete folder '${entry.name}' and all its projects from disk?\n\n" +
-                    "Directories that will be deleted:\n$dirList\n\n" +
-                    "This cannot be undone.",
-                "Delete from Disk",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE,
-            )
-        if (confirm != JOptionPane.YES_OPTION) return
-
-        Thread {
-            val failures = projects.filter { !File(it).deleteRecursively() }
-            SwingUtilities.invokeLater {
-                if (failures.isEmpty()) {
-                    treeModel.removeNodeFromParent(node)
-                    onProjectSelected(null)
-                    persist()
-                    updateEmptyState()
-                } else {
-                    JOptionPane.showMessageDialog(
-                        this@ProjectTreePanel,
-                        "Could not delete some directories:\n${failures.joinToString("\n") { "  - $it" }}",
-                        "Delete Failed",
-                        JOptionPane.ERROR_MESSAGE,
-                    )
-                    treeModel.removeNodeFromParent(node)
-                    onProjectSelected(null)
-                    persist()
-                    updateEmptyState()
-                }
-            }
-        }.start()
-    }
+    ) = dialogs.deleteFolderFromDisk(node, entry)
 
     private fun editTags(
         node: DefaultMutableTreeNode,
         entry: ProjectTreeEntry.Project,
-    ) {
-        val current = entry.tags.joinToString(", ")
-        val input =
-            JOptionPane
-                .showInputDialog(this, "Tags (comma-separated):", "Edit Tags", JOptionPane.PLAIN_MESSAGE, null, null, current)
-                ?.toString()
-                ?.trim() ?: return
-        val tags = input.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        node.userObject = entry.copy(tags = tags)
-        treeModel.nodeChanged(node)
-        persist()
-        tree.repaint()
-    }
+    ) = dialogs.editTags(node, entry)
 
     private fun editShellSettings(
         node: DefaultMutableTreeNode,
         entry: ProjectTreeEntry.Project,
-    ) {
-        val owner = SwingUtilities.getWindowAncestor(this) ?: return
-        val dir = entry.directory
-        val shellField = JTextField(dir.shellExecutable ?: "", 30)
-        val startupField = JTextField(dir.startupCommand ?: "", 30)
-        val defaultShell =
-            when {
-                IS_WINDOWS -> "cmd.exe"
-                IS_MAC -> "/bin/zsh"
-                else -> "/bin/bash"
-            }
-        val form =
-            JPanel(GridBagLayout()).apply {
-                border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-                val gc =
-                    GridBagConstraints().apply {
-                        insets = Insets(4, 4, 4, 4)
-                        anchor = GridBagConstraints.WEST
-                    }
-                gc.gridx = 0
-                gc.gridy = 0
-                gc.weightx = 0.0
-                gc.fill = GridBagConstraints.NONE
-                add(JLabel("Shell:"), gc)
-                gc.gridx = 1
-                gc.weightx = 1.0
-                gc.fill = GridBagConstraints.HORIZONTAL
-                add(shellField, gc)
-                gc.gridx = 0
-                gc.gridy = 1
-                gc.weightx = 0.0
-                gc.fill = GridBagConstraints.NONE
-                add(JLabel("Startup:"), gc)
-                gc.gridx = 1
-                gc.weightx = 1.0
-                gc.fill = GridBagConstraints.HORIZONTAL
-                add(startupField, gc)
-                gc.gridx = 0
-                gc.gridy = 2
-                gc.gridwidth = 2
-                gc.fill = GridBagConstraints.HORIZONTAL
-                add(
-                    JLabel(
-                        "<html><small>Shell: e.g. <tt>zsh</tt>, <tt>pwsh</tt> \u2014 blank = <tt>$defaultShell</tt><br>" +
-                            "Startup: sent on open, e.g. <tt>conda activate ml</tt></small></html>",
-                    ),
-                    gc,
-                )
-            }
-        if (JOptionPane.showConfirmDialog(
-                owner,
-                form,
-                "Shell Settings \u2014 ${dir.label(ctx.config.privacyModeEnabled)}",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE,
-            ) != JOptionPane.OK_OPTION
-        ) {
-            return
-        }
-        node.userObject =
-            entry.copy(
-                directory =
-                    dir.copy(
-                        shellExecutable = shellField.text.trim().takeIf { it.isNotEmpty() },
-                        startupCommand = startupField.text.trim().takeIf { it.isNotEmpty() },
-                    ),
-            )
-        treeModel.nodeChanged(node)
-        persist()
-    }
+    ) = dialogs.editShellSettings(node, entry)
 
     private fun editEnv(
         node: DefaultMutableTreeNode,
         entry: ProjectTreeEntry.Project,
-    ) {
-        val owner = SwingUtilities.getWindowAncestor(this) ?: return
-        EnvEditorDialog(owner, entry.directory.label(ctx.config.privacyModeEnabled), entry.directory.env) { newEnv ->
-            node.userObject = entry.copy(directory = entry.directory.copy(env = newEnv))
-            treeModel.nodeChanged(node)
-            persist()
-        }.isVisible = true
-    }
+    ) = dialogs.editEnv(node, entry)
 
     private fun editScriptDirs(
         node: DefaultMutableTreeNode,
         entry: ProjectTreeEntry.Project,
-    ) {
-        val owner = SwingUtilities.getWindowAncestor(this) ?: return
-        val dir = entry.directory
-        val listModel = DefaultListModel<String>().apply { dir.extraScanDirs.forEach { addElement(it) } }
-        val list =
-            JList(listModel).apply {
-                selectionMode = ListSelectionModel.SINGLE_SELECTION
-                visibleRowCount = 6
-            }
-        val addBtn = JButton("Add\u2026")
-        val removeBtn = JButton("Remove").apply { isEnabled = false }
-
-        list.addListSelectionListener { removeBtn.isEnabled = list.selectedIndex >= 0 }
-
-        addBtn.addActionListener {
-            val chooser = JFileChooser(dir.path).apply { fileSelectionMode = JFileChooser.DIRECTORIES_ONLY }
-            if (chooser.showOpenDialog(owner) != JFileChooser.APPROVE_OPTION) return@addActionListener
-            val stored = makeRelativeIfPossible(chooser.selectedFile.canonicalPath, dir.path)
-            if ((0 until listModel.size).none { listModel.getElementAt(it) == stored }) listModel.addElement(stored)
-        }
-
-        removeBtn.addActionListener {
-            val i = list.selectedIndex
-            if (i >= 0) {
-                listModel.remove(i)
-                list.clearSelection()
-            }
-        }
-
-        val form =
-            JPanel(BorderLayout(4, 4)).apply {
-                border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-                add(
-                    JLabel("<html><small>\"scripts/\" and \"bin/\" in the project root are always scanned automatically.</small></html>"),
-                    BorderLayout.NORTH,
-                )
-                add(JScrollPane(list), BorderLayout.CENTER)
-                add(
-                    JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
-                        add(addBtn)
-                        add(removeBtn)
-                    },
-                    BorderLayout.SOUTH,
-                )
-            }
-
-        if (JOptionPane.showConfirmDialog(
-                owner,
-                form,
-                "Script Directories \u2014 ${dir.label(ctx.config.privacyModeEnabled)}",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE,
-            ) != JOptionPane.OK_OPTION
-        ) {
-            return
-        }
-
-        val newDirs = (0 until listModel.size).map { listModel.getElementAt(it) }
-        val updated = dir.copy(extraScanDirs = newDirs)
-        node.userObject = entry.copy(directory = updated)
-        treeModel.nodeChanged(node)
-        persist()
-        scanProject(updated)
-    }
-
-    private fun makeRelativeIfPossible(
-        absolute: String,
-        base: String,
-    ): String {
-        val rel =
-            File(base)
-                .toPath()
-                .relativize(File(absolute).toPath())
-                .toString()
-                .replace(File.separatorChar, '/')
-        return if (rel.startsWith("..")) absolute else rel
-    }
+    ) = dialogs.editScriptDirs(node, entry)
 
     private fun setProjectColor(
         node: DefaultMutableTreeNode,
         entry: ProjectTreeEntry.Project,
         hex: String?,
-    ) {
-        node.userObject = entry.copy(directory = entry.directory.copy(color = hex))
-        treeModel.nodeChanged(node)
-        persist()
-        tree.repaint()
-    }
+    ) = dialogs.setProjectColor(node, entry, hex)
 
     private fun setFolderColor(
         node: DefaultMutableTreeNode,
         folder: ProjectTreeEntry.Folder,
         hex: String?,
-    ) {
-        node.userObject = folder.copy(color = hex)
-        treeModel.nodeChanged(node)
-        persist()
-        tree.repaint()
-    }
+    ) = dialogs.setFolderColor(node, folder, hex)
 
-    // ── Context menus ────────────────────────────────────────────────────────
-
-    private fun collectTopTags(count: Int): List<String> {
-        val freq = mutableMapOf<String, Int>()
-
-        fun walk(node: DefaultMutableTreeNode) {
-            val entry = node.userObject
-            if (entry is ProjectTreeEntry.Project) {
-                entry.tags.forEach { tag -> freq[tag] = (freq[tag] ?: 0) + 1 }
-            }
-            for (i in 0 until node.childCount) walk(node.getChildAt(i) as DefaultMutableTreeNode)
-        }
-        walk(rootNode)
-        return freq.entries
-            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
-            .take(count)
-            .map { it.key }
-    }
-
-    private fun openInFileManager(path: String) {
-        DesktopUtils.openInFileManager(File(path))
-    }
-
-    private fun buildColorMenu(
-        title: String,
-        currentHex: String?,
-        presets: List<Pair<String, String>>,
-        onSet: (String?) -> Unit,
-    ): JMenu =
-        JMenu(title).apply {
-            presets.forEach { (label, hex) ->
-                add(
-                    JMenuItem(label, colorSwatchIcon(hex)).apply {
-                        addActionListener { onSet(hex) }
-                    },
-                )
-            }
-            addSeparator()
-            add(
-                JMenuItem("Custom\u2026").apply {
-                    addActionListener {
-                        val init =
-                            currentHex?.let {
-                                try {
-                                    Color.decode(it)
-                                } catch (_: Exception) {
-                                    null
-                                }
-                            }
-                        val c = JColorChooser.showDialog(this@ProjectTreePanel, title, init) ?: return@addActionListener
-                        onSet("#%02X%02X%02X".format(c.red, c.green, c.blue))
-                    }
-                },
-            )
-            if (currentHex != null) {
-                add(JMenuItem("Clear").apply { addActionListener { onSet(null) } })
-            }
-        }
+    // ── Context menus (delegated) ─────────────────────────────────────────────
 
     private fun showContextMenu(
         node: DefaultMutableTreeNode,
         x: Int,
         y: Int,
-    ) {
-        val menu = JPopupMenu()
-        when (val entry = node.userObject) {
-            is ProjectTreeEntry.Folder -> {
-                menu.add(JMenuItem("New Subfolder\u2026").apply { addActionListener { addFolder(node) } })
-                menu.add(JMenuItem("Add Project\u2026").apply { addActionListener { addProject(node) } })
-                menu.addSeparator()
-                menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameFolder(node, entry) } })
-                val folderColorPresets =
-                    listOf(
-                        "Red" to "#E53935",
-                        "Orange" to "#F57C00",
-                        "Blue" to "#1565C0",
-                        "Green" to "#2E7D32",
-                        "Purple" to "#6A1B9A",
-                        "Teal" to "#00695C",
-                    )
-                menu.add(
-                    buildColorMenu("Color", entry.color, folderColorPresets) { hex ->
-                        setFolderColor(node, node.userObject as ProjectTreeEntry.Folder, hex)
-                    },
-                )
-                menu.addSeparator()
-                menu.add(JMenuItem("Remove").apply { addActionListener { removeNode(node) } })
-                menu.add(
-                    JMenu("Advanced").apply {
-                        add(
-                            JMenuItem("Delete from disk\u2026").apply {
-                                foreground = Color(0xE53935)
-                                addActionListener { deleteFolderFromDisk(node, entry) }
-                            },
-                        )
-                    },
-                )
-            }
-
-            is ProjectTreeEntry.Project -> {
-                val detected = scanResults[entry.directory.path]
-                val isActive = entry.directory.path in activePaths
-                if (detected != null && !isActive) {
-                    menu.add(
-                        JMenuItem("Activate Terminal", RemixIcons.icon("ri-play-circle-line", 12)).apply {
-                            addActionListener {
-                                onActivate(detected)
-                                activePaths = activePaths + entry.directory.path
-                                tree.repaint()
-                            }
-                        },
-                    )
-                }
-                if (isActive) {
-                    menu.add(
-                        JMenuItem("Deactivate Terminal", RemixIcons.icon("ri-stop-line", 12)).apply {
-                            addActionListener {
-                                if (detected != null) onDeactivate(detected)
-                                activePaths = activePaths - entry.directory.path
-                                tree.repaint()
-                            }
-                        },
-                    )
-                }
-                if (menu.componentCount > 0) menu.addSeparator()
-                val dir = File(entry.directory.path)
-                if (dir.exists()) {
-                    val label = DesktopUtils.openInFileManagerLabel
-                    menu.add(
-                        JMenuItem(label).apply {
-                            addActionListener { openInFileManager(entry.directory.path) }
-                        },
-                    )
-                    menu.addSeparator()
-                }
-                val topTags = collectTopTags(10)
-                menu.add(
-                    JMenu("Tags").apply {
-                        topTags.forEach { tag ->
-                            add(
-                                JCheckBoxMenuItem(tag, tag in entry.tags).apply {
-                                    addActionListener {
-                                        val cur = node.userObject as? ProjectTreeEntry.Project ?: return@addActionListener
-                                        val newTags = if (isSelected) cur.tags + tag else cur.tags.filter { it != tag }
-                                        node.userObject = cur.copy(tags = newTags)
-                                        treeModel.nodeChanged(node)
-                                        persist()
-                                        tree.repaint()
-                                    }
-                                },
-                            )
-                        }
-                        if (topTags.isNotEmpty()) addSeparator()
-                        add(JMenuItem("Edit\u2026").apply { addActionListener { editTags(node, entry) } })
-                    },
-                )
-                menu.add(
-                    JCheckBoxMenuItem("Private", entry.directory.isPrivate).apply {
-                        toolTipText = "Hide project name and path when Privacy Mode is on"
-                        addActionListener {
-                            val cur = node.userObject as? ProjectTreeEntry.Project ?: return@addActionListener
-                            node.userObject = cur.copy(directory = cur.directory.copy(isPrivate = isSelected))
-                            treeModel.nodeChanged(node)
-                            persist()
-                            tree.repaint()
-                        }
-                    },
-                )
-                menu.add(JMenuItem("Shell Settings\u2026").apply { addActionListener { editShellSettings(node, entry) } })
-                menu.add(JMenuItem("Environment\u2026").apply { addActionListener { editEnv(node, entry) } })
-                menu.add(JMenuItem("Script Directories\u2026").apply { addActionListener { editScriptDirs(node, entry) } })
-                menu.addSeparator()
-                val colorPresets =
-                    listOf(
-                        "Red" to "#E53935",
-                        "Orange" to "#F57C00",
-                        "Blue" to "#1565C0",
-                        "Green" to "#2E7D32",
-                        "Purple" to "#6A1B9A",
-                        "Teal" to "#00695C",
-                    )
-                menu.add(
-                    buildColorMenu("Color", entry.directory.color, colorPresets) { hex ->
-                        setProjectColor(node, node.userObject as ProjectTreeEntry.Project, hex)
-                    },
-                )
-                menu.addSeparator()
-                menu.add(JMenuItem("Remove").apply { addActionListener { removeNode(node) } })
-                if (dir.exists()) {
-                    menu.add(
-                        JMenu("Advanced").apply {
-                            add(
-                                JMenuItem("Delete from disk\u2026").apply {
-                                    foreground = Color(0xE53935)
-                                    addActionListener { deleteProjectFromDisk(node, entry) }
-                                },
-                            )
-                        },
-                    )
-                }
-            }
-        }
-        if (menu.componentCount > 0) menu.show(tree, x, y)
-    }
+    ) = contextMenu.showContextMenu(node, x, y)
 
     private fun showRootContextMenu(
         x: Int,
         y: Int,
-    ) {
-        val menu = JPopupMenu()
-        menu.add(JMenuItem("New Folder\u2026").apply { addActionListener { addFolder(null) } })
-        menu.add(JMenuItem("Add Project\u2026").apply { addActionListener { addProject(null) } })
-        menu.show(tree, x, y)
-    }
+    ) = contextMenu.showRootContextMenu(x, y)
 }
