@@ -81,6 +81,25 @@ class ShortcutsSettingsPanel(
             )
         }
 
+        val warningLabel =
+            JLabel("").apply {
+                foreground = java.awt.Color(0xCC8800)
+                border = BorderFactory.createEmptyBorder(2, 8, 2, 8)
+            }
+
+        fun checkConflicts() {
+            val byKey = fields.entries.groupBy { it.value.text.trim() }
+            val conflicts =
+                byKey.entries
+                    .filter { it.key.isNotEmpty() && it.value.size > 1 }
+                    .map { e ->
+                        val actions = e.value.joinToString(" and ") { actionLabels[it.key] ?: it.key }
+                        "${e.key} → $actions"
+                    }
+            warningLabel.text =
+                if (conflicts.isNotEmpty()) "<html>⚠ Conflict: ${conflicts.joinToString("; ")}</html>" else ""
+        }
+
         val saveButton =
             JButton("Save Shortcuts").apply {
                 addActionListener {
@@ -93,6 +112,7 @@ class ShortcutsSettingsPanel(
                             .mapValues { it.value!! }
                     ctx.updateConfig(ctx.config.copy(shortcuts = updated))
                     callbacks.onShortcutsChanged()
+                    checkConflicts()
                     JOptionPane.showMessageDialog(
                         this@ShortcutsSettingsPanel,
                         ctx.i18n.translate("settings.saved"),
@@ -109,27 +129,30 @@ class ShortcutsSettingsPanel(
             BorderLayout.NORTH,
         )
         add(JScrollPane(grid).apply { border = BorderFactory.createEmptyBorder() }, BorderLayout.CENTER)
-        add(JPanel(FlowLayout(FlowLayout.RIGHT)).apply { add(saveButton) }, BorderLayout.SOUTH)
+        add(
+            JPanel(BorderLayout()).apply {
+                add(warningLabel, BorderLayout.NORTH)
+                add(
+                    JPanel(FlowLayout(FlowLayout.RIGHT)).apply {
+                        add(
+                            JButton("Reset All").apply {
+                                addActionListener {
+                                    fields.forEach { (id, f) -> f.text = defaultShortcuts[id] }
+                                    warningLabel.text = ""
+                                }
+                            },
+                        )
+                        add(saveButton)
+                    },
+                    BorderLayout.SOUTH,
+                )
+            },
+            BorderLayout.SOUTH,
+        )
     }
 
     companion object {
-        val defaultShortcuts: LinkedHashMap<String, String> =
-            linkedMapOf(
-                "rescan" to "F5",
-                "activate-terminal" to "ctrl T",
-                "focus-projects" to "ctrl 1",
-                "focus-explorer" to "ctrl 2",
-                "focus-terminal" to "ctrl 3",
-                "project-switcher" to "ctrl P",
-            )
-        val actionLabels: Map<String, String> =
-            mapOf(
-                "rescan" to "Rescan projects (F5)",
-                "activate-terminal" to "Activate terminal",
-                "focus-projects" to "Focus project list",
-                "focus-explorer" to "Focus file explorer",
-                "focus-terminal" to "Focus terminal",
-                "project-switcher" to "Global project switcher",
-            )
+        val defaultShortcuts: LinkedHashMap<String, String> = ShortcutIds.defaults
+        val actionLabels: Map<String, String> = ShortcutIds.labels
     }
 }
