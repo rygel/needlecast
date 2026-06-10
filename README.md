@@ -6,6 +6,10 @@
 
 <p align="center">
   A modern approach for an agentic coding environment<br><br>
+</p>
+<p align="center">
+  "Needlecast sits in the awkward spot between a CLI and full-fledged IDE." <br><br> 
+</p>
   Use any vibe coding CLI and get tooling around it to quickly edit files or interact with media files. When even VS Code is too heavy. Offers a customizable project tree for all 100+ projects you created this week alone XD 
 </p>
 
