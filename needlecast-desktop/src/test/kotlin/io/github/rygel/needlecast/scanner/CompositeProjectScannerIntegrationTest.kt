@@ -101,4 +101,23 @@ class CompositeProjectScannerIntegrationTest {
         assertTrue(BuildTool.MAVEN in result.buildTools) { "Maven tools should survive bomb scanner: ${result.buildTools}" }
         assertFalse(result.scanFailed)
     }
+
+    @Test
+    fun `merges build tools for project with three build systems`(
+        @TempDir dir: Path,
+    ) {
+        File(dir.toFile(), "pom.xml").writeText("<project/>")
+        File(dir.toFile(), "package.json").writeText("""{"scripts":{"build":"webpack"}}""")
+        File(dir.toFile(), "build.gradle").writeText("")
+
+        val result = scanner.scan(ProjectDirectory(dir.toString()))
+
+        assertEquals(3, result.buildTools.size)
+        assertTrue(BuildTool.MAVEN in result.buildTools)
+        assertTrue(BuildTool.NPM in result.buildTools)
+        assertTrue(BuildTool.GRADLE in result.buildTools)
+        assertTrue(result.commands.any { it.buildTool == BuildTool.MAVEN })
+        assertTrue(result.commands.any { it.buildTool == BuildTool.NPM })
+        assertTrue(result.commands.any { it.buildTool == BuildTool.GRADLE })
+    }
 }
