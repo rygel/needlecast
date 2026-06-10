@@ -413,6 +413,7 @@ private class ProjectTerminalPane(
     private val tabs = JTabbedPane()
     private var tabCounter = 0
     private var addingTab = false
+    private var removingTab = false
     private val realTabCount: Int get() = tabs.tabCount - 1 // last tab is the "+" button
 
     /** Aggregated status across all tabs: THINKING if any tab is THINKING, else WAITING if any is WAITING, else NONE. */
@@ -473,7 +474,7 @@ private class ProjectTerminalPane(
             }
         add(topBar, BorderLayout.NORTH)
         add(tabs, BorderLayout.CENTER)
-        tabs.addChangeListener { if (!addingTab && tabs.selectedIndex == realTabCount) addTerminalTab() }
+        tabs.addChangeListener { if (!addingTab && !removingTab && tabs.selectedIndex == realTabCount) addTerminalTab() }
         addTerminalTab()
     }
 
@@ -524,7 +525,9 @@ private class ProjectTerminalPane(
     private fun closeTab(terminal: TerminalPanel) {
         val idx = tabs.indexOfComponent(terminal)
         if (idx < 0 || realTabCount <= 1) return
+        removingTab = true
         tabs.removeTabAt(idx)
+        removingTab = false
         tabStatuses.remove(terminal)
         recomputeStatus()
         terminal.dispose()
