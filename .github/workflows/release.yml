@@ -112,7 +112,7 @@ jobs:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
         run: |
           VERSION="${RELEASE_TAG#v}"
-          gh release upload "$RELEASE_TAG" \
+          gh release upload "$RELEASE_TAG" --clobber \
             "needlecast-desktop/target/needlecast-${VERSION}.jar" \
             "needlecast-desktop/target/needlecast-${VERSION}.jar.sha256"
 
