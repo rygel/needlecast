@@ -15,9 +15,10 @@ class ClaudeHookServerTest {
 
     @BeforeEach
     fun setUp() {
-        server = ClaudeHookServer(port = findFreePort()) { cwd, status ->
-            events.add(cwd to status)
-        }
+        server =
+            ClaudeHookServer(port = findFreePort()) { cwd, status ->
+                events.add(cwd to status)
+            }
     }
 
     @AfterEach
@@ -29,10 +30,11 @@ class ClaudeHookServerTest {
     fun `start endpoint fires THINKING status`() {
         val latch = CountDownLatch(1)
         val port = findFreePort()
-        val srv = ClaudeHookServer(port = port) { cwd, status ->
-            events.add(cwd to status)
-            latch.countDown()
-        }
+        val srv =
+            ClaudeHookServer(port = port) { cwd, status ->
+                events.add(cwd to status)
+                latch.countDown()
+            }
         srv.start()
         try {
             postJson("http://localhost:$port/hook/claude/start", """{"cwd":"/home/user/project"}""")
@@ -48,10 +50,11 @@ class ClaudeHookServerTest {
     fun `stop endpoint fires WAITING status`() {
         val latch = CountDownLatch(1)
         val port = findFreePort()
-        val srv = ClaudeHookServer(port = port) { cwd, status ->
-            events.add(cwd to status)
-            latch.countDown()
-        }
+        val srv =
+            ClaudeHookServer(port = port) { cwd, status ->
+                events.add(cwd to status)
+                latch.countDown()
+            }
         srv.start()
         try {
             postJson("http://localhost:$port/hook/claude/stop", """{"cwd":"/tmp/test"}""")
@@ -67,10 +70,11 @@ class ClaudeHookServerTest {
     fun `idle endpoint fires WAITING status`() {
         val latch = CountDownLatch(1)
         val port = findFreePort()
-        val srv = ClaudeHookServer(port = port) { cwd, status ->
-            events.add(cwd to status)
-            latch.countDown()
-        }
+        val srv =
+            ClaudeHookServer(port = port) { cwd, status ->
+                events.add(cwd to status)
+                latch.countDown()
+            }
         srv.start()
         try {
             postJson("http://localhost:$port/hook/claude/idle", """{"cwd":"/work/app"}""")
@@ -144,7 +148,10 @@ class ClaudeHookServerTest {
         return port
     }
 
-    private fun postJson(url: String, body: String): Int {
+    private fun postJson(
+        url: String,
+        body: String,
+    ): Int {
         val conn = URI(url).toURL().openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
         conn.doOutput = true

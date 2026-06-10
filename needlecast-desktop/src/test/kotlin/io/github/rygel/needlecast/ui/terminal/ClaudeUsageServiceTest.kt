@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class ClaudeUsageServiceTest {
-
     private val service = ClaudeUsageService { }
 
     @Test
