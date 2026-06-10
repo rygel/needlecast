@@ -252,6 +252,25 @@ class DockingController(
         ctx.updateConfig(ctx.config.copy(showExplorer = show))
     }
 
+    fun toggleProjectTree() {
+        if (Docking.isDocked(registry.projectTreeDockable)) {
+            Docking.undock(registry.projectTreeDockable)
+        } else {
+            val anchor =
+                when {
+                    Docking.isDocked(registry.terminalDockable) -> registry.terminalDockable
+                    frame != null -> null
+                    else -> return
+                }
+            if (anchor != null) {
+                Docking.dock(registry.projectTreeDockable, anchor, DockingRegion.WEST, 0.15)
+            } else {
+                val f = frame ?: return
+                Docking.dock(registry.projectTreeDockable, f, DockingRegion.WEST)
+            }
+        }
+    }
+
     fun toggleCommands(show: Boolean) {
         if (show && !Docking.isDocked(registry.commandsDockable)) {
             dockTo(registry.commandsDockable, registry.terminalDockable, DockingRegion.EAST, 0.28)
