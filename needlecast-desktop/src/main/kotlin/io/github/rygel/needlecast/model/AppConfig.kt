@@ -105,6 +105,7 @@ data class AppConfig(
     val diffLegendDismissed: Boolean = false,
     val tourCompleted: Boolean = false,
     val terminalEncoding: String = "UTF-8",
+    val activeProjectPaths: List<String> = emptyList(),
 )
 
 data class AiCliDefinition(
