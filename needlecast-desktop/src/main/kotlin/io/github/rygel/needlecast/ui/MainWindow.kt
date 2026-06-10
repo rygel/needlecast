@@ -161,6 +161,7 @@ class MainWindow(
         registerKeyboardShortcuts()
         centerOnScreen()
         detectCwdProject()
+        restoreActiveProjects()
         maybeStartTour()
 
         UIManager.addPropertyChangeListener { evt ->
@@ -186,6 +187,7 @@ class MainWindow(
                             ctx.config.copy(
                                 windowWidth = width,
                                 windowHeight = height,
+                                activeProjectPaths = terminalPanel.activePaths().toList(),
                             ),
                         )
                         AppState.setAutoPersist(false)
@@ -503,6 +505,24 @@ class MainWindow(
         contentPane.add(banner, BorderLayout.NORTH)
         revalidate()
         repaint()
+    }
+
+    private fun restoreActiveProjects() {
+        val paths = ctx.config.activeProjectPaths
+        if (paths.isEmpty()) return
+        val dirMap =
+            ctx.config.projectTree
+                .filterIsInstance<ProjectTreeEntry.Project>()
+                .associate { it.directory.path to it.directory }
+        for (path in paths) {
+            val dir = dirMap[path] ?: continue
+            if (!File(path).isDirectory) continue
+            val shell = dir.shellExecutable?.takeIf { it.isNotBlank() } ?: ctx.config.defaultShell
+            terminalPanel.activateProject(path, dir.env, shell, dir.startupCommand)
+        }
+        if (terminalPanel.activePaths().isNotEmpty()) {
+            projectTreePanel.setActivePaths(terminalPanel.activePaths())
+        }
     }
 
     // ── Diagnostics ──────────────────────────────────────────────────────────
