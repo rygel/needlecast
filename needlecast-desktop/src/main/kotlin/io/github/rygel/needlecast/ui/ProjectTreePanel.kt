@@ -824,7 +824,11 @@ class ProjectTreePanel(
             filtered.forEach { addEntryNode(rootNode, it, scan = false) }
         }
         treeModel.reload()
-        if (filter.isEmpty() && !activeOnly) expandAll()
+        if (filter.isEmpty() && !activeOnly) {
+            expandAll()
+        } else {
+            expandAll()
+        }
     }
 
     fun invalidateFilterCache() {
