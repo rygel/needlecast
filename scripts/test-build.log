@@ -1,0 +1,54 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< io.github.rygel:needlecast-desktop >-----------------
+[INFO] Building Needlecast Desktop 0.8.3-beta.1
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ needlecast-desktop ---
+[INFO] Copying 12 resources from src\main\resources to target\classes
+[INFO] Copying 72 resources from src\main\resources to target\classes
+[INFO] The encoding used to copy filtered properties files have not been set. This means that the same encoding will be used to copy filtered properties files as when copying other filtered resources. This might not be what you want! Run your build with --debug to see which files might be affected. Read more at https://maven.apache.org/plugins/maven-resources-plugin/examples/filtering-properties-files.html
+[INFO] 
+[INFO] --- kotlin:2.2.0:compile (compile) @ needlecast-desktop ---
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/main/kotlin/io/github/rygel/needlecast/model/AppConfig.kt:133:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to field.
+- To opt in to applying to both value parameter and field, add '-Xannotation-default-target=param-property' to your compiler arguments.
+- To keep applying to the value parameter only, use the '@param:' annotation target.
+
+See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/main/kotlin/io/github/rygel/needlecast/ui/RenovatePanel.kt:537:35 'fun fields(): (Mutable)Iterator<(Mutable)Map.(Mutable)Entry<String!, JsonNode!>!>!' is deprecated. Deprecated in Java.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/main/kotlin/io/github/rygel/needlecast/ui/diff/DiffEditorPane.kt:137:13 'fun modelToView(p0: Int): Rectangle!' is deprecated. Deprecated in Java.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/main/kotlin/io/github/rygel/needlecast/ui/diff/DiffFileTree.kt:20:17 This property hides Java field 'field treeModel: TreeModel!' thus making it inaccessible.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/main/kotlin/io/github/rygel/needlecast/ui/diff/DiffLineNumberGutter.kt:74:34 'fun modelToView(p0: Int): Rectangle!' is deprecated. Deprecated in Java.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/main/kotlin/io/github/rygel/needlecast/ui/diff/DiffSearchBar.kt:170:53 'fun modelToView(p0: Int): Rectangle!' is deprecated. Deprecated in Java.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ needlecast-desktop ---
+[INFO] skip non existing resourceDirectory C:\Develop\Claude\projects\needlecast\needlecast-desktop\src\test\resources
+[INFO] 
+[INFO] --- kotlin:2.2.0:test-compile (test-compile) @ needlecast-desktop ---
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/test/kotlin/io/github/rygel/needlecast/process/ProcessCommandRunnerTest.kt:50:37 The corresponding parameter in the supertype 'ProcessOutputListener' is named 'exitCode'. This may cause problems when calling this function with named arguments.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/test/kotlin/io/github/rygel/needlecast/scanner/DotNetProjectScannerTest.kt:99:20 'fun createTempDir(prefix: String = ..., suffix: String? = ..., directory: File? = ...): File' is deprecated. Avoid creating temporary directories in the default temp location with this function due to too wide permissions on the newly created directory. Use kotlin.io.path.createTempDirectory instead.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/test/kotlin/io/github/rygel/needlecast/ui/ThemeConsistencyUiTest.kt:122:53 This extension is shadowed by a member: 'fun toAwtColor(): @NotNull() Color' defined in 'com/jediterm/terminal/TerminalColor'.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/test/kotlin/io/github/rygel/needlecast/ui/terminal/RealPtyResizeUiTest.kt:87:24 Condition is always 'true'.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/test/kotlin/io/github/rygel/needlecast/ui/terminal/RealPtyResizeUiTest.kt:95:24 Condition is always 'true'.
+[WARNING] file:///C:/Develop/Claude/projects/needlecast/needlecast-desktop/src/test/kotlin/io/github/rygel/needlecast/ui/terminal/RealPtyResizeUiTest.kt:218:17 Condition is always 'true'.
+[INFO] 
+[INFO] --- surefire:3.5.5:test (default-test) @ needlecast-desktop ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running io.github.rygel.needlecast.AppContextTest
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.702 s -- in io.github.rygel.needlecast.AppContextTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:18 min
+[INFO] Finished at: 2026-06-10T21:48:14+03:00
+[INFO] ------------------------------------------------------------------------

@@ -1,33 +1,23 @@
 package io.github.rygel.needlecast.ui.explorer
 
 import io.github.rygel.needlecast.AppContext
-import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.model.ProjectTreeEntry
-import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.util.DesktopUtils
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.FlowLayout
-import java.awt.Font
-import java.awt.GridBagLayout
-import java.awt.Toolkit
-import java.awt.datatransfer.DataFlavor
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
-import java.net.URI
-import java.text.SimpleDateFormat
-import java.util.Date
 import javax.swing.BorderFactory
 import javax.swing.DropMode
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JMenuItem
-import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
@@ -38,15 +28,24 @@ import javax.swing.ListSelectionModel
 import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
-import javax.swing.TransferHandler
-import javax.swing.TransferHandler.TransferSupport
-import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 
 class ExplorerPanel(
     private val ctx: AppContext,
 ) : JPanel(BorderLayout()) {
     private var currentDir: File = File(System.getProperty("user.home"))
+    private val fileOps =
+        ExplorerFileOps(
+            ctx,
+            ExplorerCallbacks(
+                navigateTo = { f -> navigateTo(f) },
+                navigateUp = { navigateUp() },
+                openFileInTab = { f -> openFileInTab(f) },
+                reloadDirectory = { loadDirectory(currentDir) },
+                currentDir = { currentDir },
+            ),
+            this,
+        )
     private var showHidden = false
     private var fullEntries: List<FileEntry> = emptyList()
     private val addressField = JTextField()
@@ -62,7 +61,7 @@ class ExplorerPanel(
             selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
             autoResizeMode = JTable.AUTO_RESIZE_ALL_COLUMNS
             fillsViewportHeight = true
-            setDefaultRenderer(Any::class.java, FileTableCellRenderer())
+            setDefaultRenderer(Any::class.java, FileTableCellRenderer(tableModel))
             tableHeader.reorderingAllowed = false
         }
 
@@ -72,7 +71,6 @@ class ExplorerPanel(
     private val openFiles = LinkedHashMap<String, javax.swing.JComponent>()
 
     private var isDark: Boolean = ctx.config.theme == "dark"
-    private val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm")
 
     /** Sort state for each project root — keyed by absolute path. Session-only. */
     private val sortStateByPath = mutableMapOf<String, ExplorerSortState>()
@@ -179,7 +177,7 @@ class ExplorerPanel(
                     val entry = tableModel.entryAt(row)
                     if (SwingUtilities.isRightMouseButton(e)) {
                         table.selectionModel.setSelectionInterval(row, row)
-                        showContextMenu(entry, e.x, e.y)
+                        fileOps.showContextMenu(entry, e.x, e.y, table)
                         return
                     }
                     if (e.clickCount == 1 && entry is FileEntry.RegularFile) {
@@ -213,7 +211,13 @@ class ExplorerPanel(
         navigateTo(currentDir)
 
         // Drag-and-drop from OS into explorer/editor areas.
-        val dropHandler = ExplorerDropHandler()
+        val dropHandler =
+            ExplorerDropHandler(
+                openFileInTab = { f -> openFileInTab(f) },
+                setRootDirectory = { f -> setRootDirectory(f) },
+                table = table,
+                tabs = tabs,
+            )
         table.dropMode = DropMode.ON
         table.transferHandler = dropHandler
         tabs.transferHandler = dropHandler
@@ -590,404 +594,6 @@ class ExplorerPanel(
         if (row < 0) return null
         return tableModel.entryAt(row)
     }
-
-    private fun showContextMenu(
-        entry: FileEntry,
-        x: Int,
-        y: Int,
-    ) {
-        val menu = JPopupMenu()
-        when (entry) {
-            is FileEntry.ParentDir -> {
-                menu.add(JMenuItem("Go up").apply { addActionListener { navigateUp() } })
-            }
-
-            is FileEntry.Dir -> {
-                menu.add(JMenuItem("Open").apply { addActionListener { navigateTo(entry.file) } })
-                menu.addSeparator()
-                menu.add(JMenuItem("New File\u2026").apply { addActionListener { createFile(entry.file) } })
-                menu.add(JMenuItem("New Folder\u2026").apply { addActionListener { createFolder(entry.file) } })
-                menu.addSeparator()
-                menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameEntry(entry.file) } })
-                menu.add(JMenuItem("Delete").apply { addActionListener { deleteEntry(entry.file) } })
-                menu.add(
-                    JMenuItem(
-                        DesktopUtils.openInFileManagerLabel,
-                    ).apply {
-                        icon = RemixIcons.icon("ri-folder-open-line", 12)
-                        addActionListener { openInFileManager(entry.file) }
-                    },
-                )
-                menu.addSeparator()
-                menu.add(copyPathItem(entry.file))
-            }
-
-            is FileEntry.RegularFile -> {
-                menu.add(
-                    JMenuItem("Open in Editor").apply {
-                        addActionListener { openFileInTab(entry.file) }
-                    },
-                )
-                val editors = ctx.config.externalEditors
-                if (editors.isNotEmpty()) {
-                    menu.addSeparator()
-                    editors.forEach { editor ->
-                        menu.add(
-                            JMenuItem("Open with ${editor.name}").apply {
-                                addActionListener { openWith(entry.file, editor) }
-                            },
-                        )
-                    }
-                }
-                menu.addSeparator()
-                menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameEntry(entry.file) } })
-                menu.add(JMenuItem("Delete").apply { addActionListener { deleteEntry(entry.file) } })
-                menu.add(
-                    JMenuItem(
-                        DesktopUtils.revealInFileManagerLabel,
-                    ).apply {
-                        addActionListener { revealInFileManager(entry.file) }
-                    },
-                )
-                menu.addSeparator()
-                menu.add(copyPathItem(entry.file))
-            }
-        }
-        // New File / New Folder always available for current directory
-        if (entry is FileEntry.ParentDir) {
-            menu.addSeparator()
-            menu.add(JMenuItem("New File\u2026").apply { addActionListener { createFile(currentDir) } })
-            menu.add(JMenuItem("New Folder\u2026").apply { addActionListener { createFolder(currentDir) } })
-        }
-        menu.show(table, x, y)
-    }
-
-    private fun createFile(inDir: File) {
-        val name = JOptionPane.showInputDialog(this, "File name:", "New File", JOptionPane.PLAIN_MESSAGE) ?: return
-        if (name.isBlank()) return
-        val file = File(inDir, name.trim())
-        try {
-            if (!file.createNewFile()) {
-                JOptionPane.showMessageDialog(this, "File already exists.")
-                return
-            }
-            loadDirectory(currentDir)
-            openFileInTab(file)
-        } catch (e: Exception) {
-            JOptionPane.showMessageDialog(this, "Could not create file: ${e.message}", "Error", JOptionPane.ERROR_MESSAGE)
-        }
-    }
-
-    private fun createFolder(inDir: File) {
-        val name = JOptionPane.showInputDialog(this, "Folder name:", "New Folder", JOptionPane.PLAIN_MESSAGE) ?: return
-        if (name.isBlank()) return
-        val folder = File(inDir, name.trim())
-        if (!folder.mkdir()) {
-            JOptionPane.showMessageDialog(this, "Could not create folder.", "Error", JOptionPane.ERROR_MESSAGE)
-        } else {
-            loadDirectory(currentDir)
-        }
-    }
-
-    private fun renameEntry(file: File) {
-        val newName = JOptionPane.showInputDialog(this, "Rename to:", file.name) ?: return
-        if (newName.isBlank() || newName == file.name) return
-        val dest = File(file.parentFile, newName.trim())
-        if (!file.renameTo(dest)) {
-            JOptionPane.showMessageDialog(this, "Rename failed.", "Error", JOptionPane.ERROR_MESSAGE)
-        } else {
-            loadDirectory(currentDir)
-        }
-    }
-
-    private fun deleteEntry(file: File) {
-        val confirm =
-            JOptionPane.showConfirmDialog(
-                this,
-                "Delete '${file.name}'?",
-                "Confirm Delete",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE,
-            )
-        if (confirm != JOptionPane.YES_OPTION) return
-        if (!file.deleteRecursively()) {
-            JOptionPane.showMessageDialog(this, "Delete failed.", "Error", JOptionPane.ERROR_MESSAGE)
-        } else {
-            loadDirectory(currentDir)
-        }
-    }
-
-    private fun copyPathItem(file: File) =
-        JMenuItem("Copy Path").apply {
-            addActionListener {
-                val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-                clipboard.setContents(java.awt.datatransfer.StringSelection(file.absolutePath), null)
-            }
-        }
-
-    private fun openWith(
-        file: File,
-        editor: ExternalEditor,
-    ) {
-        try {
-            val cmd =
-                if (IS_WINDOWS) {
-                    listOf("cmd", "/c", editor.executable, file.absolutePath)
-                } else {
-                    listOf(editor.executable, file.absolutePath)
-                }
-            ProcessBuilder(cmd).start()
-        } catch (e: Exception) {
-            JOptionPane.showMessageDialog(
-                this,
-                "Failed to launch ${editor.name}: ${e.message}",
-                "Launch Error",
-                JOptionPane.ERROR_MESSAGE,
-            )
-        }
-    }
-
-    private fun formatSize(bytes: Long) =
-        when {
-            bytes < 1_024 -> "$bytes B"
-            bytes < 1_048_576 -> "${bytes / 1_024} KB"
-            bytes < 1_073_741_824 -> "${bytes / 1_048_576} MB"
-            else -> "${bytes / 1_073_741_824} GB"
-        }
-
-    private inner class FileTableModel : AbstractTableModel() {
-        private val columns = listOf("Name", "Size", "Modified")
-        private var entries: List<FileEntry> = emptyList()
-
-        fun setEntries(list: List<FileEntry>) {
-            entries = list
-            fireTableDataChanged()
-        }
-
-        fun entryAt(row: Int): FileEntry = entries[row]
-
-        override fun getRowCount() = entries.size
-
-        override fun getColumnCount() = columns.size
-
-        override fun getColumnName(col: Int) = columns[col]
-
-        override fun getColumnClass(col: Int): Class<*> = String::class.java
-
-        override fun getValueAt(
-            row: Int,
-            col: Int,
-        ): Any {
-            val entry = entries[row]
-            return when (col) {
-                0 -> {
-                    when (entry) {
-                        is FileEntry.ParentDir -> ".."
-                        is FileEntry.Dir -> entry.file.name
-                        is FileEntry.RegularFile -> entry.file.name
-                    }
-                }
-
-                1 -> {
-                    when (entry) {
-                        is FileEntry.RegularFile -> formatSize(entry.file.length())
-                        else -> ""
-                    }
-                }
-
-                2 -> {
-                    when (entry) {
-                        is FileEntry.ParentDir -> ""
-                        is FileEntry.Dir -> dateFmt.format(Date(entry.file.lastModified()))
-                        is FileEntry.RegularFile -> dateFmt.format(Date(entry.file.lastModified()))
-                    }
-                }
-
-                else -> {
-                    ""
-                }
-            }
-        }
-
-        override fun isCellEditable(
-            row: Int,
-            col: Int,
-        ) = false
-    }
-
-    private inner class FileTableCellRenderer : DefaultTableCellRenderer() {
-        override fun getTableCellRendererComponent(
-            table: JTable,
-            value: Any?,
-            isSelected: Boolean,
-            hasFocus: Boolean,
-            row: Int,
-            column: Int,
-        ): Component {
-            val entry = tableModel.entryAt(row)
-            val displayText =
-                when (column) {
-                    COL_SIZE -> {
-                        when (entry) {
-                            is FileEntry.RegularFile -> formatSize(entry.file.length())
-                            else -> ""
-                        }
-                    }
-
-                    COL_MODIFIED -> {
-                        when (entry) {
-                            is FileEntry.ParentDir -> ""
-                            is FileEntry.Dir -> dateFmt.format(Date(entry.file.lastModified()))
-                            is FileEntry.RegularFile -> dateFmt.format(Date(entry.file.lastModified()))
-                        }
-                    }
-
-                    else -> {
-                        value?.toString() ?: ""
-                    }
-                }
-            val c =
-                super.getTableCellRendererComponent(table, displayText, isSelected, hasFocus, row, column)
-            if (c is JLabel) {
-                c.font =
-                    when {
-                        entry is FileEntry.Dir || entry is FileEntry.ParentDir -> {
-                            c.font.deriveFont(Font.BOLD)
-                        }
-
-                        else -> {
-                            c.font.deriveFont(Font.PLAIN)
-                        }
-                    }
-                c.horizontalAlignment =
-                    when (column) {
-                        1 -> SwingConstants.RIGHT
-                        else -> SwingConstants.LEFT
-                    }
-            }
-            return c
-        }
-    }
-
-    // ── External drops ─────────────────────────────────────────────────────
-
-    private inner class ExplorerDropHandler : TransferHandler() {
-        private val uriListFlavor: DataFlavor? =
-            try {
-                DataFlavor("text/uri-list;class=java.lang.String")
-            } catch (_: Exception) {
-                null
-            }
-        private val uriListReaderFlavor: DataFlavor? =
-            try {
-                DataFlavor("text/uri-list;class=java.io.Reader")
-            } catch (_: Exception) {
-                null
-            }
-        private val uriListInputFlavor: DataFlavor? =
-            try {
-                DataFlavor("text/uri-list;class=java.io.InputStream")
-            } catch (_: Exception) {
-                null
-            }
-        private val urlFlavor: DataFlavor? =
-            try {
-                DataFlavor("application/x-java-url;class=java.net.URL")
-            } catch (_: Exception) {
-                null
-            }
-
-        override fun canImport(support: TransferSupport): Boolean {
-            if (!support.isDrop) return false
-            return support.isDataFlavorSupported(DataFlavor.javaFileListFlavor) ||
-                (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) ||
-                (uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor)) ||
-                (uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor)) ||
-                (uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor))
-        }
-
-        override fun importData(support: TransferSupport): Boolean {
-            if (!canImport(support)) return false
-            val (dirs, files) = entriesFromExternal(support)
-            if (dirs.isEmpty() && files.isEmpty()) return false
-
-            val isOverTable = SwingUtilities.isDescendingFrom(support.component, table)
-            val isOverTabs = SwingUtilities.isDescendingFrom(support.component, tabs)
-
-            if (files.isNotEmpty()) {
-                files.forEach { openFileInTab(it) }
-                return true
-            }
-            if (dirs.isNotEmpty() && (isOverTable || isOverTabs)) {
-                setRootDirectory(dirs.first())
-                return true
-            }
-            return false
-        }
-
-        private fun entriesFromExternal(support: TransferSupport): Pair<List<File>, List<File>> {
-            if (support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-                val items =
-                    try {
-                        (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
-                            ?.filterIsInstance<File>()
-                            ?: emptyList()
-                    } catch (_: Exception) {
-                        emptyList()
-                    }
-                return items.filter { it.isDirectory } to items.filter { it.isFile }
-            }
-            if (urlFlavor != null && support.isDataFlavorSupported(urlFlavor)) {
-                return try {
-                    val url = support.transferable.getTransferData(urlFlavor) as? java.net.URL
-                    val file = url?.toURI()?.let { File(it) }
-                    val dirs = if (file != null && file.isDirectory) listOf(file) else emptyList()
-                    val files = if (file != null && file.isFile) listOf(file) else emptyList()
-                    dirs to files
-                } catch (_: Exception) {
-                    emptyList<File>() to emptyList()
-                }
-            }
-            val text = readUriListText(support) ?: return emptyList<File>() to emptyList()
-            val items = parseUriList(text)
-            return items.filter { it.isDirectory } to items.filter { it.isFile }
-        }
-
-        private fun readUriListText(support: TransferSupport): String? =
-            try {
-                when {
-                    uriListFlavor != null && support.isDataFlavorSupported(uriListFlavor) -> {
-                        support.transferable.getTransferData(uriListFlavor) as? String
-                    }
-
-                    uriListReaderFlavor != null && support.isDataFlavorSupported(uriListReaderFlavor) -> {
-                        val reader = support.transferable.getTransferData(uriListReaderFlavor) as? java.io.Reader
-                        reader?.readText()
-                    }
-
-                    uriListInputFlavor != null && support.isDataFlavorSupported(uriListInputFlavor) -> {
-                        val stream = support.transferable.getTransferData(uriListInputFlavor) as? java.io.InputStream
-                        stream?.bufferedReader()?.readText()
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
-            } catch (_: Exception) {
-                null
-            }
-
-        private fun parseUriList(text: String): List<File> =
-            text
-                .lineSequence()
-                .map { it.trim() }
-                .filter { it.isNotEmpty() && !it.startsWith("#") }
-                .mapNotNull { line ->
-                    if (!line.startsWith("file:/")) return@mapNotNull null
-                    runCatching { File(URI(line)) }.getOrNull()
-                }.toList()
-    }
 }
 
 /** Tab header component with a label and a close (✕) button. */
@@ -1012,29 +618,12 @@ private class TabHeader(
     }
 }
 
-sealed class FileEntry {
-    object ParentDir : FileEntry()
-
-    data class Dir(
-        val file: File,
-    ) : FileEntry()
-
-    data class RegularFile(
-        val file: File,
-    ) : FileEntry()
-}
-
 // ── Explorer sort helpers ─────────────────────────────────────────────────
 
 internal data class ExplorerSortState(
     val column: Int,
     val ascending: Boolean,
 )
-
-internal const val COL_NAME = 0
-internal const val COL_SIZE = 1
-internal const val COL_MODIFIED = 2
-internal val DEFAULT_EXPLORER_SORT = ExplorerSortState(COL_NAME, true)
 
 /**
  * Sorts [entries] (a single group — all dirs OR all files, never mixed) by [state].
