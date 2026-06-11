@@ -32,8 +32,6 @@ jobs:
           echo "OK: release targets main"
 
   prepare-release:
-    needs: validate-branch
-    if: always() && (needs.validate-branch.result == 'success' || needs.validate-branch.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -80,7 +78,8 @@ jobs:
 
   build-jar:
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: [validate-branch, prepare-release]
+    if: always() && needs.prepare-release.result == 'success' && (needs.validate-branch.result == 'success' || needs.validate-branch.result == 'skipped')
     permissions:
       contents: write
       packages: read
