@@ -10,8 +10,6 @@ import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.FlowLayout
-import java.awt.Font
-import java.awt.GridBagLayout
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.KeyAdapter
@@ -20,8 +18,6 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
 import java.net.URI
-import java.text.SimpleDateFormat
-import java.util.Date
 import javax.swing.BorderFactory
 import javax.swing.DropMode
 import javax.swing.JButton
@@ -40,7 +36,6 @@ import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
 import javax.swing.TransferHandler
 import javax.swing.TransferHandler.TransferSupport
-import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 
 class ExplorerPanel(
@@ -62,7 +57,7 @@ class ExplorerPanel(
             selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
             autoResizeMode = JTable.AUTO_RESIZE_ALL_COLUMNS
             fillsViewportHeight = true
-            setDefaultRenderer(Any::class.java, FileTableCellRenderer())
+            setDefaultRenderer(Any::class.java, FileTableCellRenderer(tableModel))
             tableHeader.reorderingAllowed = false
         }
 
@@ -72,7 +67,6 @@ class ExplorerPanel(
     private val openFiles = LinkedHashMap<String, javax.swing.JComponent>()
 
     private var isDark: Boolean = ctx.config.theme == "dark"
-    private val dateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm")
 
     /** Sort state for each project root — keyed by absolute path. Session-only. */
     private val sortStateByPath = mutableMapOf<String, ExplorerSortState>()
@@ -747,128 +741,6 @@ class ExplorerPanel(
         }
     }
 
-    private fun formatSize(bytes: Long) =
-        when {
-            bytes < 1_024 -> "$bytes B"
-            bytes < 1_048_576 -> "${bytes / 1_024} KB"
-            bytes < 1_073_741_824 -> "${bytes / 1_048_576} MB"
-            else -> "${bytes / 1_073_741_824} GB"
-        }
-
-    private inner class FileTableModel : AbstractTableModel() {
-        private val columns = listOf("Name", "Size", "Modified")
-        private var entries: List<FileEntry> = emptyList()
-
-        fun setEntries(list: List<FileEntry>) {
-            entries = list
-            fireTableDataChanged()
-        }
-
-        fun entryAt(row: Int): FileEntry = entries[row]
-
-        override fun getRowCount() = entries.size
-
-        override fun getColumnCount() = columns.size
-
-        override fun getColumnName(col: Int) = columns[col]
-
-        override fun getColumnClass(col: Int): Class<*> = String::class.java
-
-        override fun getValueAt(
-            row: Int,
-            col: Int,
-        ): Any {
-            val entry = entries[row]
-            return when (col) {
-                0 -> {
-                    when (entry) {
-                        is FileEntry.ParentDir -> ".."
-                        is FileEntry.Dir -> entry.file.name
-                        is FileEntry.RegularFile -> entry.file.name
-                    }
-                }
-
-                1 -> {
-                    when (entry) {
-                        is FileEntry.RegularFile -> formatSize(entry.file.length())
-                        else -> ""
-                    }
-                }
-
-                2 -> {
-                    when (entry) {
-                        is FileEntry.ParentDir -> ""
-                        is FileEntry.Dir -> dateFmt.format(Date(entry.file.lastModified()))
-                        is FileEntry.RegularFile -> dateFmt.format(Date(entry.file.lastModified()))
-                    }
-                }
-
-                else -> {
-                    ""
-                }
-            }
-        }
-
-        override fun isCellEditable(
-            row: Int,
-            col: Int,
-        ) = false
-    }
-
-    private inner class FileTableCellRenderer : DefaultTableCellRenderer() {
-        override fun getTableCellRendererComponent(
-            table: JTable,
-            value: Any?,
-            isSelected: Boolean,
-            hasFocus: Boolean,
-            row: Int,
-            column: Int,
-        ): Component {
-            val entry = tableModel.entryAt(row)
-            val displayText =
-                when (column) {
-                    COL_SIZE -> {
-                        when (entry) {
-                            is FileEntry.RegularFile -> formatSize(entry.file.length())
-                            else -> ""
-                        }
-                    }
-
-                    COL_MODIFIED -> {
-                        when (entry) {
-                            is FileEntry.ParentDir -> ""
-                            is FileEntry.Dir -> dateFmt.format(Date(entry.file.lastModified()))
-                            is FileEntry.RegularFile -> dateFmt.format(Date(entry.file.lastModified()))
-                        }
-                    }
-
-                    else -> {
-                        value?.toString() ?: ""
-                    }
-                }
-            val c =
-                super.getTableCellRendererComponent(table, displayText, isSelected, hasFocus, row, column)
-            if (c is JLabel) {
-                c.font =
-                    when {
-                        entry is FileEntry.Dir || entry is FileEntry.ParentDir -> {
-                            c.font.deriveFont(Font.BOLD)
-                        }
-
-                        else -> {
-                            c.font.deriveFont(Font.PLAIN)
-                        }
-                    }
-                c.horizontalAlignment =
-                    when (column) {
-                        1 -> SwingConstants.RIGHT
-                        else -> SwingConstants.LEFT
-                    }
-            }
-            return c
-        }
-    }
-
     // ── External drops ─────────────────────────────────────────────────────
 
     private inner class ExplorerDropHandler : TransferHandler() {
@@ -1012,29 +884,12 @@ private class TabHeader(
     }
 }
 
-sealed class FileEntry {
-    object ParentDir : FileEntry()
-
-    data class Dir(
-        val file: File,
-    ) : FileEntry()
-
-    data class RegularFile(
-        val file: File,
-    ) : FileEntry()
-}
-
 // ── Explorer sort helpers ─────────────────────────────────────────────────
 
 internal data class ExplorerSortState(
     val column: Int,
     val ascending: Boolean,
 )
-
-internal const val COL_NAME = 0
-internal const val COL_SIZE = 1
-internal const val COL_MODIFIED = 2
-internal val DEFAULT_EXPLORER_SORT = ExplorerSortState(COL_NAME, true)
 
 /**
  * Sorts [entries] (a single group — all dirs OR all files, never mixed) by [state].
