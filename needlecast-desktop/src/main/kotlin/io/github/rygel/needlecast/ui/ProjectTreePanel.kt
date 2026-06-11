@@ -544,7 +544,6 @@ class ProjectTreePanel(
     // ── Scanning ─────────────────────────────────────────────────────────────
 
     override fun scanProject(dir: ProjectDirectory) {
-        scanCoordinator.registerDirectory(dir)
         scanCoordinator.scanProject(dir)
     }
 
@@ -556,6 +555,7 @@ class ProjectTreePanel(
 
     fun reloadFromConfig() {
         scanResults.clear()
+        scanCoordinator.unwatchAllBuildFiles()
         scanCoordinator.clearAll()
         activePaths = emptySet()
         pendingSelectPath = null
@@ -670,11 +670,6 @@ class ProjectTreePanel(
         }
         return null
     }
-
-    private fun findProjectEntry(
-        parent: DefaultMutableTreeNode,
-        path: String,
-    ): ProjectTreeEntry.Project? = findProjectNode(parent, path)?.userObject as? ProjectTreeEntry.Project
 
     override fun treePath(node: DefaultMutableTreeNode) = TreePath(node.path)
 
