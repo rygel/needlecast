@@ -13,37 +13,22 @@ import io.github.rygel.needlecast.service.CommandQueue
 import io.github.rygel.needlecast.service.QueuedCommand
 import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
-import java.awt.Color
-import java.awt.Component
 import java.awt.Dimension
-import java.awt.FlowLayout
 import java.awt.Font
-import java.awt.GridBagConstraints
-import java.awt.GridBagLayout
-import java.awt.Insets
-import java.awt.SystemTray
 import java.awt.TrayIcon
-import java.awt.Window
-import java.awt.image.BufferedImage
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
 import javax.swing.JButton
-import javax.swing.JDialog
 import javax.swing.JLabel
 import javax.swing.JList
 import javax.swing.JMenuItem
-import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JTextArea
-import javax.swing.JTextField
 import javax.swing.JToggleButton
 import javax.swing.JToolBar
-import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
@@ -492,240 +477,14 @@ class CommandPanel(
     }
 }
 
-/**
- * Modal dialog for editing the label and command line of a [CommandDescriptor].
- * The edited command is session-only — scanners will regenerate the original on next project load.
- * [result] is non-null only when the user clicks OK with a non-empty label.
- */
-private class EditCommandDialog(
-    owner: Window?,
-    private val cmd: CommandDescriptor,
-) : JDialog(owner, "Edit Command", ModalityType.APPLICATION_MODAL) {
-    var result: CommandDescriptor? = null
-        private set
-
-    private val labelField = JTextField(cmd.label, 30)
-    private val commandField = JTextField(cmd.argv.joinToString(" "), 40)
-
-    init {
-        defaultCloseOperation = DISPOSE_ON_CLOSE
-        minimumSize = Dimension(480, 160)
-        setLocationRelativeTo(owner)
-
-        val grid =
-            JPanel(GridBagLayout()).apply {
-                border = BorderFactory.createEmptyBorder(12, 12, 8, 12)
-            }
-        val gc = GridBagConstraints().apply { insets = Insets(4, 4, 4, 4) }
-
-        fun row(
-            r: Int,
-            labelText: String,
-            field: Component,
-        ) {
-            gc.gridy = r
-            gc.gridx = 0
-            gc.weightx = 0.0
-            gc.anchor = GridBagConstraints.WEST
-            gc.fill = GridBagConstraints.NONE
-            grid.add(JLabel(labelText), gc)
-            gc.gridx = 1
-            gc.weightx = 1.0
-            gc.fill = GridBagConstraints.HORIZONTAL
-            grid.add(field, gc)
-        }
-
-        row(0, "Label:", labelField)
-        row(1, "Command:", commandField)
-
-        val ok = JButton("OK").apply { addActionListener { onOk() } }
-        val cancel = JButton("Cancel").apply { addActionListener { dispose() } }
-        val buttons =
-            JPanel(FlowLayout(FlowLayout.RIGHT, 6, 4)).apply {
-                add(ok)
-                add(cancel)
-            }
-
-        contentPane =
-            JPanel(BorderLayout()).apply {
-                add(grid, BorderLayout.CENTER)
-                add(buttons, BorderLayout.SOUTH)
-            }
-        pack()
-        rootPane.defaultButton = ok
-    }
-
-    private fun onOk() {
-        val label = labelField.text.trim()
-        if (label.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Label must not be empty.", "Validation", JOptionPane.WARNING_MESSAGE)
-            return
-        }
-        val argv =
-            commandField.text
-                .trim()
-                .split(Regex("\\s+"))
-                .filter { it.isNotEmpty() }
-        if (argv.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Command must not be empty.", "Validation", JOptionPane.WARNING_MESSAGE)
-            return
-        }
-        result = cmd.copy(label = label, argv = argv)
-        dispose()
-    }
-}
-
-/**
- * Applies stored [overrides] on top of scanner-generated [commands].
- * Each override is matched by [CommandOverride.originalArgv]; unmatched overrides are ignored.
- */
 internal fun applyCommandOverrides(
     commands: List<CommandDescriptor>,
     overrides: List<CommandOverride>,
 ): List<CommandDescriptor> {
     if (overrides.isEmpty()) return commands
-    val overrideMap = overrides.associateBy { it.originalArgv } // last-write-wins if duplicates exist (shouldn't happen in normal use)
+    val overrideMap = overrides.associateBy { it.originalArgv }
     return commands.map { cmd ->
         val ov = overrideMap[cmd.argv] ?: return@map cmd
         cmd.copy(label = ov.label, argv = ov.argv)
     }
 }
-
-/**
- * Sends a system-tray balloon notification when the OS supports it.
- * Lazily installs a minimal tray icon on first use; no-ops silently if tray is unavailable.
- */
-private object TrayNotifier {
-    private val trayIcon: TrayIcon? by lazy {
-        if (!SystemTray.isSupported()) return@lazy null
-        try {
-            val img =
-                TrayNotifier::class.java
-                    .getResource("/icons/needlecast.png")
-                    ?.let {
-                        javax.imageio.ImageIO
-                            .read(it)
-                            .getScaledInstance(16, 16, java.awt.Image.SCALE_SMOOTH)
-                    }
-                    ?: BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB)
-            val icon = TrayIcon(img, "Needlecast")
-            SystemTray.getSystemTray().add(icon)
-            icon
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    fun notify(
-        caption: String,
-        text: String,
-        type: TrayIcon.MessageType,
-    ) {
-        try {
-            trayIcon?.displayMessage(caption, text, type)
-        } catch (_: Exception) {
-        }
-    }
-}
-
-private class CommandCellRenderer : ListCellRenderer<CommandDescriptor> {
-    private val panel =
-        JPanel(BorderLayout(4, 0)).apply {
-            border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
-            isOpaque = true
-        }
-    private val badgeLabel =
-        JLabel().apply {
-            font = font.deriveFont(Font.BOLD, 10f)
-            border = BorderFactory.createEmptyBorder(0, 4, 0, 4)
-            isOpaque = true
-        }
-    private val nameLabel = JLabel()
-
-    init {
-        panel.add(badgeLabel, BorderLayout.WEST)
-        panel.add(nameLabel, BorderLayout.CENTER)
-    }
-
-    override fun getListCellRendererComponent(
-        list: JList<out CommandDescriptor>,
-        value: CommandDescriptor?,
-        index: Int,
-        isSelected: Boolean,
-        cellHasFocus: Boolean,
-    ): Component {
-        val tool = value?.buildTool
-        if (tool != null) {
-            badgeLabel.text = tool.tagLabel
-            val bgColor =
-                try {
-                    java.awt.Color.decode(tool.tagColor)
-                } catch (_: Exception) {
-                    java.awt.Color.GRAY
-                }
-            badgeLabel.background = bgColor
-            badgeLabel.foreground = java.awt.Color.WHITE
-            badgeLabel.isVisible = true
-        } else {
-            badgeLabel.isVisible = false
-        }
-        nameLabel.text = (value?.label ?: "").toHtmlLabel()
-        nameLabel.toolTipText =
-            if (value?.isSupported == true) {
-                value.argv.joinToString(" ")
-            } else {
-                "This run configuration type is not directly executable"
-            }
-        nameLabel.foreground =
-            when {
-                isSelected -> list.selectionForeground
-                value?.isSupported == false -> java.awt.Color.GRAY
-                else -> list.foreground
-            }
-        panel.background = if (isSelected) list.selectionBackground else list.background
-        nameLabel.background = panel.background
-        nameLabel.isOpaque = false
-        return panel
-    }
-}
-
-private val timeFmt = SimpleDateFormat("HH:mm")
-
-private class HistoryCellRenderer : ListCellRenderer<CommandHistoryEntry> {
-    private val panel =
-        JPanel(BorderLayout(6, 0)).apply {
-            border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
-        }
-    private val nameLabel = JLabel().apply { font = font.deriveFont(Font.PLAIN, 11f) }
-    private val metaLabel = JLabel().apply { font = font.deriveFont(Font.PLAIN, 9f) }
-
-    init {
-        panel.add(nameLabel, BorderLayout.CENTER)
-        panel.add(metaLabel, BorderLayout.EAST)
-    }
-
-    override fun getListCellRendererComponent(
-        list: JList<out CommandHistoryEntry>,
-        value: CommandHistoryEntry?,
-        index: Int,
-        isSelected: Boolean,
-        cellHasFocus: Boolean,
-    ): Component {
-        nameLabel.text = (value?.label ?: "").toHtmlLabel()
-        metaLabel.text = value?.let {
-            val time = timeFmt.format(Date(it.ranAt))
-            val codeColor = if (it.exitCode == 0) "#4CAF50" else "#F44336"
-            "<html><font color='$codeColor'>exit ${it.exitCode}</font> $time</html>"
-        } ?: ""
-        val bg = if (isSelected) list.selectionBackground else list.background
-        nameLabel.foreground = if (isSelected) list.selectionForeground else list.foreground
-        panel.background = bg
-        nameLabel.background = bg
-        metaLabel.background = bg
-        panel.isOpaque = true
-        return panel
-    }
-}
-
-/** Wraps text in HTML so Java's platform font-fallback chain (incl. emoji) is active. */
-private fun String.toHtmlLabel(): String = "<html>${replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}</html>"
