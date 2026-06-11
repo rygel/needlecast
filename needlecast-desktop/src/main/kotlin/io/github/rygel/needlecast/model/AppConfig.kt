@@ -53,7 +53,7 @@ data class CommandOverride(
 )
 
 data class AppConfig(
-    val configVersion: Int = 6,
+    val configVersion: Int = 7,
     val groups: List<ProjectGroup> = emptyList(),
     val windowWidth: Int = 1200,
     val windowHeight: Int = 800,

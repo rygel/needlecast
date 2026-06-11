@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui.settings
 
+import io.github.rygel.needlecast.config.ConfigMigrator
 import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.ProjectDirectory
 import org.assertj.core.api.Assertions.assertThat
@@ -87,7 +88,7 @@ class AppConfigSettingsTest {
     @Test
     fun `AppConfig default values match contract`() {
         val cfg = AppConfig()
-        assertThat(cfg.configVersion).isEqualTo(6)
+        assertThat(cfg.configVersion).isEqualTo(ConfigMigrator.CURRENT_VERSION)
         assertThat(cfg.windowWidth).isEqualTo(1200)
         assertThat(cfg.windowHeight).isEqualTo(800)
         assertThat(cfg.theme).isEqualTo("dark-purple")
