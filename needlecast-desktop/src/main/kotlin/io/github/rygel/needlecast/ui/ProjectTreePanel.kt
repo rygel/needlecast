@@ -2,10 +2,8 @@ package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.DetectedProject
-import io.github.rygel.needlecast.model.GitStatus
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
-import io.github.rygel.needlecast.scanner.BuildFileWatcher
 import io.github.rygel.needlecast.ui.terminal.AgentStatus
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
@@ -27,7 +25,6 @@ import javax.swing.JTextField
 import javax.swing.JToggleButton
 import javax.swing.JTree
 import javax.swing.SwingUtilities
-import javax.swing.SwingWorker
 import javax.swing.Timer
 import javax.swing.ToolTipManager
 import javax.swing.event.DocumentEvent
@@ -49,24 +46,16 @@ class ProjectTreePanel(
     override val treeModel = DefaultTreeModel(rootNode)
 
     override val scanResults = mutableMapOf<String, DetectedProject>()
-    private val gitStatusCache = mutableMapOf<String, GitStatus>()
     private var activePaths: Set<String> = emptySet()
     private var activeOnly = false
-    private var lastActiveOnly = false
     override val missingPaths = mutableSetOf<String>()
     private var pendingSelectPath: String? = null
     private val agentStatuses = mutableMapOf<String, AgentStatus>()
     private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
     private var filterTimer: Timer? = null
-    private val scanQueue = java.util.concurrent.ConcurrentLinkedQueue<Pair<ProjectDirectory, DetectedProject>>()
-    private val scanApplyTimer = Timer(25) { drainScanQueue() }.apply { isRepeats = false }
-    private val scanApplyPending =
-        java.util.concurrent.atomic
-            .AtomicBoolean(false)
 
-    private var lastFilter = ""
+    private var filterState = FilterState()
     private var pendingFilterText = ""
-    private var cachedAllEntries: List<ProjectTreeEntry>? = null
     private val filterDebounceTimer = Timer(150) { doApplyFilter() }.apply { isRepeats = false }
     private val clickTraceForced =
         System.getProperty("needlecast.tree.clickTrace")?.equals("true", ignoreCase = true) == true ||
@@ -79,34 +68,36 @@ class ProjectTreePanel(
     private var lastClickTimeNs: Long = 0L
     private var lastClickKey: String? = null
     private var lastClickRow: Int = -1
-    private val scanExecutor =
-        java.util.concurrent.Executors.newFixedThreadPool(2).also { exec ->
-            ctx.register(
-                object : io.github.rygel.needlecast.Disposable {
-                    override fun dispose() {
-                        exec.shutdownNow()
-                    }
-                },
-            )
-        }
-
-    private var blinkOn = false
-    private val blinkTimer =
-        Timer(600) {
-            blinkOn = !blinkOn
-            tree.repaint()
-        }.apply { isRepeats = true }
-
-    private var buildFileWatcher =
-        BuildFileWatcher { path -> rescheduleProjectScan(path) }
-            .also { ctx.register(it) }
 
     private var dragPressedPath: TreePath? = null
     private var dragPressPoint: java.awt.Point? = null
 
     private var dndHandler: ProjectTreeDndHandler? = null
 
-    override val tree =
+    private val scanCoordinator =
+        ProjectTreeScanCoordinator(
+            ctx = ctx,
+            onScanResult = { dir, result ->
+                scanResults[dir.path] = result
+                if (!result.scanFailed) {
+                    val pending = pendingSelectPath
+                    if (pending == dir.path) {
+                        selectByPath(pending)
+                    } else {
+                        val selNode = tree.lastSelectedPathComponent as? DefaultMutableTreeNode
+                        val selEntry = selNode?.userObject as? ProjectTreeEntry.Project
+                        if (selEntry?.directory?.path == dir.path) {
+                            onProjectSelected(result)
+                        }
+                    }
+                }
+                requestTreeRepaint()
+            },
+            onGitStatusReady = { _, _ -> },
+            requestRepaint = { requestTreeRepaint() },
+        )
+
+    override val tree: JTree =
         object : JTree(treeModel) {
             override fun getScrollableTracksViewportWidth(): Boolean = true
 
@@ -143,7 +134,7 @@ class ProjectTreePanel(
 
                     val isUpperRow = relY < rowHeight / 2
                     if (!isUpperRow) {
-                        val gs = gitStatusCache[projectPath]
+                        val gs = scanCoordinator.gitStatusCache[projectPath]
                         val parts = mutableListOf<String>()
                         if (gs != null) {
                             if (gs.isDirty) parts += "Uncommitted changes"
@@ -155,7 +146,7 @@ class ProjectTreePanel(
                         if (agentStatus == AgentStatus.THINKING) return "Agent processing"
                         if (agentStatus == AgentStatus.WAITING) return "Agent waiting"
                         if (projectPath in activePaths) return "Terminal active"
-                        val gs = gitStatusCache[projectPath]
+                        val gs = scanCoordinator.gitStatusCache[projectPath]
                         if (gs?.isDirty == true) return "Uncommitted changes"
                     }
 
@@ -179,9 +170,9 @@ class ProjectTreePanel(
                     tree = this,
                     activePaths = { activePaths },
                     agentStatuses = agentStatuses,
-                    blinkOn = { blinkOn },
+                    blinkOn = { scanCoordinator.blinkOn },
                     missingPaths = missingPaths,
-                    gitStatusCache = gitStatusCache,
+                    gitStatusCache = scanCoordinator.gitStatusCache,
                     scanResults = scanResults,
                     isPrivacyModeEnabled = { ctx.config.privacyModeEnabled },
                 )
@@ -487,7 +478,7 @@ class ProjectTreePanel(
     // ── Loading ─────────────────────────────────────────────────────────────
 
     private fun loadFromConfig() {
-        cachedAllEntries = null
+        filterState = FilterState()
         rootNode.removeAllChildren()
         missingPaths.clear()
         migrateOrLoad().forEach { addEntryNode(rootNode, it) }
@@ -551,49 +542,7 @@ class ProjectTreePanel(
     // ── Scanning ─────────────────────────────────────────────────────────────
 
     override fun scanProject(dir: ProjectDirectory) {
-        scanExecutor.execute {
-            val result =
-                try {
-                    ctx.scanner.scan(dir) ?: DetectedProject(dir, emptySet(), emptyList())
-                } catch (e: Exception) {
-                    logger.warn("Failed to scan '${dir.label()}'", e)
-                    DetectedProject(dir, emptySet(), emptyList(), scanFailed = true)
-                }
-            scanQueue.add(dir to result)
-            scheduleScanApply()
-        }
-    }
-
-    private fun rescheduleProjectScan(path: String) {
-        val dir = findProjectEntry(rootNode, path)?.directory ?: return
-        scanExecutor.execute {
-            val result =
-                try {
-                    ctx.scanner.scan(dir)
-                } catch (e: Exception) {
-                    logger.warn("Project rescan failed", e)
-                    null
-                } ?: return@execute
-            scanQueue.add(dir to result)
-            scheduleScanApply()
-        }
-    }
-
-    private fun fetchGitStatus(path: String) {
-        object : SwingWorker<GitStatus, Void>() {
-            override fun doInBackground(): GitStatus = ctx.gitService.readStatus(path)
-
-            override fun done() {
-                val status =
-                    try {
-                        get()
-                    } catch (_: Exception) {
-                        return
-                    }
-                gitStatusCache[path] = status
-                requestTreeRepaint()
-            }
-        }.execute()
+        scanCoordinator.scanProject(dir)
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -604,7 +553,8 @@ class ProjectTreePanel(
 
     fun reloadFromConfig() {
         scanResults.clear()
-        gitStatusCache.clear()
+        scanCoordinator.unwatchAllBuildFiles()
+        scanCoordinator.clearAll()
         activePaths = emptySet()
         pendingSelectPath = null
         loadFromConfig()
@@ -652,60 +602,11 @@ class ProjectTreePanel(
         status: AgentStatus,
     ) {
         agentStatuses[path] = status
-        if (agentStatuses.values.any { it == AgentStatus.THINKING }) {
-            blinkTimer.start()
-        } else {
-            blinkTimer.stop()
-        }
-        requestTreeRepaint()
+        scanCoordinator.updateAgentStatus(path, status)
     }
 
     private fun requestTreeRepaint() {
         repaintTimer.restart()
-    }
-
-    private fun drainScanQueue() {
-        val maxPerTick = 10
-        var updated = false
-        var processed = 0
-        while (processed < maxPerTick) {
-            val next = scanQueue.poll() ?: break
-            val (dir, result) = next
-            scanResults[dir.path] = result
-            updated = true
-            if (!result.scanFailed) {
-                fetchGitStatus(dir.path)
-                Thread {
-                    buildFileWatcher.watch(dir.path)
-                }.apply {
-                    isDaemon = true
-                    name = "build-file-watch-${dir.label()}"
-                }.start()
-            }
-            val pending = pendingSelectPath
-            if (pending == dir.path) {
-                selectByPath(pending)
-            } else {
-                val selNode = tree.lastSelectedPathComponent as? DefaultMutableTreeNode
-                val selEntry = selNode?.userObject as? ProjectTreeEntry.Project
-                if (selEntry?.directory?.path == dir.path) {
-                    onProjectSelected(result)
-                }
-            }
-            processed++
-        }
-        if (updated) requestTreeRepaint()
-        if (scanQueue.isNotEmpty()) {
-            scanApplyTimer.restart()
-        } else {
-            scanApplyPending.set(false)
-        }
-    }
-
-    private fun scheduleScanApply() {
-        if (scanApplyPending.compareAndSet(false, true)) {
-            SwingUtilities.invokeLater { scanApplyTimer.restart() }
-        }
     }
 
     private fun entryKey(entry: Any?): String? =
@@ -768,11 +669,6 @@ class ProjectTreePanel(
         return null
     }
 
-    private fun findProjectEntry(
-        parent: DefaultMutableTreeNode,
-        path: String,
-    ): ProjectTreeEntry.Project? = findProjectNode(parent, path)?.userObject as? ProjectTreeEntry.Project
-
     override fun treePath(node: DefaultMutableTreeNode) = TreePath(node.path)
 
     // ── Persistence ──────────────────────────────────────────────────────────
@@ -806,57 +702,22 @@ class ProjectTreePanel(
 
     private fun doApplyFilter() {
         val filter = pendingFilterText.trim()
-        if (filter == lastFilter && activeOnly == lastActiveOnly) return
-        lastFilter = filter
-        lastActiveOnly = activeOnly
+        if (!filterState.needsReapply(filter, activeOnly)) return
+        val source = filterState.cachedEntries ?: migrateOrLoad()
+        filterState = filterState.copy(lastFilter = filter, lastActiveOnly = activeOnly, cachedEntries = source)
         rootNode.removeAllChildren()
+        val result = ProjectTreeFilter.filterTree(source, filter, activeOnly, activePaths)
+        result.forEach { addEntryNode(rootNode, it, scan = false) }
         if (filter.isEmpty() && !activeOnly) {
-            val all = cachedAllEntries ?: migrateOrLoad().also { cachedAllEntries = it }
-            all.forEach { addEntryNode(rootNode, it, scan = false) }
-            ensureScans(all)
-        } else {
-            val source = cachedAllEntries ?: ctx.config.projectTree
-            val filtered = mutableListOf<ProjectTreeEntry>()
-            for (entry in source) {
-                val result = filterEntry(entry, filter)
-                if (result != null) filtered.add(result)
-            }
-            filtered.forEach { addEntryNode(rootNode, it, scan = false) }
+            ensureScans(source)
         }
         treeModel.reload()
-        if (filter.isEmpty() && !activeOnly) {
-            expandAll()
-        } else {
-            expandAll()
-        }
+        expandAll()
     }
 
     fun invalidateFilterCache() {
-        cachedAllEntries = null
+        filterState = filterState.copy(cachedEntries = null)
     }
-
-    private fun filterEntry(
-        entry: ProjectTreeEntry,
-        textFilter: String,
-    ): ProjectTreeEntry? =
-        when (entry) {
-            is ProjectTreeEntry.Project -> {
-                val matchesText =
-                    textFilter.isEmpty() ||
-                        entry.directory
-                            .label()
-                            .lowercase()
-                            .contains(textFilter) ||
-                        entry.tags.any { it.lowercase().contains(textFilter) }
-                val matchesActive = !activeOnly || entry.directory.path in activePaths
-                if (matchesText && matchesActive) entry else null
-            }
-
-            is ProjectTreeEntry.Folder -> {
-                val filteredChildren = entry.children.mapNotNull { filterEntry(it, textFilter) }
-                if (filteredChildren.isNotEmpty()) entry.copy(children = filteredChildren) else null
-            }
-        }
 
     private fun ensureScans(entries: List<ProjectTreeEntry>) {
         fun walk(entry: ProjectTreeEntry) {
@@ -878,9 +739,9 @@ class ProjectTreePanel(
     // ── Rescan ───────────────────────────────────────────────────────────────
 
     private fun rescanAll() {
-        buildFileWatcher.unwatchAll()
+        scanCoordinator.unwatchAllBuildFiles()
         scanResults.clear()
-        gitStatusCache.clear()
+        scanCoordinator.clearAll()
         activePaths = emptySet()
         missingPaths.clear()
         onProjectSelected(null)

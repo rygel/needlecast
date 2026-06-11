@@ -36,7 +36,6 @@ RUN mkdir -p /root/.m2 && \
 # Resolve dependencies as a cached layer
 COPY pom.xml .
 COPY needlecast-desktop/pom.xml needlecast-desktop/pom.xml
-COPY needlecast-web/pom.xml needlecast-web/pom.xml
 RUN mvn -B -pl needlecast-desktop -am dependency:resolve dependency:resolve-plugins -q
 
 # Build fat JAR (skip tests — this image is only for screenshots)

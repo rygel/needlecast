@@ -12,8 +12,9 @@ class ProjectTreeFilterTest {
     private fun project(
         name: String,
         vararg tags: String,
+        path: String = "/some/$name",
     ) = ProjectTreeEntry.Project(
-        directory = ProjectDirectory(path = "/some/$name", displayName = name),
+        directory = ProjectDirectory(path = path, displayName = name),
         tags = tags.toList(),
     )
 
@@ -142,5 +143,52 @@ class ProjectTreeFilterTest {
 
         val ms = elapsed / 1_000_000.0
         assertTrue(ms < 500.0) { "Perf test took ${ms}ms (expected <500ms for 15 filter operations on 300 nodes)" }
+    }
+
+    @Test
+    fun `FilterState detects no-op when filter unchanged`() {
+        assertFalse(FilterState("alpha", false).needsReapply("alpha", false))
+    }
+
+    @Test
+    fun `FilterState detects change when filter differs`() {
+        assertTrue(FilterState("alpha", false).needsReapply("beta", false))
+    }
+
+    @Test
+    fun `FilterState detects change when activeOnly toggled`() {
+        assertTrue(FilterState("", false).needsReapply("", true))
+    }
+
+    @Test
+    fun `filterTree with activeOnly filters to active paths only`() {
+        val entries = listOf(project("Alpha", path = "/a"), project("Beta", path = "/b"), project("Gamma", path = "/c"))
+        val result = ProjectTreeFilter.filterTree(entries, "", true, setOf("/b"))
+        assertEquals(1, result.size)
+        assertEquals("Beta", (result[0] as ProjectTreeEntry.Project).directory.displayName)
+    }
+
+    @Test
+    fun `filterTree with activeOnly and text filter combines both`() {
+        val entries =
+            listOf(
+                project("AlphaService", path = "/a"),
+                project("BetaService", path = "/b"),
+                project("GammaTool", path = "/c"),
+            )
+        val result = ProjectTreeFilter.filterTree(entries, "service", true, setOf("/a", "/b"))
+        assertEquals(2, result.size)
+        assertEquals("AlphaService", (result[0] as ProjectTreeEntry.Project).directory.displayName)
+        assertEquals("BetaService", (result[1] as ProjectTreeEntry.Project).directory.displayName)
+    }
+
+    @Test
+    fun `filterTree with activeOnly preserves folder with active children`() {
+        val entries = listOf(folder("Work", project("Alpha", path = "/a"), project("Beta", path = "/b")))
+        val result = ProjectTreeFilter.filterTree(entries, "", true, setOf("/a"))
+        assertEquals(1, result.size)
+        val f = result[0] as ProjectTreeEntry.Folder
+        assertEquals(1, f.children.size)
+        assertEquals("Alpha", (f.children[0] as ProjectTreeEntry.Project).directory.displayName)
     }
 }
