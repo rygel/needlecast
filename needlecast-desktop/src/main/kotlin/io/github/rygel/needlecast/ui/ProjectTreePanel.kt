@@ -48,16 +48,14 @@ class ProjectTreePanel(
     override val scanResults = mutableMapOf<String, DetectedProject>()
     private var activePaths: Set<String> = emptySet()
     private var activeOnly = false
-    private var lastActiveOnly = false
     override val missingPaths = mutableSetOf<String>()
     private var pendingSelectPath: String? = null
     private val agentStatuses = mutableMapOf<String, AgentStatus>()
     private val repaintTimer = Timer(50) { tree.repaint() }.apply { isRepeats = false }
     private var filterTimer: Timer? = null
 
-    private var lastFilter = ""
+    private var filterState = FilterState()
     private var pendingFilterText = ""
-    private var cachedAllEntries: List<ProjectTreeEntry>? = null
     private val filterDebounceTimer = Timer(150) { doApplyFilter() }.apply { isRepeats = false }
     private val clickTraceForced =
         System.getProperty("needlecast.tree.clickTrace")?.equals("true", ignoreCase = true) == true ||
@@ -480,7 +478,7 @@ class ProjectTreePanel(
     // ── Loading ─────────────────────────────────────────────────────────────
 
     private fun loadFromConfig() {
-        cachedAllEntries = null
+        filterState = FilterState()
         rootNode.removeAllChildren()
         missingPaths.clear()
         migrateOrLoad().forEach { addEntryNode(rootNode, it) }
@@ -704,57 +702,22 @@ class ProjectTreePanel(
 
     private fun doApplyFilter() {
         val filter = pendingFilterText.trim()
-        if (filter == lastFilter && activeOnly == lastActiveOnly) return
-        lastFilter = filter
-        lastActiveOnly = activeOnly
+        if (!filterState.needsReapply(filter, activeOnly)) return
+        val source = filterState.cachedEntries ?: migrateOrLoad()
+        filterState = filterState.copy(lastFilter = filter, lastActiveOnly = activeOnly, cachedEntries = source)
         rootNode.removeAllChildren()
+        val result = ProjectTreeFilter.filterTree(source, filter, activeOnly, activePaths)
+        result.forEach { addEntryNode(rootNode, it, scan = false) }
         if (filter.isEmpty() && !activeOnly) {
-            val all = cachedAllEntries ?: migrateOrLoad().also { cachedAllEntries = it }
-            all.forEach { addEntryNode(rootNode, it, scan = false) }
-            ensureScans(all)
-        } else {
-            val source = cachedAllEntries ?: ctx.config.projectTree
-            val filtered = mutableListOf<ProjectTreeEntry>()
-            for (entry in source) {
-                val result = filterEntry(entry, filter)
-                if (result != null) filtered.add(result)
-            }
-            filtered.forEach { addEntryNode(rootNode, it, scan = false) }
+            ensureScans(source)
         }
         treeModel.reload()
-        if (filter.isEmpty() && !activeOnly) {
-            expandAll()
-        } else {
-            expandAll()
-        }
+        expandAll()
     }
 
     fun invalidateFilterCache() {
-        cachedAllEntries = null
+        filterState = filterState.copy(cachedEntries = null)
     }
-
-    private fun filterEntry(
-        entry: ProjectTreeEntry,
-        textFilter: String,
-    ): ProjectTreeEntry? =
-        when (entry) {
-            is ProjectTreeEntry.Project -> {
-                val matchesText =
-                    textFilter.isEmpty() ||
-                        entry.directory
-                            .label()
-                            .lowercase()
-                            .contains(textFilter) ||
-                        entry.tags.any { it.lowercase().contains(textFilter) }
-                val matchesActive = !activeOnly || entry.directory.path in activePaths
-                if (matchesText && matchesActive) entry else null
-            }
-
-            is ProjectTreeEntry.Folder -> {
-                val filteredChildren = entry.children.mapNotNull { filterEntry(it, textFilter) }
-                if (filteredChildren.isNotEmpty()) entry.copy(children = filteredChildren) else null
-            }
-        }
 
     private fun ensureScans(entries: List<ProjectTreeEntry>) {
         fun walk(entry: ProjectTreeEntry) {
