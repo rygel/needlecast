@@ -1,16 +1,13 @@
 package io.github.rygel.needlecast.ui.explorer
 
 import io.github.rygel.needlecast.AppContext
-import io.github.rygel.needlecast.model.ExternalEditor
 import io.github.rygel.needlecast.model.ProjectTreeEntry
-import io.github.rygel.needlecast.scanner.IS_WINDOWS
 import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.util.DesktopUtils
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
 import java.awt.FlowLayout
-import java.awt.Toolkit
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
@@ -21,7 +18,6 @@ import javax.swing.DropMode
 import javax.swing.JButton
 import javax.swing.JLabel
 import javax.swing.JMenuItem
-import javax.swing.JOptionPane
 import javax.swing.JPanel
 import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
@@ -38,6 +34,18 @@ class ExplorerPanel(
     private val ctx: AppContext,
 ) : JPanel(BorderLayout()) {
     private var currentDir: File = File(System.getProperty("user.home"))
+    private val fileOps =
+        ExplorerFileOps(
+            ctx,
+            ExplorerCallbacks(
+                navigateTo = { f -> navigateTo(f) },
+                navigateUp = { navigateUp() },
+                openFileInTab = { f -> openFileInTab(f) },
+                reloadDirectory = { loadDirectory(currentDir) },
+                currentDir = { currentDir },
+            ),
+            this,
+        )
     private var showHidden = false
     private var fullEntries: List<FileEntry> = emptyList()
     private val addressField = JTextField()
@@ -169,7 +177,7 @@ class ExplorerPanel(
                     val entry = tableModel.entryAt(row)
                     if (SwingUtilities.isRightMouseButton(e)) {
                         table.selectionModel.setSelectionInterval(row, row)
-                        showContextMenu(entry, e.x, e.y)
+                        fileOps.showContextMenu(entry, e.x, e.y, table)
                         return
                     }
                     if (e.clickCount == 1 && entry is FileEntry.RegularFile) {
@@ -585,162 +593,6 @@ class ExplorerPanel(
         val row = table.selectedRow
         if (row < 0) return null
         return tableModel.entryAt(row)
-    }
-
-    private fun showContextMenu(
-        entry: FileEntry,
-        x: Int,
-        y: Int,
-    ) {
-        val menu = JPopupMenu()
-        when (entry) {
-            is FileEntry.ParentDir -> {
-                menu.add(JMenuItem("Go up").apply { addActionListener { navigateUp() } })
-            }
-
-            is FileEntry.Dir -> {
-                menu.add(JMenuItem("Open").apply { addActionListener { navigateTo(entry.file) } })
-                menu.addSeparator()
-                menu.add(JMenuItem("New File\u2026").apply { addActionListener { createFile(entry.file) } })
-                menu.add(JMenuItem("New Folder\u2026").apply { addActionListener { createFolder(entry.file) } })
-                menu.addSeparator()
-                menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameEntry(entry.file) } })
-                menu.add(JMenuItem("Delete").apply { addActionListener { deleteEntry(entry.file) } })
-                menu.add(
-                    JMenuItem(
-                        DesktopUtils.openInFileManagerLabel,
-                    ).apply {
-                        icon = RemixIcons.icon("ri-folder-open-line", 12)
-                        addActionListener { openInFileManager(entry.file) }
-                    },
-                )
-                menu.addSeparator()
-                menu.add(copyPathItem(entry.file))
-            }
-
-            is FileEntry.RegularFile -> {
-                menu.add(
-                    JMenuItem("Open in Editor").apply {
-                        addActionListener { openFileInTab(entry.file) }
-                    },
-                )
-                val editors = ctx.config.externalEditors
-                if (editors.isNotEmpty()) {
-                    menu.addSeparator()
-                    editors.forEach { editor ->
-                        menu.add(
-                            JMenuItem("Open with ${editor.name}").apply {
-                                addActionListener { openWith(entry.file, editor) }
-                            },
-                        )
-                    }
-                }
-                menu.addSeparator()
-                menu.add(JMenuItem("Rename\u2026").apply { addActionListener { renameEntry(entry.file) } })
-                menu.add(JMenuItem("Delete").apply { addActionListener { deleteEntry(entry.file) } })
-                menu.add(
-                    JMenuItem(
-                        DesktopUtils.revealInFileManagerLabel,
-                    ).apply {
-                        addActionListener { revealInFileManager(entry.file) }
-                    },
-                )
-                menu.addSeparator()
-                menu.add(copyPathItem(entry.file))
-            }
-        }
-        // New File / New Folder always available for current directory
-        if (entry is FileEntry.ParentDir) {
-            menu.addSeparator()
-            menu.add(JMenuItem("New File\u2026").apply { addActionListener { createFile(currentDir) } })
-            menu.add(JMenuItem("New Folder\u2026").apply { addActionListener { createFolder(currentDir) } })
-        }
-        menu.show(table, x, y)
-    }
-
-    private fun createFile(inDir: File) {
-        val name = JOptionPane.showInputDialog(this, "File name:", "New File", JOptionPane.PLAIN_MESSAGE) ?: return
-        if (name.isBlank()) return
-        val file = File(inDir, name.trim())
-        try {
-            if (!file.createNewFile()) {
-                JOptionPane.showMessageDialog(this, "File already exists.")
-                return
-            }
-            loadDirectory(currentDir)
-            openFileInTab(file)
-        } catch (e: Exception) {
-            JOptionPane.showMessageDialog(this, "Could not create file: ${e.message}", "Error", JOptionPane.ERROR_MESSAGE)
-        }
-    }
-
-    private fun createFolder(inDir: File) {
-        val name = JOptionPane.showInputDialog(this, "Folder name:", "New Folder", JOptionPane.PLAIN_MESSAGE) ?: return
-        if (name.isBlank()) return
-        val folder = File(inDir, name.trim())
-        if (!folder.mkdir()) {
-            JOptionPane.showMessageDialog(this, "Could not create folder.", "Error", JOptionPane.ERROR_MESSAGE)
-        } else {
-            loadDirectory(currentDir)
-        }
-    }
-
-    private fun renameEntry(file: File) {
-        val newName = JOptionPane.showInputDialog(this, "Rename to:", file.name) ?: return
-        if (newName.isBlank() || newName == file.name) return
-        val dest = File(file.parentFile, newName.trim())
-        if (!file.renameTo(dest)) {
-            JOptionPane.showMessageDialog(this, "Rename failed.", "Error", JOptionPane.ERROR_MESSAGE)
-        } else {
-            loadDirectory(currentDir)
-        }
-    }
-
-    private fun deleteEntry(file: File) {
-        val confirm =
-            JOptionPane.showConfirmDialog(
-                this,
-                "Delete '${file.name}'?",
-                "Confirm Delete",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE,
-            )
-        if (confirm != JOptionPane.YES_OPTION) return
-        if (!file.deleteRecursively()) {
-            JOptionPane.showMessageDialog(this, "Delete failed.", "Error", JOptionPane.ERROR_MESSAGE)
-        } else {
-            loadDirectory(currentDir)
-        }
-    }
-
-    private fun copyPathItem(file: File) =
-        JMenuItem("Copy Path").apply {
-            addActionListener {
-                val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-                clipboard.setContents(java.awt.datatransfer.StringSelection(file.absolutePath), null)
-            }
-        }
-
-    private fun openWith(
-        file: File,
-        editor: ExternalEditor,
-    ) {
-        try {
-            val cmd =
-                if (IS_WINDOWS) {
-                    listOf("cmd", "/c", editor.executable, file.absolutePath)
-                } else {
-                    listOf(editor.executable, file.absolutePath)
-                }
-            ProcessBuilder(cmd).start()
-        } catch (e: Exception) {
-            JOptionPane.showMessageDialog(
-                this,
-                "Failed to launch ${editor.name}: ${e.message}",
-                "Launch Error",
-                JOptionPane.ERROR_MESSAGE,
-            )
-        }
     }
 }
 
