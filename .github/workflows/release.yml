@@ -138,6 +138,7 @@ jobs:
   package-native:
     runs-on: ${{ matrix.os }}
     needs: [prepare-release, build-jar]
+    if: always() && needs.build-jar.result == 'success'
     permissions:
       contents: write
     strategy:
@@ -240,6 +241,7 @@ jobs:
   update-appcast:
     runs-on: ubuntu-latest
     needs: [prepare-release, package-native]
+    if: always() && needs.package-native.result == 'success'
     permissions:
       contents: write
     steps:
@@ -326,6 +328,7 @@ jobs:
   verify-update:
     runs-on: ubuntu-latest
     needs: [prepare-release, update-appcast]
+    if: always() && needs.update-appcast.result == 'success'
     permissions:
       contents: read
     steps:
