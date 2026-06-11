@@ -11,7 +11,6 @@ import io.github.rygel.needlecast.process.ProcessOutputListener
 import io.github.rygel.needlecast.service.CommandHistoryManager
 import io.github.rygel.needlecast.service.CommandQueue
 import io.github.rygel.needlecast.service.QueuedCommand
-import io.github.rygel.needlecast.ui.RemixIcons
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Font
@@ -105,6 +104,14 @@ class CommandPanel(
     private var processResult: ProcessResult = ProcessResult.NotStarted
     private var currentProjectPath: String? = null
     private var currentProjectEnv: Map<String, String> = emptyMap()
+
+    private val overrideManager =
+        CommandOverrideManager(
+            ctx,
+            { currentProjectPath },
+            { idx, cmd -> commandModel.set(idx, cmd) },
+            { commandList.selectedIndex },
+        )
 
     private val commandScroll = JScrollPane(commandList)
     private val historyScroll = JScrollPane(historyList).apply { isVisible = false }
@@ -394,86 +401,30 @@ class CommandPanel(
         menu.add(
             JMenuItem("Edit\u2026").apply {
                 isEnabled = cmd != null
-                addActionListener { editSelectedCommand() }
+                addActionListener {
+                    if (cmd != null) overrideManager.editSelectedCommand(cmd, this@CommandPanel)
+                }
             },
         )
-        val activeOverride = cmd?.let { findActiveOverride(it) }
+        val activeOverride = cmd?.let { overrideManager.findActiveOverride(it) }
         if (activeOverride != null) {
             menu.addSeparator()
             menu.add(
                 JMenuItem("Reset to Default").apply {
                     icon = RemixIcons.icon("ri-arrow-go-back-line", 12)
-                    addActionListener { resetSelectedCommand(activeOverride) }
+                    addActionListener {
+                        val selIdx = commandList.selectedIndex
+                        val selCmd = commandModel.getElementAt(selIdx)
+                        overrideManager.resetSelectedCommand(
+                            activeOverride,
+                            selCmd.buildTool,
+                            selCmd.workingDirectory,
+                        )
+                    }
                 },
             )
         }
         menu.show(commandList, e.x, e.y)
-    }
-
-    private fun editSelectedCommand() {
-        val idx = commandList.selectedIndex.takeIf { it >= 0 } ?: return
-        val original = commandModel.getElementAt(idx)
-        val owner = SwingUtilities.getWindowAncestor(this)
-        val dialog = EditCommandDialog(owner, original)
-        dialog.isVisible = true
-        val updated = dialog.result ?: return
-        commandModel.set(idx, updated)
-
-        // Persist the override so it survives rescans
-        val workDir = currentProjectPath ?: return
-        // Resolve the true originalArgv: if this command was already overridden,
-        // find the stored override whose .argv matches the current commandModel argv
-        val trueOriginalArgv =
-            ctx.config.commandOverrides[workDir]
-                ?.firstOrNull { it.argv == original.argv }
-                ?.originalArgv
-                ?: original.argv
-        val newOverride =
-            CommandOverride(
-                originalArgv = trueOriginalArgv,
-                label = updated.label,
-                argv = updated.argv,
-            )
-        val existing =
-            ctx.config.commandOverrides[workDir]
-                ?.filterNot { it.originalArgv == trueOriginalArgv }
-                ?: emptyList()
-        ctx.updateConfig(
-            ctx.config.copy(
-                commandOverrides = ctx.config.commandOverrides + (workDir to (existing + newOverride)),
-            ),
-        )
-    }
-
-    private fun findActiveOverride(cmd: CommandDescriptor): CommandOverride? {
-        val workDir = currentProjectPath ?: return null
-        val overrides = ctx.config.commandOverrides[workDir] ?: return null
-        return overrides.firstOrNull { it.argv == cmd.argv }
-            ?: overrides.firstOrNull { it.originalArgv == cmd.argv }
-    }
-
-    private fun resetSelectedCommand(override: CommandOverride) {
-        val idx = commandList.selectedIndex.takeIf { it >= 0 } ?: return
-        val workDir = currentProjectPath ?: return
-        val restored =
-            CommandDescriptor(
-                label = override.originalArgv.joinToString(" "),
-                buildTool = commandModel.getElementAt(idx).buildTool,
-                argv = override.originalArgv,
-                workingDirectory = commandModel.getElementAt(idx).workingDirectory,
-            )
-        commandModel.set(idx, restored)
-        val remaining =
-            ctx.config.commandOverrides[workDir]
-                ?.filterNot { it.originalArgv == override.originalArgv }
-                ?: emptyList()
-        val newOverrides =
-            if (remaining.isEmpty()) {
-                ctx.config.commandOverrides - workDir
-            } else {
-                ctx.config.commandOverrides + (workDir to remaining)
-            }
-        ctx.updateConfig(ctx.config.copy(commandOverrides = newOverrides))
     }
 }
 
