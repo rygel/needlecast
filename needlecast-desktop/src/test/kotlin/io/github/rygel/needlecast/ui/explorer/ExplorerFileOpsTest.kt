@@ -6,6 +6,7 @@ import io.github.rygel.needlecast.config.PromptLibraryStore
 import io.github.rygel.needlecast.config.SkillLibraryStore
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledIf
 import org.junit.jupiter.api.io.TempDir
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
@@ -16,6 +17,11 @@ import javax.swing.JPanel
 class ExplorerFileOpsTest {
     @TempDir
     lateinit var tempDir: Path
+
+    companion object {
+        @JvmStatic
+        fun isHeadful(): Boolean = !java.awt.GraphicsEnvironment.isHeadless()
+    }
 
     private fun makeContext(): AppContext {
         val configStore = JsonConfigStore(tempDir.resolve("config.json"))
@@ -104,6 +110,7 @@ class ExplorerFileOpsTest {
     }
 
     @Test
+    @EnabledIf("isHeadful")
     fun `copyPath puts absolute path on clipboard`() {
         val ctx = makeContext()
         val file = File(tempDir.toFile(), "clip-test.txt")
