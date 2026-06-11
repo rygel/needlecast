@@ -1,17 +1,16 @@
 package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.AppContext
-import io.github.rygel.needlecast.model.BuildTool
 import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.GitStatus
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectGroup
 import io.github.rygel.needlecast.scanner.BuildFileWatcher
 import io.github.rygel.needlecast.service.ProjectService
+import io.github.rygel.needlecast.ui.renderers.CompactProjectDirectoryRenderer
 import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Color
-import java.awt.Component
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
@@ -33,7 +32,6 @@ import javax.swing.JPopupMenu
 import javax.swing.JScrollPane
 import javax.swing.JTextField
 import javax.swing.JToolBar
-import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
@@ -64,7 +62,7 @@ class DirectoryPanel(
             }
         }.apply {
             selectionMode = ListSelectionModel.SINGLE_SELECTION
-            setCellRenderer(CompactProjectDirectoryRenderer({ activePaths }) { path -> gitStatusCache[path] })
+            setCellRenderer(CompactProjectDirectoryRenderer(activePathsProvider = { activePaths }, gitStatusProvider = { path -> gitStatusCache[path] }))
         }
 
     private var currentGroup: ProjectGroup? = null
@@ -584,144 +582,5 @@ class DirectoryPanel(
         hex: String?,
     ) {
         updateProjectDirectory(project) { it.copy(color = hex) }
-    }
-}
-
-private class CompactProjectDirectoryRenderer(
-    private val activePaths: () -> Set<String>,
-    private val gitStatus: (String) -> GitStatus?,
-) : ListCellRenderer<DetectedProject> {
-    private val colorStripe =
-        JPanel().apply {
-            preferredSize = Dimension(4, 0)
-            isOpaque = true
-        }
-    private val panel =
-        JPanel(BorderLayout(4, 0)).apply {
-            border = BorderFactory.createEmptyBorder(2, 6, 2, 6)
-        }
-    private val outerPanel =
-        JPanel(BorderLayout()).apply {
-            isOpaque = true
-        }
-
-    init {
-        outerPanel.add(colorStripe, BorderLayout.WEST)
-        outerPanel.add(panel, BorderLayout.CENTER)
-    }
-
-    private val nameLabel =
-        JLabel().apply {
-            font = font.deriveFont(Font.BOLD, 12f)
-        }
-    private val activeDot =
-        JLabel(RemixIcons.icon("ri-checkbox-blank-circle-fill", 10, Color(0x4CAF50))).apply {
-            border = BorderFactory.createEmptyBorder(0, 0, 0, 4)
-        }
-    private val branchLabel =
-        JLabel().apply {
-            font = Font(Font.MONOSPACED, Font.PLAIN, 10)
-            foreground = Color(0x888888)
-            border = BorderFactory.createEmptyBorder(0, 18, 0, 0) // indent past activeDot width
-        }
-    private val tagsPanel =
-        JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
-            isOpaque = false
-        }
-
-    // Row 1: ● name  [tags]
-    private val nameRow =
-        JPanel(BorderLayout(2, 0)).apply {
-            isOpaque = false
-            add(activeDot, BorderLayout.WEST)
-            add(nameLabel, BorderLayout.CENTER)
-            add(tagsPanel, BorderLayout.EAST)
-        }
-
-    // Full cell: name row top, branch row below (full width — no tag overlap)
-    private val cellPanel =
-        JPanel(BorderLayout(0, 1)).apply {
-            isOpaque = false
-            add(nameRow, BorderLayout.NORTH)
-            add(branchLabel, BorderLayout.CENTER)
-        }
-
-    init {
-        panel.add(cellPanel, BorderLayout.CENTER)
-    }
-
-    override fun getListCellRendererComponent(
-        list: JList<out DetectedProject>,
-        value: DetectedProject?,
-        index: Int,
-        isSelected: Boolean,
-        cellHasFocus: Boolean,
-    ): Component {
-        val isActive = value != null && value.directory.path in activePaths()
-        activeDot.isVisible = isActive
-        nameLabel.text = value?.directory?.label() ?: ""
-
-        val gs = value?.let { gitStatus(it.directory.path) }
-        if (gs != null && gs.branch != null) {
-            val dirtyMark = if (gs.isDirty) "*" else ""
-            branchLabel.text = "${gs.branch}$dirtyMark"
-            branchLabel.toolTipText = gs.branch
-            branchLabel.foreground = if (gs.isDirty) Color(0xE6A817) else Color(0x888888)
-        } else {
-            branchLabel.text = " "
-            branchLabel.toolTipText = null
-        }
-
-        tagsPanel.removeAll()
-        if (value != null) {
-            if (value.scanFailed) {
-                tagsPanel.add(
-                    JLabel(RemixIcons.icon("ri-error-warning-line", 10, Color(0xB71C1C))).apply {
-                        toolTipText = "Scan failed — check logs or rescan"
-                    },
-                )
-            } else {
-                val tools = value.buildTools
-                val tags = if (tools.isEmpty()) listOf(null) else tools.map { it }
-                tags.forEach { tool -> tagsPanel.add(buildTagLabel(tool)) }
-            }
-        }
-
-        val bg = if (isSelected) list.selectionBackground else list.background
-        outerPanel.background = bg
-        panel.background = bg
-        nameLabel.foreground = if (isSelected) list.selectionForeground else list.foreground
-        panel.isOpaque = true
-
-        val colorHex = value?.directory?.color
-        colorStripe.isVisible = colorHex != null
-        if (colorHex != null) {
-            colorStripe.background =
-                try {
-                    Color.decode(colorHex)
-                } catch (_: Exception) {
-                    Color.GRAY
-                }
-        }
-
-        return outerPanel
-    }
-
-    private fun buildTagLabel(
-        tool: BuildTool?,
-        label: String? = null,
-        color: String? = null,
-    ): JLabel {
-        val text = label ?: tool?.tagLabel ?: "?"
-        val hex = color ?: tool?.tagColor ?: "#757575"
-        return JLabel(text).apply {
-            font = Font(Font.SANS_SERIF, Font.BOLD, 9)
-            foreground = Color.WHITE
-            background = Color.decode(hex)
-            isOpaque = true
-            border = BorderFactory.createEmptyBorder(1, 4, 1, 4)
-            preferredSize = Dimension(preferredSize.width, 14)
-            if (tool == null && label == "⚠") toolTipText = "Scan failed — check logs or rescan"
-        }
     }
 }
