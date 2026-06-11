@@ -13,7 +13,26 @@ on:
 permissions: {}
 
 jobs:
+  validate-branch:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Ensure release targets main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TARGET=$(gh release view "${{ github.ref_name }}" --json targetCommitish --jq '.targetCommitish')
+          echo "Release ${{ github.ref_name }} targets branch: $TARGET"
+          if [[ "$TARGET" != "main" ]]; then
+            echo "::error::Release must target 'main', not '$TARGET'. Create releases from main only."
+            exit 1
+          fi
+          echo "OK: release targets main"
+
   prepare-release:
+    needs: validate-branch
+    if: always() && (needs.validate-branch.result == 'success' || needs.validate-branch.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: write
