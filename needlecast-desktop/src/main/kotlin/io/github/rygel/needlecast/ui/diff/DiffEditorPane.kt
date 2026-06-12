@@ -1,9 +1,9 @@
 package io.github.rygel.needlecast.ui.diff
 
+import org.slf4j.LoggerFactory
 import java.awt.Font
 import java.awt.Insets
 import java.awt.Rectangle
-import org.slf4j.LoggerFactory
 import javax.swing.JTextPane
 import javax.swing.text.BadLocationException
 import javax.swing.text.MutableAttributeSet
@@ -15,6 +15,7 @@ class DiffEditorPane(
     val side: Side,
 ) : JTextPane() {
     private val logger = LoggerFactory.getLogger(DiffEditorPane::class.java)
+
     enum class Side { OLD, NEW, UNIFIED }
 
     private val lineTypes = mutableListOf<DiffLineType>()

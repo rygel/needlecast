@@ -4,11 +4,11 @@ import io.github.rygel.needlecast.ui.RemixIcons
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rtextarea.SearchContext
 import org.fife.ui.rtextarea.SearchEngine
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
-import org.slf4j.LoggerFactory
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JCheckBox

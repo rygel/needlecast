@@ -1,6 +1,7 @@
 package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.process.ProcessExecutor
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -33,7 +34,6 @@ import javax.swing.ListCellRenderer
 import javax.swing.ListSelectionModel
 import javax.swing.SwingWorker
 import javax.swing.UIManager
-import org.slf4j.LoggerFactory
 
 /**
  * Phase 1 "Find in Files" panel: fast, non-indexed search across the active project.

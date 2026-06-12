@@ -100,5 +100,4 @@ class RustProjectScanner : ProjectScanner {
         }
         return members
     }
-
 }

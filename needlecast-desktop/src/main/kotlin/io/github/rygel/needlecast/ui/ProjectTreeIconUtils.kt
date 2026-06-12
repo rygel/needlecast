@@ -1,9 +1,9 @@
 package io.github.rygel.needlecast.ui
 
+import org.slf4j.LoggerFactory
 import java.awt.Color
 import java.awt.Component
 import java.awt.Graphics
-import org.slf4j.LoggerFactory
 import javax.swing.Icon
 import javax.swing.JLabel
 

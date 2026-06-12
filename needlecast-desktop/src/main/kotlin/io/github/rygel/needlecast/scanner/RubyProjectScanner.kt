@@ -47,5 +47,4 @@ class RubyProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
 }

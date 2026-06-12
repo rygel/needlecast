@@ -175,8 +175,13 @@ class ProcessCommandRunnerTest {
         val lines = mutableListOf<String>()
         val listener =
             object : ProcessOutputListener {
-                override fun onLine(line: String) { lines.add(line) }
-                override fun onExit(code: Int) { exits.add(code) }
+                override fun onLine(line: String) {
+                    lines.add(line)
+                }
+
+                override fun onExit(code: Int) {
+                    exits.add(code)
+                }
             }
         runner.run(descriptor, listener)
         Thread.sleep(500)

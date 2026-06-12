@@ -50,5 +50,4 @@ class ElixirProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
 }

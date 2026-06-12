@@ -28,5 +28,4 @@ class ZigProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
 }

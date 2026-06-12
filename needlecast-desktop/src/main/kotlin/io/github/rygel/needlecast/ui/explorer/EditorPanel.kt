@@ -9,6 +9,7 @@ import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.Theme
 import org.fife.ui.rtextarea.RTextScrollPane
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Font
 import java.awt.GraphicsEnvironment
@@ -19,7 +20,6 @@ import java.nio.charset.MalformedInputException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import org.slf4j.LoggerFactory
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JLabel

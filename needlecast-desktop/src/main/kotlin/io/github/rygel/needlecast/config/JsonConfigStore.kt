@@ -9,11 +9,11 @@ import io.github.rygel.needlecast.model.AppConfig
 import io.github.rygel.needlecast.model.WorkspaceSnapshot
 import io.github.rygel.needlecast.model.toWorkspaceSnapshot
 import io.github.rygel.needlecast.model.withWorkspaceSnapshot
+import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.time.Instant
-import org.slf4j.LoggerFactory
 
 class JsonConfigStore(
     private val configPath: Path = defaultConfigPath(),

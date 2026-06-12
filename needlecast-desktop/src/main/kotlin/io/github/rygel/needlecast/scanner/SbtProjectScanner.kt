@@ -30,5 +30,4 @@ class SbtProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
 }

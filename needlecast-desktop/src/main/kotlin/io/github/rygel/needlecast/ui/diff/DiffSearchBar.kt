@@ -1,11 +1,11 @@
 package io.github.rygel.needlecast.ui.diff
 
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
-import org.slf4j.LoggerFactory
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JLabel

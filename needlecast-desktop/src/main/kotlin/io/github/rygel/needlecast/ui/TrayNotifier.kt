@@ -1,9 +1,9 @@
 package io.github.rygel.needlecast.ui
 
+import org.slf4j.LoggerFactory
 import java.awt.SystemTray
 import java.awt.TrayIcon
 import java.awt.image.BufferedImage
-import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger(TrayNotifier::class.java)
 

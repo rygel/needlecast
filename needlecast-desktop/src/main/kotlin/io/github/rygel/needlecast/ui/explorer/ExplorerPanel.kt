@@ -4,6 +4,7 @@ import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.util.DesktopUtils
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
@@ -29,7 +30,6 @@ import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.SwingWorker
 import javax.swing.table.DefaultTableCellRenderer
-import org.slf4j.LoggerFactory
 
 class ExplorerPanel(
     private val ctx: AppContext,

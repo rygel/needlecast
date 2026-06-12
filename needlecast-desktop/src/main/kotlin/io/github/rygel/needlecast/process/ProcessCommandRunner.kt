@@ -15,10 +15,15 @@ class ProcessCommandRunner {
         private val NOOP_PROCESS =
             object : Process() {
                 override fun getOutputStream(): OutputStream = OutputStream.nullOutputStream()
+
                 override fun getInputStream(): InputStream = InputStream.nullInputStream()
+
                 override fun getErrorStream(): InputStream = InputStream.nullInputStream()
+
                 override fun waitFor() = -1
+
                 override fun exitValue() = -1
+
                 override fun destroy() {}
             }
     }
@@ -77,5 +82,4 @@ class ProcessCommandRunner {
 
         return RunningProcess(process, readerThread)
     }
-
 }

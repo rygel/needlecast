@@ -58,5 +58,4 @@ class DartProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
 }

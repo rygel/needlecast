@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.scanner
 
+import org.slf4j.LoggerFactory
 import java.nio.file.FileSystems
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -8,7 +9,6 @@ import java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY
 import java.nio.file.WatchKey
 import java.nio.file.WatchService
 import java.util.concurrent.ConcurrentHashMap
-import org.slf4j.LoggerFactory
 
 private val BUILD_FILE_NAMES =
     setOf(

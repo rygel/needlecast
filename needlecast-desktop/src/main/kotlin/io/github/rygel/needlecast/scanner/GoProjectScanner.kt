@@ -57,5 +57,4 @@ class GoProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
 }

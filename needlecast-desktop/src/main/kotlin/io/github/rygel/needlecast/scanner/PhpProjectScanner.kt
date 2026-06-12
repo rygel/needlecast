@@ -61,5 +61,4 @@ class PhpProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
 }

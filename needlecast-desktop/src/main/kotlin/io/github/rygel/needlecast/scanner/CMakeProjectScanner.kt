@@ -59,5 +59,4 @@ class CMakeProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
 }

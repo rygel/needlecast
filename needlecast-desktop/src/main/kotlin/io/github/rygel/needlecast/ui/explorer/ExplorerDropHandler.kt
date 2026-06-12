@@ -1,9 +1,9 @@
 package io.github.rygel.needlecast.ui.explorer
 
+import org.slf4j.LoggerFactory
 import java.awt.datatransfer.DataFlavor
 import java.io.File
 import java.net.URI
-import org.slf4j.LoggerFactory
 import javax.swing.JTabbedPane
 import javax.swing.JTable
 import javax.swing.SwingUtilities
