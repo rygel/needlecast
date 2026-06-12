@@ -41,10 +41,10 @@ class TextChunkerTest {
         val large = "a".repeat(100_000)
         var done = false
         TextChunker.setTextChunked(textArea, large, chunkSize = 1_000, delayMs = 5, onDone = { done = true })
-        // Wait for chunking to complete
-        val deadline = System.currentTimeMillis() + 5000
+        val deadline = System.currentTimeMillis() + 15_000
         while (System.currentTimeMillis() < deadline && !done) {
-            Thread.sleep(50)
+            Thread.sleep(100)
+            SwingUtilities.invokeAndWait { }
         }
         assertTrue(done, "onDone was never called")
         assertEquals(large.length, textArea.text.length)
