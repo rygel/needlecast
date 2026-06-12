@@ -101,11 +101,12 @@ class CodexScreenshotTest {
                 val (primary, _) = splitSides(split)
                 val terminalIsPrimary = containsDescendant(primary, terminalAnchor)
                 val totalSize = if (split.orientation == JSplitPane.HORIZONTAL_SPLIT) split.width else split.height
-                val dividerLocation = if (terminalIsPrimary) {
-                    (totalSize * proportion).toInt()
-                } else {
-                    (totalSize * (1.0 - proportion)).toInt()
-                }
+                val dividerLocation =
+                    if (terminalIsPrimary) {
+                        (totalSize * proportion).toInt()
+                    } else {
+                        (totalSize * (1.0 - proportion)).toInt()
+                    }
                 split.setDividerLocation(dividerLocation)
                 split.revalidate()
                 split.repaint()
@@ -119,10 +120,16 @@ class CodexScreenshotTest {
     }
 
     private fun splitSides(split: JSplitPane): Pair<Component?, Component?> =
-        if (split.orientation == JSplitPane.HORIZONTAL_SPLIT) split.leftComponent to split.rightComponent
-        else split.topComponent to split.bottomComponent
+        if (split.orientation == JSplitPane.HORIZONTAL_SPLIT) {
+            split.leftComponent to split.rightComponent
+        } else {
+            split.topComponent to split.bottomComponent
+        }
 
-    private fun findInnermostSplitContaining(root: Container, target: Component): JSplitPane? {
+    private fun findInnermostSplitContaining(
+        root: Container,
+        target: Component,
+    ): JSplitPane? {
         if (root is JSplitPane) {
             val (a, b) = splitSides(root)
             if (containsDescendant(a, target) || containsDescendant(b, target)) {
@@ -139,7 +146,10 @@ class CodexScreenshotTest {
         return null
     }
 
-    private fun findInnermostSplitInChildren(parent: JSplitPane, target: Component): JSplitPane? {
+    private fun findInnermostSplitInChildren(
+        parent: JSplitPane,
+        target: Component,
+    ): JSplitPane? {
         val (a, b) = splitSides(parent)
         for (side in listOfNotNull(a, b)) {
             if (side is Container) {
@@ -150,7 +160,10 @@ class CodexScreenshotTest {
         return null
     }
 
-    private fun containsDescendant(c: Component?, target: Component): Boolean {
+    private fun containsDescendant(
+        c: Component?,
+        target: Component,
+    ): Boolean {
         if (c == null) return false
         if (c === target) return true
         if (c !is Container) return false
@@ -168,7 +181,11 @@ class CodexScreenshotTest {
 
     private fun resolveCodexCommand(): String {
         val proc = ProcessBuilder("where", "codex").redirectErrorStream(true).start()
-        val output = proc.inputStream.bufferedReader().readText().trim()
+        val output =
+            proc.inputStream
+                .bufferedReader()
+                .readText()
+                .trim()
         proc.waitFor()
         if (output.isBlank() || proc.exitValue() != 0) {
             throw IllegalStateException("codex not found on PATH")
@@ -196,4 +213,3 @@ class CodexScreenshotTest {
         ImageIO.write(image, "png", file)
     }
 }
-
