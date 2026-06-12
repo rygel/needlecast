@@ -6,10 +6,12 @@ import io.github.rygel.needlecast.ui.MainWindow
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledIf
 import java.awt.Component
 import java.awt.Container
 import java.awt.Dimension
 import java.awt.Graphics2D
+import java.awt.GraphicsEnvironment
 import java.awt.image.BufferedImage
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -20,6 +22,11 @@ import javax.swing.JTabbedPane
 import javax.swing.SwingUtilities
 
 class CodexScreenshotTest {
+    companion object {
+        @JvmStatic
+        fun isHeadful(): Boolean = !GraphicsEnvironment.isHeadless()
+    }
+
     private lateinit var window: MainWindow
     private lateinit var ctx: AppContext
 
@@ -54,6 +61,7 @@ class CodexScreenshotTest {
     }
 
     @Test
+    @EnabledIf("isHeadful")
     fun `launch codex inside needlecast and capture screenshot`() {
         val outputDir = File("target/codex-screenshots")
         outputDir.mkdirs()
