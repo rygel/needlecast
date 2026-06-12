@@ -19,6 +19,7 @@ import java.nio.charset.MalformedInputException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import org.slf4j.LoggerFactory
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JLabel
@@ -54,6 +55,7 @@ private val readCharsets: List<Charset> =
 class EditorPanel(
     private val ctx: AppContext,
 ) : JPanel(BorderLayout()) {
+    private val logger = LoggerFactory.getLogger(EditorPanel::class.java)
     private var currentFile: File? = null
     private var isModified = false
     private var isLoadingFile = false
@@ -196,8 +198,8 @@ class EditorPanel(
                 val theme = Theme.load(stream)
                 theme.apply(editor)
             }
-        } catch (_: Exception) {
-            // Fall back to defaults
+        } catch (e: Exception) {
+            logger.warn("Failed to apply syntax theme", e)
         }
         // Preserve current zoom level — RSTA theme XML may override the font
         editor.font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
@@ -305,7 +307,8 @@ class EditorPanel(
                         try {
                             result = Files.readString(file.toPath(), cs)
                             break
-                        } catch (_: MalformedInputException) {
+                        } catch (e: MalformedInputException) {
+                            logger.debug("File not readable with current charset", e)
                         }
                     }
                     return result!! // ISO_8859_1 is last and never throws
@@ -316,7 +319,8 @@ class EditorPanel(
                     val content =
                         try {
                             get()
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            logger.warn("Failed to load file content", e)
                             isLoadingFile = false
                             editor.text = "Failed to load file."
                             return

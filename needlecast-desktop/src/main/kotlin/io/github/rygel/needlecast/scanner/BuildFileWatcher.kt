@@ -8,6 +8,7 @@ import java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY
 import java.nio.file.WatchKey
 import java.nio.file.WatchService
 import java.util.concurrent.ConcurrentHashMap
+import org.slf4j.LoggerFactory
 
 private val BUILD_FILE_NAMES =
     setOf(
@@ -50,6 +51,7 @@ private fun isBuildFile(fileName: String): Boolean {
 class BuildFileWatcher(
     private val onChanged: (String) -> Unit,
 ) : io.github.rygel.needlecast.Disposable {
+    private val logger = LoggerFactory.getLogger(BuildFileWatcher::class.java)
     private val watchService: WatchService = FileSystems.getDefault().newWatchService()
 
     /** Maps WatchKey → directory path string. */
@@ -79,8 +81,8 @@ class BuildFileWatcher(
                 val key: WatchKey = dir.register(watchService, ENTRY_CREATE, ENTRY_MODIFY)
                 keyToPath[key] = path
                 pathToKey[path] = key
-            } catch (_: Exception) {
-                // Directory may not exist yet or may not be accessible; silently skip.
+            } catch (e: Exception) {
+                logger.warn("Failed to register watch for path", e)
             }
         }
     }
@@ -92,7 +94,8 @@ class BuildFileWatcher(
         lastFired.remove(path)
         try {
             key.cancel()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to cancel watch key", e)
         }
     }
 
@@ -106,7 +109,8 @@ class BuildFileWatcher(
         running = false
         try {
             watchService.close()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to close watch service", e)
         }
     }
 
@@ -117,7 +121,8 @@ class BuildFileWatcher(
             val key: WatchKey =
                 try {
                     watchService.take()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Watch service polling failed", e)
                     break
                 }
 

@@ -13,10 +13,12 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.time.Instant
+import org.slf4j.LoggerFactory
 
 class JsonConfigStore(
     private val configPath: Path = defaultConfigPath(),
 ) : ConfigStore {
+    private val logger = LoggerFactory.getLogger(JsonConfigStore::class.java)
     private val mapper: ObjectMapper =
         ObjectMapper()
             .registerKotlinModule()
@@ -44,8 +46,8 @@ class JsonConfigStore(
             val ts = Instant.now().epochSecond
             val backup = configPath.resolveSibling("${configPath.fileName}.corrupt.$ts")
             Files.copy(configPath, backup, StandardCopyOption.REPLACE_EXISTING)
-        } catch (_: Exception) {
-            // Best-effort; ignore if backup fails
+        } catch (e: Exception) {
+            logger.warn("Failed to preserve corrupt config file", e)
         }
     }
 
@@ -83,8 +85,8 @@ class JsonConfigStore(
             }
             // Current config becomes backup #1
             Files.copy(configPath, dir.resolve("$name.bak.1"), StandardCopyOption.REPLACE_EXISTING)
-        } catch (_: Exception) {
-            // Best-effort; a backup failure must never prevent saving
+        } catch (e: Exception) {
+            logger.warn("Failed to rotate config backups", e)
         }
     }
 

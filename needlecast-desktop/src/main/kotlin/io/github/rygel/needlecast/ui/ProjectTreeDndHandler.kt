@@ -4,6 +4,7 @@ import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProjectDirectory
 import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.scanner.IS_WINDOWS
+import org.slf4j.LoggerFactory
 import java.awt.Component
 import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
@@ -31,6 +32,8 @@ internal class ProjectTreeDndHandler(
     private val onProjectSelected: (DetectedProject?) -> Unit,
     private val onExternalFilesDropped: (List<File>) -> Unit,
 ) {
+    private val logger = LoggerFactory.getLogger(ProjectTreeDndHandler::class.java)
+
     val transferHandler: TransferHandler = TreeTransferHandler()
 
     // ── Test hooks ─────────────────────────────────────────────────────────
@@ -177,7 +180,8 @@ internal class ProjectTreeDndHandler(
                 val mime = DataFlavor.javaJVMLocalObjectMimeType + ";class=" + DefaultMutableTreeNode::class.java.name
                 try {
                     DataFlavor(mime)
-                } catch (_: ClassNotFoundException) {
+                } catch (e: ClassNotFoundException) {
+                    logger.warn("DataFlavor class not found, falling back to default", e)
                     DataFlavor(DefaultMutableTreeNode::class.java, "TreeNode")
                 }
             }
@@ -185,25 +189,29 @@ internal class ProjectTreeDndHandler(
         private val uriListFlavor: DataFlavor? =
             try {
                 DataFlavor("text/uri-list;class=java.lang.String")
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to create URI list flavor (string)", e)
                 null
             }
         private val uriListReaderFlavor: DataFlavor? =
             try {
                 DataFlavor("text/uri-list;class=java.io.Reader")
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to create URI list flavor (reader)", e)
                 null
             }
         private val uriListInputFlavor: DataFlavor? =
             try {
                 DataFlavor("text/uri-list;class=java.io.InputStream")
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to create URI list flavor (input stream)", e)
                 null
             }
         private val urlFlavor: DataFlavor? =
             try {
                 DataFlavor("application/x-java-url;class=java.net.URL")
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to create URL flavor", e)
                 null
             }
 
@@ -224,7 +232,8 @@ internal class ProjectTreeDndHandler(
         private fun nodeFrom(support: TransferSupport): DefaultMutableTreeNode? =
             try {
                 support.transferable.getTransferData(flavor) as? DefaultMutableTreeNode
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to extract internal tree node from transferable", e)
                 null
             }
 
@@ -282,7 +291,8 @@ internal class ProjectTreeDndHandler(
                     try {
                         support.dropAction = MOVE
                         support.setShowDropLocation(true)
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to set drop action", e)
                     }
                     val dl = support.dropLocation as? JTree.DropLocation ?: return false
                     val overrideTarget = centeredFolderDrop(dl)
@@ -368,7 +378,8 @@ internal class ProjectTreeDndHandler(
                         (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
                             ?.filterIsInstance<File>()
                             ?: emptyList()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to read file list from transferable", e)
                         emptyList()
                     }
                 val dirs = items.filter { it.isDirectory }
@@ -382,7 +393,8 @@ internal class ProjectTreeDndHandler(
                     val dirs = if (file != null && file.isDirectory) listOf(file) else emptyList()
                     val files = if (file != null && file.isFile) listOf(file) else emptyList()
                     dirs to files
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Failed to extract URL from transferable", e)
                     emptyList<File>() to emptyList()
                 }
             }
@@ -414,7 +426,8 @@ internal class ProjectTreeDndHandler(
                         null
                     }
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to read URI list text from transferable", e)
                 null
             }
 

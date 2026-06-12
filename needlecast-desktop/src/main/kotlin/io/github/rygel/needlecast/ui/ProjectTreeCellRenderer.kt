@@ -17,6 +17,9 @@ import javax.swing.JTree
 import javax.swing.UIManager
 import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.TreeCellRenderer
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("ProjectTreeCellRenderer")
 
 internal class ProjectTreeCellRenderer(
     private val tree: JTree,
@@ -195,7 +198,8 @@ internal class ProjectTreeCellRenderer(
                     entry.color?.let {
                         try {
                             Color.decode(it)
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            logger.debug("Failed to decode folder color", e)
                             null
                         }
                     }
@@ -263,7 +267,8 @@ internal class ProjectTreeCellRenderer(
                     colorStripe.background =
                         try {
                             Color.decode(colorHex)
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            logger.debug("Failed to decode stripe color", e)
                             Color.GRAY
                         }
                 }

@@ -8,6 +8,7 @@ import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
+import org.slf4j.LoggerFactory
 import javax.swing.BorderFactory
 import javax.swing.JButton
 import javax.swing.JCheckBox
@@ -22,6 +23,7 @@ import javax.swing.JTextField
 class FindBar(
     private val editor: RSyntaxTextArea,
 ) : JPanel(BorderLayout()) {
+    private val logger = LoggerFactory.getLogger(FindBar::class.java)
     private val searchField = JTextField(18)
     private val replaceField = JTextField(18)
     private val matchCase = JCheckBox("Aa")
@@ -145,7 +147,8 @@ class FindBar(
                 statusLabel.foreground = java.awt.Color(0xF44336)
                 statusLabel.text = "Not found"
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Search pattern error", e)
             statusLabel.foreground = java.awt.Color(0xF44336)
             statusLabel.text = "Bad pattern"
         }
@@ -164,7 +167,8 @@ class FindBar(
                 statusLabel.foreground = java.awt.Color(0xF44336)
                 statusLabel.text = "Not found"
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Replace next pattern error", e)
             statusLabel.foreground = java.awt.Color(0xF44336)
             statusLabel.text = "Bad pattern"
         }
@@ -178,7 +182,8 @@ class FindBar(
             val result = SearchEngine.replaceAll(editor, ctx)
             statusLabel.foreground = java.awt.Color(0x4CAF50)
             statusLabel.text = "${result.count} replacement(s)"
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Replace all pattern error", e)
             statusLabel.foreground = java.awt.Color(0xF44336)
             statusLabel.text = "Bad pattern"
         }

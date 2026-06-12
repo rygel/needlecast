@@ -215,7 +215,8 @@ class GitLogPanel(
                 val commits =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to load commit history", e)
                         return
                     }
                 commits.forEach { logModel.addElement(it) }
@@ -250,7 +251,8 @@ class GitLogPanel(
                 val (branches, current) =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to refresh branches", e)
                         return
                     }
                 branchChanging = true
@@ -357,7 +359,8 @@ class GitLogPanel(
                 val files =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to load changed files", e)
                         return
                     }
                 fileListModel.clear()
@@ -490,7 +493,8 @@ class GitLogPanel(
                     val result =
                         try {
                             get()
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            logger.warn("Failed to load diff for commit", e)
                             return
                         }
                     onCommitSelected?.invoke(result)

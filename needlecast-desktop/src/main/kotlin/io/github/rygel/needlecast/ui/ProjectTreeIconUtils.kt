@@ -3,8 +3,11 @@ package io.github.rygel.needlecast.ui
 import java.awt.Color
 import java.awt.Component
 import java.awt.Graphics
+import org.slf4j.LoggerFactory
 import javax.swing.Icon
 import javax.swing.JLabel
+
+private val logger = LoggerFactory.getLogger("ProjectTreeIconUtils")
 
 internal fun plusOverlayIcon(base: Icon?): Icon? {
     if (base == null) return null
@@ -42,7 +45,8 @@ internal fun colorSwatchIcon(hex: String): Icon {
     val fill =
         try {
             Color.decode(hex)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.debug("Failed to decode color hex: $hex", e)
             Color.GRAY
         }
     val border = fill.darker()
@@ -74,7 +78,8 @@ internal fun badge(
     background =
         try {
             Color.decode(colorHex)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.debug("Failed to decode badge color: $colorHex", e)
             Color.GRAY
         }
     isOpaque = true
