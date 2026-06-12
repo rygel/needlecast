@@ -3,9 +3,17 @@ package io.github.rygel.needlecast.ui
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledIf
+import java.awt.GraphicsEnvironment
 
 class ShellSettingsDialogTest {
+    companion object {
+        @JvmStatic
+        fun isHeadful(): Boolean = !GraphicsEnvironment.isHeadless()
+    }
+
     @Test
+    @EnabledIf("isHeadful")
     fun `dialog has correct title`() {
         val dialog =
             ShellSettingsDialog(
@@ -20,6 +28,7 @@ class ShellSettingsDialogTest {
     }
 
     @Test
+    @EnabledIf("isHeadful")
     fun `shell field shows current value`() {
         val dialog =
             ShellSettingsDialog(
@@ -34,6 +43,7 @@ class ShellSettingsDialogTest {
     }
 
     @Test
+    @EnabledIf("isHeadful")
     fun `startup field shows current value`() {
         val dialog =
             ShellSettingsDialog(
@@ -48,6 +58,7 @@ class ShellSettingsDialogTest {
     }
 
     @Test
+    @EnabledIf("isHeadful")
     fun `shell field is empty when null`() {
         val dialog =
             ShellSettingsDialog(
@@ -62,6 +73,7 @@ class ShellSettingsDialogTest {
     }
 
     @Test
+    @EnabledIf("isHeadful")
     fun `onSave receives trimmed values`() {
         var savedShell: String? = "unset"
         var savedStartup: String? = "unset"
@@ -83,6 +95,7 @@ class ShellSettingsDialogTest {
     }
 
     @Test
+    @EnabledIf("isHeadful")
     fun `onSave receives null for blank shell`() {
         var savedShell: String? = "unset"
         val dialog =
