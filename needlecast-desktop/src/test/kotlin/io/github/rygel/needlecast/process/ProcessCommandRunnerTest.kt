@@ -162,5 +162,27 @@ class ProcessCommandRunnerTest {
         assertTrue(lines.any { it.contains("line3") })
     }
 
+    @Test
+    fun `run handles start failure gracefully`() {
+        val descriptor =
+            CommandDescriptor(
+                label = "bad",
+                buildTool = BuildTool.MAVEN,
+                argv = listOf("/nonexistent/command/that/does/not/exist"),
+                workingDirectory = System.getProperty("user.dir"),
+            )
+        val exits = mutableListOf<Int>()
+        val lines = mutableListOf<String>()
+        val listener =
+            object : ProcessOutputListener {
+                override fun onLine(line: String) { lines.add(line) }
+                override fun onExit(code: Int) { exits.add(code) }
+            }
+        runner.run(descriptor, listener)
+        Thread.sleep(500)
+        assertEquals(listOf(-1), exits)
+        assertTrue(lines.any { it.contains("Failed to start") })
+    }
+
     private fun isWindows() = System.getProperty("os.name").lowercase().contains("win")
 }
