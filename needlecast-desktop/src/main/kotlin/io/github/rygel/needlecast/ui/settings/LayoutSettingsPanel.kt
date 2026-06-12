@@ -58,22 +58,14 @@ class LayoutSettingsPanel(
         gc.insets = Insets(16, 4, 4, 4)
         add(JLabel("Diagnostics").apply { font = font.deriveFont(Font.BOLD) }, gc)
 
-        val clickTraceCb = JCheckBox("Enable project tree click tracing", ctx.config.treeClickTraceEnabled)
-        gc.gridy = 4
-        gc.insets = Insets(4, 4, 4, 4)
-        add(clickTraceCb, gc)
-        clickTraceCb.addActionListener {
-            ctx.updateConfig(ctx.config.copy(treeClickTraceEnabled = clickTraceCb.isSelected))
-        }
-
         val edtTraceCb = JCheckBox("Enable EDT stall monitor", ctx.config.edtStallTraceEnabled)
-        gc.gridy = 5
+        gc.gridy = 4
         add(edtTraceCb, gc)
         edtTraceCb.addActionListener {
             ctx.updateConfig(ctx.config.copy(edtStallTraceEnabled = edtTraceCb.isSelected))
         }
 
-        gc.gridy = 6
+        gc.gridy = 5
         gc.insets = Insets(0, 4, 4, 4)
         add(
             JLabel("<html><i>Logs go to ~/.needlecast/needlecast.log. Enable only while diagnosing lag.</i></html>").apply {
@@ -83,7 +75,7 @@ class LayoutSettingsPanel(
             gc,
         )
 
-        gc.gridy = 7
+        gc.gridy = 6
         gc.insets = Insets(4, 4, 4, 4)
         gc.fill = GridBagConstraints.BOTH
         gc.weighty = 1.0
