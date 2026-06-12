@@ -73,6 +73,7 @@ class TerminalPanel(
         }
         return sb.toString()
     }
+
     private val embeddedTerminalPanel = termWidget.terminalPanel
     private val termContainer =
         object : JPanel(BorderLayout()) {
