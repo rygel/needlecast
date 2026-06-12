@@ -53,6 +53,36 @@ class PrivacyModeTest {
     }
 
     @Test
+    fun `label falls back to trailing segment of Windows path when no displayName`() {
+        val dir = ProjectDirectory(path = "C:\\Users\\me\\projects\\win-app", isPrivate = false)
+        assertEquals("win-app", dir.label(privacyModeEnabled = false))
+    }
+
+    @Test
+    fun `label falls back to trailing segment of mixed-separator path when no displayName`() {
+        val dir = ProjectDirectory(path = "/mnt/c/Users/me\\win-app", isPrivate = false)
+        assertEquals("win-app", dir.label(privacyModeEnabled = false))
+    }
+
+    @Test
+    fun `label returns full path when no separator is present`() {
+        val dir = ProjectDirectory(path = "standalone", isPrivate = false)
+        assertEquals("standalone", dir.label(privacyModeEnabled = false))
+    }
+
+    @Test
+    fun `label returns full path when path is just a separator`() {
+        val dir = ProjectDirectory(path = "/", isPrivate = false)
+        assertEquals("/", dir.label(privacyModeEnabled = false))
+    }
+
+    @Test
+    fun `label falls back to full path when trailing slash leaves basename empty`() {
+        val dir = ProjectDirectory(path = "/home/user/my-project/", isPrivate = false)
+        assertEquals("/home/user/my-project/", dir.label(privacyModeEnabled = false))
+    }
+
+    @Test
     fun `privacyModeEnabled defaults to false in AppConfig`() {
         val config = AppConfig()
         assertFalse(config.privacyModeEnabled)
