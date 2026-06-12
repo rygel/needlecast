@@ -3,8 +3,8 @@ package io.github.rygel.needlecast.process
 import io.github.rygel.needlecast.model.CommandDescriptor
 import java.io.File
 
-class ProcessCommandRunner : CommandRunner {
-    override fun run(
+class ProcessCommandRunner {
+    fun run(
         descriptor: CommandDescriptor,
         listener: ProcessOutputListener,
     ): RunningProcess {
