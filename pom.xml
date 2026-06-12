@@ -23,7 +23,6 @@
         <pty4j.version>0.13.12</pty4j.version>
         <slf4j.version>2.0.16</slf4j.version>
         <junit.version>6.1.0</junit.version>
-        <mockk.version>1.14.9</mockk.version>
         <javalin.version>7.2.2</javalin.version>
         <twelvemonkeys.version>3.13.1</twelvemonkeys.version>
         <jsvg.version>2.1.0</jsvg.version>
@@ -104,11 +103,6 @@
                 <version>${slf4j.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.google.guava</groupId>
-                <artifactId>guava</artifactId>
-                <version>33.6.0-jre</version>
-            </dependency>
-            <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
                 <version>${slf4j.version}</version>
@@ -122,12 +116,6 @@
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter</artifactId>
                 <version>${junit.version}</version>
-                <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>io.mockk</groupId>
-                <artifactId>mockk</artifactId>
-                <version>${mockk.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
