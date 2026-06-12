@@ -30,22 +30,22 @@ class RustProjectScanner : ProjectScanner {
         val commands = mutableListOf<CommandDescriptor>()
 
         // Standard commands
-        commands += cmd("cargo build", directory, "cargo", "build")
-        commands += cmd("cargo build --release", directory, "cargo", "build", "--release")
-        commands += cmd("cargo test", directory, "cargo", "test")
-        commands += cmd("cargo run", directory, "cargo", "run")
-        commands += cmd("cargo check", directory, "cargo", "check")
-        commands += cmd("cargo clippy", directory, "cargo", "clippy")
-        commands += cmd("cargo fmt", directory, "cargo", "fmt")
-        commands += cmd("cargo doc --open", directory, "cargo", "doc", "--open")
-        commands += cmd("cargo update", directory, "cargo", "update")
+        commands += scannerCmd("cargo build", directory, BuildTool.CARGO, "cargo", "build")
+        commands += scannerCmd("cargo build --release", directory, BuildTool.CARGO, "cargo", "build", "--release")
+        commands += scannerCmd("cargo test", directory, BuildTool.CARGO, "cargo", "test")
+        commands += scannerCmd("cargo run", directory, BuildTool.CARGO, "cargo", "run")
+        commands += scannerCmd("cargo check", directory, BuildTool.CARGO, "cargo", "check")
+        commands += scannerCmd("cargo clippy", directory, BuildTool.CARGO, "cargo", "clippy")
+        commands += scannerCmd("cargo fmt", directory, BuildTool.CARGO, "cargo", "fmt")
+        commands += scannerCmd("cargo doc --open", directory, BuildTool.CARGO, "cargo", "doc", "--open")
+        commands += scannerCmd("cargo update", directory, BuildTool.CARGO, "cargo", "update")
 
         // Workspace members — add per-crate test/build/run
         val members = parseWorkspaceMembers(content)
         for (member in members) {
             val crate = member.substringAfterLast('/')
-            commands += cmd("cargo build -p $crate", directory, "cargo", "build", "-p", crate)
-            commands += cmd("cargo test -p $crate", directory, "cargo", "test", "-p", crate)
+            commands += scannerCmd("cargo build -p $crate", directory, BuildTool.CARGO, "cargo", "build", "-p", crate)
+            commands += scannerCmd("cargo test -p $crate", directory, BuildTool.CARGO, "cargo", "test", "-p", crate)
         }
 
         return DetectedProject(
@@ -101,15 +101,4 @@ class RustProjectScanner : ProjectScanner {
         return members
     }
 
-    private fun cmd(
-        label: String,
-        dir: ProjectDirectory,
-        vararg args: String,
-    ): CommandDescriptor =
-        CommandDescriptor(
-            label = label,
-            buildTool = BuildTool.CARGO,
-            argv = if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            workingDirectory = dir.path,
-        )
 }

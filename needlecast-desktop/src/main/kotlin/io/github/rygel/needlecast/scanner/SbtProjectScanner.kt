@@ -1,7 +1,6 @@
 package io.github.rygel.needlecast.scanner
 
 import io.github.rygel.needlecast.model.BuildTool
-import io.github.rygel.needlecast.model.CommandDescriptor
 import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProjectDirectory
 import java.nio.file.Path
@@ -16,13 +15,13 @@ class SbtProjectScanner : ProjectScanner {
 
         val commands =
             listOf(
-                cmd("sbt compile", directory, "sbt", "compile"),
-                cmd("sbt test", directory, "sbt", "test"),
-                cmd("sbt run", directory, "sbt", "run"),
-                cmd("sbt clean", directory, "sbt", "clean"),
-                cmd("sbt assembly", directory, "sbt", "assembly"),
-                cmd("sbt console", directory, "sbt", "console"),
-                cmd("sbt update", directory, "sbt", "update"),
+                scannerCmd("sbt compile", directory, BuildTool.SBT, "sbt", "compile"),
+                scannerCmd("sbt test", directory, BuildTool.SBT, "sbt", "test"),
+                scannerCmd("sbt run", directory, BuildTool.SBT, "sbt", "run"),
+                scannerCmd("sbt clean", directory, BuildTool.SBT, "sbt", "clean"),
+                scannerCmd("sbt assembly", directory, BuildTool.SBT, "sbt", "assembly"),
+                scannerCmd("sbt console", directory, BuildTool.SBT, "sbt", "console"),
+                scannerCmd("sbt update", directory, BuildTool.SBT, "sbt", "update"),
             )
 
         return DetectedProject(
@@ -32,15 +31,4 @@ class SbtProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(
-        label: String,
-        dir: ProjectDirectory,
-        vararg args: String,
-    ): CommandDescriptor =
-        CommandDescriptor(
-            label,
-            BuildTool.SBT,
-            if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path,
-        )
 }

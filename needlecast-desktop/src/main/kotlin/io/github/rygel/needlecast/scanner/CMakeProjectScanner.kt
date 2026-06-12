@@ -25,10 +25,10 @@ class CMakeProjectScanner : ProjectScanner {
         val commands = mutableListOf<CommandDescriptor>()
 
         if (hasCMake) {
-            commands += cmd("cmake -B build", directory, BuildTool.CMAKE, "cmake", "-B", "build")
-            commands += cmd("cmake --build build", directory, BuildTool.CMAKE, "cmake", "--build", "build")
+            commands += scannerCmd("cmake -B build", directory, BuildTool.CMAKE, "cmake", "-B", "build")
+            commands += scannerCmd("cmake --build build", directory, BuildTool.CMAKE, "cmake", "--build", "build")
             commands +=
-                cmd(
+                scannerCmd(
                     "cmake --build build --config Release",
                     directory,
                     BuildTool.CMAKE,
@@ -38,15 +38,15 @@ class CMakeProjectScanner : ProjectScanner {
                     "--config",
                     "Release",
                 )
-            commands += cmd("ctest --test-dir build", directory, BuildTool.CMAKE, "ctest", "--test-dir", "build")
-            commands += cmd("cmake --install build", directory, BuildTool.CMAKE, "cmake", "--install", "build")
+            commands += scannerCmd("ctest --test-dir build", directory, BuildTool.CMAKE, "ctest", "--test-dir", "build")
+            commands += scannerCmd("cmake --install build", directory, BuildTool.CMAKE, "cmake", "--install", "build")
         }
 
         if (hasMakefile) {
-            commands += cmd("make", directory, BuildTool.MAKE, "make")
-            commands += cmd("make clean", directory, BuildTool.MAKE, "make", "clean")
-            commands += cmd("make test", directory, BuildTool.MAKE, "make", "test")
-            commands += cmd("make install", directory, BuildTool.MAKE, "make", "install")
+            commands += scannerCmd("make", directory, BuildTool.MAKE, "make")
+            commands += scannerCmd("make clean", directory, BuildTool.MAKE, "make", "clean")
+            commands += scannerCmd("make test", directory, BuildTool.MAKE, "make", "test")
+            commands += scannerCmd("make install", directory, BuildTool.MAKE, "make", "install")
         }
 
         val buildTools = mutableSetOf<BuildTool>()
@@ -60,16 +60,4 @@ class CMakeProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(
-        label: String,
-        dir: ProjectDirectory,
-        tool: BuildTool,
-        vararg args: String,
-    ): CommandDescriptor =
-        CommandDescriptor(
-            label,
-            tool,
-            if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path,
-        )
 }

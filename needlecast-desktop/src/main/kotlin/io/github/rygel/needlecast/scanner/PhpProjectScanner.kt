@@ -24,8 +24,8 @@ class PhpProjectScanner : ProjectScanner {
         val commands = mutableListOf<CommandDescriptor>()
         val hasArtisan = dir.resolve("artisan").toFile().exists()
 
-        commands += cmd("composer install", directory, "composer", "install")
-        commands += cmd("composer update", directory, "composer", "update")
+        commands += scannerCmd("composer install", directory, BuildTool.COMPOSER, "composer", "install")
+        commands += scannerCmd("composer update", directory, BuildTool.COMPOSER, "composer", "update")
 
         // Parse scripts from composer.json
         try {
@@ -38,7 +38,7 @@ class PhpProjectScanner : ProjectScanner {
                     .filter { !it.startsWith("pre-") && !it.startsWith("post-") }
                     .sorted()
                     .forEach { script ->
-                        commands += cmd("composer run $script", directory, "composer", "run", script)
+                        commands += scannerCmd("composer run $script", directory, BuildTool.COMPOSER, "composer", "run", script)
                     }
             }
         } catch (e: Exception) {
@@ -47,13 +47,13 @@ class PhpProjectScanner : ProjectScanner {
 
         // Laravel detection
         if (hasArtisan) {
-            commands += cmd("php artisan serve", directory, "php", "artisan", "serve")
-            commands += cmd("php artisan migrate", directory, "php", "artisan", "migrate")
-            commands += cmd("php artisan test", directory, "php", "artisan", "test")
-            commands += cmd("php artisan tinker", directory, "php", "artisan", "tinker")
+            commands += scannerCmd("php artisan serve", directory, BuildTool.COMPOSER, "php", "artisan", "serve")
+            commands += scannerCmd("php artisan migrate", directory, BuildTool.COMPOSER, "php", "artisan", "migrate")
+            commands += scannerCmd("php artisan test", directory, BuildTool.COMPOSER, "php", "artisan", "test")
+            commands += scannerCmd("php artisan tinker", directory, BuildTool.COMPOSER, "php", "artisan", "tinker")
         }
 
-        commands += cmd("composer dump-autoload", directory, "composer", "dump-autoload")
+        commands += scannerCmd("composer dump-autoload", directory, BuildTool.COMPOSER, "composer", "dump-autoload")
 
         return DetectedProject(
             directory = directory,
@@ -62,15 +62,4 @@ class PhpProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(
-        label: String,
-        dir: ProjectDirectory,
-        vararg args: String,
-    ): CommandDescriptor =
-        CommandDescriptor(
-            label,
-            BuildTool.COMPOSER,
-            if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path,
-        )
 }

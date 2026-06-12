@@ -33,23 +33,23 @@ class DartProjectScanner : ProjectScanner {
         val commands = mutableListOf<CommandDescriptor>()
 
         if (isFlutter) {
-            commands += cmd("flutter run", directory, buildTool, "flutter", "run")
-            commands += cmd("flutter build apk", directory, buildTool, "flutter", "build", "apk")
-            commands += cmd("flutter build ios", directory, buildTool, "flutter", "build", "ios")
-            commands += cmd("flutter build web", directory, buildTool, "flutter", "build", "web")
-            commands += cmd("flutter test", directory, buildTool, "flutter", "test")
-            commands += cmd("flutter pub get", directory, buildTool, "flutter", "pub", "get")
-            commands += cmd("flutter pub upgrade", directory, buildTool, "flutter", "pub", "upgrade")
-            commands += cmd("flutter analyze", directory, buildTool, "flutter", "analyze")
-            commands += cmd("flutter clean", directory, buildTool, "flutter", "clean")
+            commands += scannerCmd("flutter run", directory, buildTool, "flutter", "run")
+            commands += scannerCmd("flutter build apk", directory, buildTool, "flutter", "build", "apk")
+            commands += scannerCmd("flutter build ios", directory, buildTool, "flutter", "build", "ios")
+            commands += scannerCmd("flutter build web", directory, buildTool, "flutter", "build", "web")
+            commands += scannerCmd("flutter test", directory, buildTool, "flutter", "test")
+            commands += scannerCmd("flutter pub get", directory, buildTool, "flutter", "pub", "get")
+            commands += scannerCmd("flutter pub upgrade", directory, buildTool, "flutter", "pub", "upgrade")
+            commands += scannerCmd("flutter analyze", directory, buildTool, "flutter", "analyze")
+            commands += scannerCmd("flutter clean", directory, buildTool, "flutter", "clean")
         } else {
-            commands += cmd("dart run", directory, buildTool, "dart", "run")
-            commands += cmd("dart test", directory, buildTool, "dart", "test")
-            commands += cmd("dart compile exe", directory, buildTool, "dart", "compile", "exe")
-            commands += cmd("dart pub get", directory, buildTool, "dart", "pub", "get")
-            commands += cmd("dart pub upgrade", directory, buildTool, "dart", "pub", "upgrade")
-            commands += cmd("dart analyze", directory, buildTool, "dart", "analyze")
-            commands += cmd("dart format .", directory, buildTool, "dart", "format", ".")
+            commands += scannerCmd("dart run", directory, buildTool, "dart", "run")
+            commands += scannerCmd("dart test", directory, buildTool, "dart", "test")
+            commands += scannerCmd("dart compile exe", directory, buildTool, "dart", "compile", "exe")
+            commands += scannerCmd("dart pub get", directory, buildTool, "dart", "pub", "get")
+            commands += scannerCmd("dart pub upgrade", directory, buildTool, "dart", "pub", "upgrade")
+            commands += scannerCmd("dart analyze", directory, buildTool, "dart", "analyze")
+            commands += scannerCmd("dart format .", directory, buildTool, "dart", "format", ".")
         }
 
         return DetectedProject(
@@ -59,16 +59,4 @@ class DartProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(
-        label: String,
-        dir: ProjectDirectory,
-        tool: BuildTool,
-        vararg args: String,
-    ): CommandDescriptor =
-        CommandDescriptor(
-            label,
-            tool,
-            if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path,
-        )
 }

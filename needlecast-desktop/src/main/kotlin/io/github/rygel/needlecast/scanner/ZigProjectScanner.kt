@@ -1,7 +1,6 @@
 package io.github.rygel.needlecast.scanner
 
 import io.github.rygel.needlecast.model.BuildTool
-import io.github.rygel.needlecast.model.CommandDescriptor
 import io.github.rygel.needlecast.model.DetectedProject
 import io.github.rygel.needlecast.model.ProjectDirectory
 import java.nio.file.Path
@@ -16,11 +15,11 @@ class ZigProjectScanner : ProjectScanner {
 
         val commands =
             listOf(
-                cmd("zig build", directory, "zig", "build"),
-                cmd("zig build test", directory, "zig", "build", "test"),
-                cmd("zig build run", directory, "zig", "build", "run"),
-                cmd("zig fmt", directory, "zig", "fmt", "."),
-                cmd("zig test", directory, "zig", "test", "src/main.zig"),
+                scannerCmd("zig build", directory, BuildTool.ZIG, "zig", "build"),
+                scannerCmd("zig build test", directory, BuildTool.ZIG, "zig", "build", "test"),
+                scannerCmd("zig build run", directory, BuildTool.ZIG, "zig", "build", "run"),
+                scannerCmd("zig fmt", directory, BuildTool.ZIG, "zig", "fmt", "."),
+                scannerCmd("zig test", directory, BuildTool.ZIG, "zig", "test", "src/main.zig"),
             )
 
         return DetectedProject(
@@ -30,15 +29,4 @@ class ZigProjectScanner : ProjectScanner {
         )
     }
 
-    private fun cmd(
-        label: String,
-        dir: ProjectDirectory,
-        vararg args: String,
-    ): CommandDescriptor =
-        CommandDescriptor(
-            label,
-            BuildTool.ZIG,
-            if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path,
-        )
 }
