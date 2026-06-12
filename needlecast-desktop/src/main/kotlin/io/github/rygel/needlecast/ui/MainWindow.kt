@@ -68,7 +68,7 @@ class MainWindow(
             }.apply { isRepeats = false }
 
     private val statusBar = registry.statusBar
-    private val terminalPanel = registry.terminalPanel
+    internal val terminalPanel = registry.terminalPanel
     private val explorerPanel = registry.explorerPanel
     private val logViewerPanel = registry.logViewerPanel
     private val searchPanel = registry.searchPanel

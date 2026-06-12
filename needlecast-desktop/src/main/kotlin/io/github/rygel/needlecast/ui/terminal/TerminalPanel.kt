@@ -63,6 +63,16 @@ class TerminalPanel(
             if (themeFg != null || themeBg != null) applyThemeColors(themeFg, themeBg)
         }
     private val termWidget = ShrinkableJediTermWidget(settingsProvider)
+
+    fun getTerminalText(): String {
+        val buffer = termWidget.terminalTextBuffer
+        val sb = StringBuilder()
+        for (i in 0 until buffer.height) {
+            val line = buffer.getLine(i).text.trimEnd()
+            sb.append(line).append("\n")
+        }
+        return sb.toString()
+    }
     private val embeddedTerminalPanel = termWidget.terminalPanel
     private val termContainer =
         object : JPanel(BorderLayout()) {
