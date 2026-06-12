@@ -9,6 +9,7 @@ import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.Theme
 import org.fife.ui.rtextarea.RTextScrollPane
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Font
 import java.awt.GraphicsEnvironment
@@ -54,6 +55,7 @@ private val readCharsets: List<Charset> =
 class EditorPanel(
     private val ctx: AppContext,
 ) : JPanel(BorderLayout()) {
+    private val logger = LoggerFactory.getLogger(EditorPanel::class.java)
     private var currentFile: File? = null
     private var isModified = false
     private var isLoadingFile = false
@@ -196,8 +198,8 @@ class EditorPanel(
                 val theme = Theme.load(stream)
                 theme.apply(editor)
             }
-        } catch (_: Exception) {
-            // Fall back to defaults
+        } catch (e: Exception) {
+            logger.warn("Failed to apply syntax theme", e)
         }
         // Preserve current zoom level — RSTA theme XML may override the font
         editor.font = Font(editorFontFamily, Font.PLAIN, editorFontSize)
@@ -305,7 +307,8 @@ class EditorPanel(
                         try {
                             result = Files.readString(file.toPath(), cs)
                             break
-                        } catch (_: MalformedInputException) {
+                        } catch (e: MalformedInputException) {
+                            logger.debug("File not readable with current charset", e)
                         }
                     }
                     return result!! // ISO_8859_1 is last and never throws
@@ -316,7 +319,8 @@ class EditorPanel(
                     val content =
                         try {
                             get()
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            logger.warn("Failed to load file content", e)
                             isLoadingFile = false
                             editor.text = "Failed to load file."
                             return

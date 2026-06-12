@@ -57,18 +57,6 @@ class ProjectTreePanel(
     private var filterState = FilterState()
     private var pendingFilterText = ""
     private val filterDebounceTimer = Timer(150) { doApplyFilter() }.apply { isRepeats = false }
-    private val clickTraceForced =
-        System.getProperty("needlecast.tree.clickTrace")?.equals("true", ignoreCase = true) == true ||
-            (System.getenv("NEEDLECAST_TREE_CLICK_TRACE")?.equals("true", ignoreCase = true) == true) ||
-            (System.getenv("NEEDLECAST_TREE_CLICK_TRACE") == "1")
-
-    private fun isClickTraceEnabled(): Boolean = clickTraceForced || ctx.config.treeClickTraceEnabled
-
-    private var clickSeq: Long = 0L
-    private var lastClickTimeNs: Long = 0L
-    private var lastClickKey: String? = null
-    private var lastClickRow: Int = -1
-
     private var dragPressedPath: TreePath? = null
     private var dragPressPoint: java.awt.Point? = null
 
@@ -352,19 +340,7 @@ class ProjectTreePanel(
                     is ProjectTreeEntry.Project -> scanResults[entry.directory.path]
                     else -> null
                 }
-            val selectionTimeNs = System.nanoTime()
-            if (isClickTraceEnabled()) {
-                val key = entryKey(node.userObject)
-                val row = tree.leadSelectionRow
-                val dtMs = if (lastClickTimeNs > 0L) (selectionTimeNs - lastClickTimeNs) / 1_000_000 else -1
-                val match = key != null && key == lastClickKey
-                logger.info("tree-select seq={} row={} key={} dtFromClickMs={} match={}", clickSeq, row, key, dtMs, match)
-            }
             SwingUtilities.invokeLater {
-                if (isClickTraceEnabled()) {
-                    val delayMs = (System.nanoTime() - selectionTimeNs) / 1_000_000
-                    logger.info("tree-select-callback seq={} delayMs={}", clickSeq, delayMs)
-                }
                 onProjectSelected(project)
             }
         }
@@ -403,13 +379,6 @@ class ProjectTreePanel(
                         dragPressedPath = if (inRow) closest else null
                         dragPressPoint = if (dragPressedPath != null) java.awt.Point(e.x, e.y) else null
                         if (inRow && closest != null) {
-                            if (isClickTraceEnabled()) {
-                                clickSeq++
-                                lastClickTimeNs = System.nanoTime()
-                                lastClickRow = tree.getRowForPath(closest)
-                                lastClickKey = entryKey((closest.lastPathComponent as? DefaultMutableTreeNode)?.userObject)
-                                logger.info("tree-click seq={} row={} key={}", clickSeq, lastClickRow, lastClickKey)
-                            }
                             tree.selectionPath = closest
                             tree.requestFocusInWindow()
                         }
@@ -608,13 +577,6 @@ class ProjectTreePanel(
     private fun requestTreeRepaint() {
         repaintTimer.restart()
     }
-
-    private fun entryKey(entry: Any?): String? =
-        when (entry) {
-            is ProjectTreeEntry.Folder -> "folder:${entry.name}"
-            is ProjectTreeEntry.Project -> "project:${entry.directory.path}"
-            else -> null
-        }
 
     fun selectByPath(path: String) {
         val node = findProjectNode(rootNode, path)

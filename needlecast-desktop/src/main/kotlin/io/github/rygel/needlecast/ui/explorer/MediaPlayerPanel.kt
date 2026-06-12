@@ -173,15 +173,18 @@ class MediaPlayerPanel(
     fun dispose() {
         try {
             updateTimer?.stop()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to stop update timer", e)
         }
         try {
             mediaPlayer?.controls()?.stop()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to stop media player", e)
         }
         try {
             mediaPlayerComponent?.release()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to release media player component", e)
         }
     }
 
@@ -252,7 +255,8 @@ class MediaPlayerPanel(
         val available: Boolean by lazy {
             try {
                 NativeDiscovery().discover()
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                LoggerFactory.getLogger(MediaPlayerPanel::class.java).warn("VLC native discovery failed", e)
                 false
             }
         }

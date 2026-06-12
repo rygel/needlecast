@@ -97,12 +97,6 @@
             <artifactId>log4j-over-slf4j</artifactId>
         </dependency>
 
-        <!-- Guava — required by JediTerm -->
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
         <!-- Logging: SLF4J API + Logback implementation -->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -117,11 +111,6 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.mockk</groupId>
-            <artifactId>mockk</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

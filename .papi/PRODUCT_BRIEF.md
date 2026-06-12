@@ -77,3 +77,56 @@ phases:
 ## Decisions Locked
 
 *No decisions locked yet. These are added as planning cycles confirm strategic choices.*
+
+---
+
+## Ponytail Audit Findings (2026-06-12)
+
+*One-shot whole-repository audit for unnecessary complexity. Does not include correctness bugs, security holes, or performance problems.*
+
+### Dependency Savings (2 removable)
+
+| # | Tag | Finding | File(s) |
+|---|-----|---------|---------|
+| 1 | `delete:` | **guava** — zero source imports. Pure classpath bloat (jediterm pulls its own transitively). | `needlecast-desktop/pom.xml` |
+| 2 | `delete:` | **mockk** (test) — zero imports in any test file. JUnit + assertj already cover needs. | `needlecast-desktop/pom.xml` |
+| 3 | `shrink:` | **flatlaf-extras** — 0 source imports. May provide runtime SVG icon loading via FlatLaf internals. Investigate before removing. | `needlecast-desktop/pom.xml` |
+| 4 | `shrink:` | **jediterm-typeahead** — 0 source imports. Likely transitive runtime dep of jediterm-pty. Investigate before removing. | `needlecast-desktop/pom.xml` |
+
+### Abstraction Savings (2 collapsible)
+
+| # | Tag | Finding | File(s) |
+|---|-----|---------|---------|
+| 5 | `yagni:` | **CommandRunner** interface — 1 prod impl (`ProcessCommandRunner`), zero test fakes, never swapped. Inline the concrete class. | `process/CommandRunner.kt` |
+| 6 | `yagni:` | **ConfigStore** interface — 1 prod impl (`JsonConfigStore`) + 2 tooling-only impls (in `tools/`, flagged for deletion below). Collapse after tools/ removal. | `config/ConfigStore.kt` |
+
+### Code-Level Savings (3 findings)
+
+| # | Tag | Finding | File(s) |
+|---|-----|---------|---------|
+| 7 | `shrink:` | **Scanner `cmd()` duplication** — identical `IS_WINDOWS` ternary copy-pasted across ~15 scanner files (CMake, Zig, Swift, Elixir, Ruby, Go, PHP, Rust, Dart, .NET, SBT, APM). Extract to `ProjectScanner` companion or shared `ScannerUtils`. | `scanner/*.kt` (~15 files) |
+| 8 | `yagni:` | **Click-trace infrastructure** — `clickTraceForced`, `isClickTraceEnabled()`, `clickSeq`, `lastClickTimeNs` are diagnostic scaffolding guarded by system properties. ~30 lines. Remove if the bug is resolved. | `ui/ProjectTreePanel.kt:60-65` |
+| 9 | `delete:` | **100+ `println`/`System.err.println`** — all in `tools/ScreenshotTour.kt`, flagged for deletion below. | `tools/ScreenshotTour.kt` |
+
+### Structural Savings (11 findings)
+
+| # | Tag | Finding | File(s) | Lines |
+|---|-----|---------|---------|-------|
+| 10 | `delete:` | **tools/ScreenshotTour.kt** — 126 KB debug scaffolding, largest file in the repo, 100+ println calls. | `tools/ScreenshotTour.kt` | 2,768 |
+| 11 | `delete:` | **tools/ProjectTreeDebug.kt** — standalone debug harness for tree layout. | `tools/ProjectTreeDebug.kt` | 145 |
+| 12 | `delete:` | **tools/CdsTraining.kt** — CI training entrypoint; belongs in `ci/` or `build/` script, not main source. | `tools/CdsTraining.kt` | 32 |
+| 13 | `delete:` | **ui/DirectoryPanel.kt** — superseded by `ProjectTreePanel`, zero external references. | `ui/DirectoryPanel.kt` | 523 |
+| 14 | `delete:` | **ui/GroupPanel.kt** — only referenced by dead `DirectoryPanel`. | `ui/GroupPanel.kt` | 265 |
+| 15 | `delete:` | **ui/DragAndDrop.kt** — `DirectoryDragHandler`/`DirectoryDropHandler` only used by dead `DirectoryPanel`/`GroupPanel`. | `ui/DragAndDrop.kt` | 66 |
+| 16 | `delete:` | **ui/renderers/CompactProjectDirectoryRenderer.kt** — only imported by dead `DirectoryPanel`. | `ui/renderers/CompactProjectDirectoryRenderer.kt` | 154 |
+| 17 | `yagni:` | **model/ProjectGroup + service/ProjectService** — legacy migration types only imported by dead `DirectoryPanel`. Remove with dead UI cluster. | `model/AppConfig.kt`, `service/ProjectService.kt` | ~55 |
+| 18 | `delete:` | **archive/needlecast-web/** — entire dead web module with compiled `target/classes/`. | `archive/needlecast-web/` | — |
+| 19 | `delete:` | **docs/TODO.md** — all 27 items checked `[x]`. Archive or remove. | `docs/TODO.md` | — |
+| 20 | `delete:` | **docs/ARCHITECTURE.md** — references deleted/renamed classes (`DirectoryPanel`, `FileExplorerPanel`), doesn't reflect current package structure (`ui/explorer/`, `ui/diff/`, `ui/settings/`, `ui/logviewer/`, `ui/components/`). Rewrite or delete. | `docs/ARCHITECTURE.md` | — |
+
+### Bottom Line
+
+- **~4,200+ lines removable** (tools/ + dead UI cluster + archive)
+- **2 dependencies removable** (guava, mockk) with zero code changes
+- **Biggest single win:** Delete `tools/ScreenshotTour.kt` — 2,768 lines of debug scaffolding
+- **Architecture cleanup:** Extract shared scanner `cmd()` helper, collapse `CommandRunner` interface

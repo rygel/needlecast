@@ -34,7 +34,7 @@ $deps = & jdeps --multi-release 21 --ignore-missing-deps --print-module-deps $ja
 
 $javaExe = "$runtimeDir\bin\java.exe"
 
-& $javaExe "-Djava.awt.headless=true" -Xshare:off "-XX:DumpLoadedClassList=$classlist" -cp $jarPath io.github.rygel.needlecast.tools.CdsTraining
+& $javaExe "-Djava.awt.headless=true" -Xshare:off "-XX:DumpLoadedClassList=$classlist" -cp $jarPath io.github.rygel.needlecast.MainKt
 
 & $javaExe -Xshare:dump "-XX:SharedClassListFile=$classlist" "-XX:SharedArchiveFile=$archive"
 
