@@ -14,9 +14,6 @@ import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
 import java.awt.Font
-import java.awt.GridBagConstraints
-import java.awt.GridBagLayout
-import java.awt.Insets
 import java.io.File
 import javax.swing.BorderFactory
 import javax.swing.DefaultListModel
@@ -469,75 +466,15 @@ class DirectoryPanel(
 
     private fun editShellSettings(project: DetectedProject) {
         val owner = SwingUtilities.getWindowAncestor(this) ?: return
-        val dir = project.directory
-
-        val shellField = JTextField(dir.shellExecutable ?: "", 30)
-        val startupField = JTextField(dir.startupCommand ?: "", 30)
-
-        val defaultShell =
-            when {
-                io.github.rygel.needlecast.scanner.IS_WINDOWS -> "cmd.exe"
-                io.github.rygel.needlecast.scanner.IS_MAC -> "/bin/zsh"
-                else -> "/bin/bash"
-            }
-        val form =
-            JPanel(GridBagLayout()).apply {
-                border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-                val gc =
-                    GridBagConstraints().apply {
-                        insets = Insets(4, 4, 4, 4)
-                        anchor = GridBagConstraints.WEST
-                    }
-
-                gc.gridx = 0
-                gc.gridy = 0
-                gc.weightx = 0.0
-                gc.fill = GridBagConstraints.NONE
-                add(JLabel("Shell:"), gc)
-                gc.gridx = 1
-                gc.weightx = 1.0
-                gc.fill = GridBagConstraints.HORIZONTAL
-                add(shellField, gc)
-
-                gc.gridx = 0
-                gc.gridy = 1
-                gc.weightx = 0.0
-                gc.fill = GridBagConstraints.NONE
-                add(JLabel("Startup command:"), gc)
-                gc.gridx = 1
-                gc.weightx = 1.0
-                gc.fill = GridBagConstraints.HORIZONTAL
-                add(startupField, gc)
-
-                gc.gridx = 0
-                gc.gridy = 2
-                gc.gridwidth = 2
-                gc.fill = GridBagConstraints.HORIZONTAL
-                add(
-                    JLabel(
-                        "<html><small>" +
-                            "Shell: e.g. <tt>zsh</tt>, <tt>fish</tt>, <tt>powershell</tt> — " +
-                            "blank uses system default (<tt>$defaultShell</tt>)<br>" +
-                            "Startup: sent to the shell on open, e.g. <tt>conda activate ml</tt>" +
-                            "</small></html>",
-                    ),
-                    gc,
-                )
-            }
-
-        val result =
-            JOptionPane.showConfirmDialog(
-                owner,
-                form,
-                "Shell Settings \u2014 ${dir.label()}",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE,
-            )
-        if (result == JOptionPane.OK_OPTION) {
-            val shell = shellField.text.trim().takeIf { it.isNotEmpty() }
-            val startup = startupField.text.trim().takeIf { it.isNotEmpty() }
-            updateProjectDirectory(project) { it.copy(shellExecutable = shell, startupCommand = startup) }
-        }
+        ShellSettingsDialog(
+            owner = owner,
+            projectLabel = project.directory.label(),
+            currentShell = project.directory.shellExecutable,
+            currentStartup = project.directory.startupCommand,
+            onSave = { shell, startup ->
+                updateProjectDirectory(project) { it.copy(shellExecutable = shell, startupCommand = startup) }
+            },
+        ).isVisible = true
     }
 
     private fun editEnv(project: DetectedProject) {
