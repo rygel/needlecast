@@ -37,7 +37,7 @@ jlink \
   -Xshare:off \
   "-XX:DumpLoadedClassList=$CLASSLIST" \
   -cp "$JAR_PATH" \
-  io.github.rygel.needlecast.tools.CdsTraining
+  io.github.rygel.needlecast.MainKt
 
 "$RUNTIME_DIR/bin/java" \
   -Xshare:dump \
