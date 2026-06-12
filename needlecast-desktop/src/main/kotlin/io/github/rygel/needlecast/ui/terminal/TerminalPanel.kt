@@ -288,6 +288,8 @@ class TerminalPanel(
         silenceTimer.stop()
         transitionTo(AgentStatus.NONE)
         embeddedTerminalPanel.removeMouseWheelListener(remoteMouseWheelConsumer)
+        ptyProcess?.destroyForcibly()
+        ptyProcess = null
         currentSession?.close()
         currentSession = null
         termWidget.close()
