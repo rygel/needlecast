@@ -386,19 +386,6 @@ internal class ProjectTreeDialogs(
         panel.scanProject(updated)
     }
 
-    private fun makeRelativeIfPossible(
-        absolute: String,
-        base: String,
-    ): String {
-        val rel =
-            File(base)
-                .toPath()
-                .relativize(File(absolute).toPath())
-                .toString()
-                .replace(File.separatorChar, '/')
-        return if (rel.startsWith("..")) absolute else rel
-    }
-
     fun setProjectColor(
         node: DefaultMutableTreeNode,
         entry: ProjectTreeEntry.Project,
@@ -420,4 +407,22 @@ internal class ProjectTreeDialogs(
         panel.persist()
         panel.tree.repaint()
     }
+}
+
+/**
+ * Returns [absolute] expressed relative to [base] when [absolute] is inside [base],
+ * otherwise returns [absolute] unchanged. Output separators are always `/` so the
+ * value is portable across platforms.
+ */
+internal fun makeRelativeIfPossible(
+    absolute: String,
+    base: String,
+): String {
+    val rel =
+        File(base)
+            .toPath()
+            .relativize(File(absolute).toPath())
+            .toString()
+            .replace(File.separatorChar, '/')
+    return if (rel.startsWith("..")) absolute else rel
 }
