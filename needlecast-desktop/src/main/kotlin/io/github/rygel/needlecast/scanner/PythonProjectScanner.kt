@@ -57,31 +57,31 @@ class PythonProjectScanner : ProjectScanner {
 
         when (tool) {
             PythonTool.UV -> {
-                commands += cmd("uv sync", directory, buildTool, "uv", "sync")
-                commands += cmd("uv run python", directory, buildTool, "uv", "run", "python")
-                commands += cmd("uv build", directory, buildTool, "uv", "build")
-                commands += cmd("uv test", directory, buildTool, "uv", "run", "pytest")
-                commands += cmd("uv lock", directory, buildTool, "uv", "lock")
-                commands += cmd("uv add", directory, buildTool, "uv", "add")
+                commands += scannerCmd("uv sync", directory, buildTool, "uv", "sync")
+                commands += scannerCmd("uv run python", directory, buildTool, "uv", "run", "python")
+                commands += scannerCmd("uv build", directory, buildTool, "uv", "build")
+                commands += scannerCmd("uv test", directory, buildTool, "uv", "run", "pytest")
+                commands += scannerCmd("uv lock", directory, buildTool, "uv", "lock")
+                commands += scannerCmd("uv add", directory, buildTool, "uv", "add")
             }
 
             PythonTool.POETRY -> {
-                commands += cmd("poetry install", directory, buildTool, "poetry", "install")
-                commands += cmd("poetry run python", directory, buildTool, "poetry", "run", "python")
-                commands += cmd("poetry build", directory, buildTool, "poetry", "build")
-                commands += cmd("poetry run pytest", directory, buildTool, "poetry", "run", "pytest")
-                commands += cmd("poetry lock", directory, buildTool, "poetry", "lock")
-                commands += cmd("poetry add", directory, buildTool, "poetry", "add")
+                commands += scannerCmd("poetry install", directory, buildTool, "poetry", "install")
+                commands += scannerCmd("poetry run python", directory, buildTool, "poetry", "run", "python")
+                commands += scannerCmd("poetry build", directory, buildTool, "poetry", "build")
+                commands += scannerCmd("poetry run pytest", directory, buildTool, "poetry", "run", "pytest")
+                commands += scannerCmd("poetry lock", directory, buildTool, "poetry", "lock")
+                commands += scannerCmd("poetry add", directory, buildTool, "poetry", "add")
             }
 
             PythonTool.PIP -> {
                 if (pyproject.exists()) {
-                    commands += cmd("pip install -e .", directory, buildTool, "pip", "install", "-e", ".")
+                    commands += scannerCmd("pip install -e .", directory, buildTool, "pip", "install", "-e", ".")
                 }
                 if (requirements.exists()) {
-                    commands += cmd("pip install -r requirements.txt", directory, buildTool, "pip", "install", "-r", "requirements.txt")
+                    commands += scannerCmd("pip install -r requirements.txt", directory, buildTool, "pip", "install", "-r", "requirements.txt")
                 }
-                commands += cmd("python -m pytest", directory, buildTool, "python", "-m", "pytest")
+                commands += scannerCmd("python -m pytest", directory, buildTool, "python", "-m", "pytest")
             }
         }
 
@@ -94,13 +94,13 @@ class PythonProjectScanner : ProjectScanner {
                         PythonTool.POETRY -> "poetry run $script"
                         PythonTool.PIP -> script
                     }
-                val argv =
+                val args =
                     when (tool) {
-                        PythonTool.UV -> shellArgv("uv", "run", script)
-                        PythonTool.POETRY -> shellArgv("poetry", "run", script)
-                        PythonTool.PIP -> shellArgv(script)
+                        PythonTool.UV -> arrayOf("uv", "run", script)
+                        PythonTool.POETRY -> arrayOf("poetry", "run", script)
+                        PythonTool.PIP -> arrayOf(script)
                     }
-                commands += CommandDescriptor(label, buildTool, argv, directory.path)
+                commands += scannerCmd(label, directory, buildTool, *args)
             }
         }
 
@@ -130,15 +130,6 @@ class PythonProjectScanner : ProjectScanner {
         }
         return scripts
     }
-
-    private fun cmd(
-        label: String,
-        dir: ProjectDirectory,
-        tool: BuildTool,
-        vararg args: String,
-    ): CommandDescriptor = CommandDescriptor(label, tool, shellArgv(*args), dir.path)
-
-    private fun shellArgv(vararg args: String): List<String> = if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList()
 
     private enum class PythonTool { UV, POETRY, PIP }
 }

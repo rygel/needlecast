@@ -23,23 +23,23 @@ class RubyProjectScanner : ProjectScanner {
                 dir.resolve("bin\\rails").toFile().exists()
         val hasRakefile = dir.resolve("Rakefile").toFile().exists()
 
-        commands += cmd("bundle install", directory, "bundle", "install")
+        commands += scannerCmd("bundle install", directory, BuildTool.BUNDLER, "bundle", "install")
 
         if (hasRails) {
-            commands += cmd("rails server", directory, "bundle", "exec", "rails", "server")
-            commands += cmd("rails console", directory, "bundle", "exec", "rails", "console")
-            commands += cmd("rails test", directory, "bundle", "exec", "rails", "test")
-            commands += cmd("rails db:migrate", directory, "bundle", "exec", "rails", "db:migrate")
-            commands += cmd("rails routes", directory, "bundle", "exec", "rails", "routes")
+            commands += scannerCmd("rails server", directory, BuildTool.BUNDLER, "bundle", "exec", "rails", "server")
+            commands += scannerCmd("rails console", directory, BuildTool.BUNDLER, "bundle", "exec", "rails", "console")
+            commands += scannerCmd("rails test", directory, BuildTool.BUNDLER, "bundle", "exec", "rails", "test")
+            commands += scannerCmd("rails db:migrate", directory, BuildTool.BUNDLER, "bundle", "exec", "rails", "db:migrate")
+            commands += scannerCmd("rails routes", directory, BuildTool.BUNDLER, "bundle", "exec", "rails", "routes")
         }
 
         if (hasRakefile) {
-            commands += cmd("rake test", directory, "bundle", "exec", "rake", "test")
-            commands += cmd("rake", directory, "bundle", "exec", "rake")
+            commands += scannerCmd("rake test", directory, BuildTool.BUNDLER, "bundle", "exec", "rake", "test")
+            commands += scannerCmd("rake", directory, BuildTool.BUNDLER, "bundle", "exec", "rake")
         }
 
-        commands += cmd("bundle exec rspec", directory, "bundle", "exec", "rspec")
-        commands += cmd("bundle update", directory, "bundle", "update")
+        commands += scannerCmd("bundle exec rspec", directory, BuildTool.BUNDLER, "bundle", "exec", "rspec")
+        commands += scannerCmd("bundle update", directory, BuildTool.BUNDLER, "bundle", "update")
 
         return DetectedProject(
             directory = directory,
@@ -47,16 +47,4 @@ class RubyProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
-    private fun cmd(
-        label: String,
-        dir: ProjectDirectory,
-        vararg args: String,
-    ): CommandDescriptor =
-        CommandDescriptor(
-            label,
-            BuildTool.BUNDLER,
-            if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path,
-        )
 }

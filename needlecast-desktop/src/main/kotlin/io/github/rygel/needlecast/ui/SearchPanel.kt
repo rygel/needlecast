@@ -1,6 +1,7 @@
 package io.github.rygel.needlecast.ui
 
 import io.github.rygel.needlecast.process.ProcessExecutor
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -37,6 +38,8 @@ import javax.swing.UIManager
 /**
  * Phase 1 "Find in Files" panel: fast, non-indexed search across the active project.
  */
+private val searchPanelLogger = LoggerFactory.getLogger("SearchPanel")
+
 class SearchPanel(
     private val openFileAt: (file: File, line: Int, column: Int?) -> Unit,
 ) : JPanel(BorderLayout()) {
@@ -277,7 +280,8 @@ class SearchPanel(
                             val relDir =
                                 try {
                                     rootPath.relativize(dir)
-                                } catch (_: Exception) {
+                                } catch (e: Exception) {
+                                    searchPanelLogger.warn("Failed to relativize directory path", e)
                                     dir.fileName
                                 }
                             if (relDir != null && opts.excludeMatchers.isNotEmpty()) {
@@ -307,7 +311,8 @@ class SearchPanel(
                             val relPath =
                                 try {
                                     rootPath.relativize(file)
-                                } catch (_: Exception) {
+                                } catch (e: Exception) {
+                                    searchPanelLogger.warn("Failed to relativize file path for matching", e)
                                     file.fileName ?: file
                                 }
                             if (opts.includeMatchers.isNotEmpty() && !SearchEngine.matchesAny(relPath, fileName, opts.includeMatchers)) {
@@ -332,7 +337,8 @@ class SearchPanel(
                             val rel =
                                 try {
                                     rootPath.relativize(file).toString()
-                                } catch (_: Exception) {
+                                } catch (e: Exception) {
+                                    searchPanelLogger.warn("Failed to relativize file path", e)
                                     file.toString()
                                 }
                             val matched =
@@ -367,10 +373,11 @@ class SearchPanel(
                 val stats =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
                         if (isCancelled) {
                             statusLabel.text = "Search cancelled."
                         } else {
+                            searchPanelLogger.warn("Builtin search worker failed", e)
                             statusLabel.text = "Search failed."
                         }
                         return
@@ -416,8 +423,8 @@ class SearchPanel(
                         }
                     }
                     proc.waitFor()
-                } catch (_: Exception) {
-                    // ignore
+                } catch (e: Exception) {
+                    searchPanelLogger.warn("Ripgrep search process failed", e)
                 } finally {
                     rgProcess = null
                 }
@@ -439,10 +446,11 @@ class SearchPanel(
                 val stats =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
                         if (isCancelled) {
                             statusLabel.text = "Search cancelled."
                         } else {
+                            searchPanelLogger.warn("Ripgrep search worker failed", e)
                             statusLabel.text = "Search failed."
                         }
                         return
@@ -483,11 +491,14 @@ class SearchPanel(
                     }
                 }
                 return matched
-            } catch (_: MalformedInputException) {
+            } catch (e: MalformedInputException) {
+                searchPanelLogger.debug("Binary file detected, trying next charset", e)
                 continue
-            } catch (_: CharacterCodingException) {
+            } catch (e: CharacterCodingException) {
+                searchPanelLogger.debug("Character coding error, trying next charset", e)
                 continue
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                searchPanelLogger.warn("Failed to scan file", e)
                 return matched
             }
         }
@@ -501,21 +512,7 @@ class SearchPanel(
             false
         }
 
-    private fun isBinary(file: Path): Boolean {
-        return try {
-            Files.newInputStream(file).use { stream ->
-                val buf = ByteArray(4096)
-                val read = stream.read(buf)
-                if (read <= 0) return false
-                for (i in 0 until read) {
-                    if (buf[i].toInt() == 0) return true
-                }
-                false
-            }
-        } catch (_: Exception) {
-            true
-        }
-    }
+    private fun isBinary(file: Path): Boolean = isBinaryFile(file)
 
     private class ResultCellRenderer(
         private val root: () -> File?,
@@ -564,7 +561,8 @@ class SearchPanel(
                 if (base != null) {
                     try {
                         base.relativize(item.file.toPath()).toString()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        searchPanelLogger.warn("Failed to relativize path for search result", e)
                         item.relPath
                     }
                 } else {
@@ -590,10 +588,26 @@ class SearchPanel(
                     try {
                         val native = Charset.forName(nativeName)
                         if (native != Charsets.UTF_8) add(native)
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        searchPanelLogger.debug("Charset lookup failed for native encoding", e)
                     }
                 }
                 if (lastOrNull() != Charsets.ISO_8859_1) add(Charsets.ISO_8859_1)
             }
     }
 }
+
+internal fun isBinaryFile(file: Path): Boolean =
+    try {
+        Files.newInputStream(file).use { stream ->
+            val buf = ByteArray(4096)
+            val read = stream.read(buf)
+            if (read <= 0) return false
+            for (i in 0 until read) {
+                if (buf[i].toInt() == 0) return true
+            }
+            false
+        }
+    } catch (_: Exception) {
+        true
+    }

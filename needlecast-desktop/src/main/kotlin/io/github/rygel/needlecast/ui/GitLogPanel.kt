@@ -215,7 +215,8 @@ class GitLogPanel(
                 val commits =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to load commit history", e)
                         return
                     }
                 commits.forEach { logModel.addElement(it) }
@@ -250,7 +251,8 @@ class GitLogPanel(
                 val (branches, current) =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to refresh branches", e)
                         return
                     }
                 branchChanging = true
@@ -357,7 +359,8 @@ class GitLogPanel(
                 val files =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to load changed files", e)
                         return
                     }
                 fileListModel.clear()
@@ -490,7 +493,8 @@ class GitLogPanel(
                     val result =
                         try {
                             get()
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            logger.warn("Failed to load diff for commit", e)
                             return
                         }
                     onCommitSelected?.invoke(result)
@@ -561,18 +565,14 @@ class GitLogPanel(
             return checkBox
         }
 
-        private fun statusColor(statusCode: String): Color =
-            when {
-                statusCode.any { it == 'M' } -> Color(0x4070C0)
-
-                // modified — blue
-                statusCode.any { it == 'A' } -> Color(0x40A040)
-
-                // added — green
-                statusCode.any { it == 'D' } -> Color(0xC04040)
-
-                // deleted — red
-                else -> Color(0x888888) // untracked / other — grey
-            }
+        private fun statusColor(statusCode: String): Color = gitStatusColor(statusCode)
     }
 }
+
+internal fun gitStatusColor(statusCode: String): java.awt.Color =
+    when {
+        statusCode.any { it == 'M' } -> java.awt.Color(0x4070C0)
+        statusCode.any { it == 'A' } -> java.awt.Color(0x40A040)
+        statusCode.any { it == 'D' } -> java.awt.Color(0xC04040)
+        else -> java.awt.Color(0x888888)
+    }

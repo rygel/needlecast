@@ -12,6 +12,10 @@ import kotlin.streams.toList
 class SkillLibraryStore(
     private val skillsDir: Path,
 ) {
+    private companion object {
+        const val DEPLOY_MARKER = ".needlecast-skill-source"
+    }
+
     fun loadLibrary(): List<SkillEntry> {
         if (!Files.exists(skillsDir)) return emptyList()
         val result = mutableListOf<SkillEntry>()
@@ -65,14 +69,9 @@ class SkillLibraryStore(
         projectPath: String,
         targetDir: String,
     ): Boolean {
-        val link = Path.of(projectPath).resolve(targetDir).resolve(skillName)
-        if (!Files.exists(link)) return false
-        return try {
-            val realTarget = Files.readSymbolicLink(link)
-            realTarget == skillsDir.resolve(skillName)
-        } catch (_: Exception) {
-            isJunction(link, skillsDir.resolve(skillName))
-        }
+        val deployed = Path.of(projectPath).resolve(targetDir).resolve(skillName)
+        if (!Files.isDirectory(deployed)) return false
+        return readMarker(deployed) == skillsDir.resolve(skillName)
     }
 
     fun deploy(
@@ -82,14 +81,11 @@ class SkillLibraryStore(
     ) {
         val target = Path.of(projectPath).resolve(targetDir)
         Files.createDirectories(target)
-        val link = target.resolve(skillName)
-        if (Files.exists(link)) return
-        val skillTarget = skillsDir.resolve(skillName)
-        try {
-            Files.createSymbolicLink(link, skillTarget)
-        } catch (_: Exception) {
-            createJunction(link, skillTarget)
-        }
+        val deployed = target.resolve(skillName)
+        if (Files.exists(deployed)) return
+        val skillSource = skillsDir.resolve(skillName)
+        copyDir(skillSource, deployed)
+        writeMarker(deployed, skillSource)
     }
 
     fun undeploy(
@@ -97,13 +93,9 @@ class SkillLibraryStore(
         projectPath: String,
         targetDir: String,
     ) {
-        val link = Path.of(projectPath).resolve(targetDir).resolve(skillName)
-        if (!Files.exists(link)) return
-        try {
-            Files.delete(link)
-        } catch (_: Exception) {
-            deleteJunction(link)
-        }
+        val deployed = Path.of(projectPath).resolve(targetDir).resolve(skillName)
+        if (!Files.exists(deployed)) return
+        deployed.toFile().walkBottomUp().forEach { it.delete() }
         cleanupEmptyTarget(Path.of(projectPath).resolve(targetDir))
     }
 
@@ -118,14 +110,7 @@ class SkillLibraryStore(
         for (entry in entries) {
             if (!Files.isDirectory(entry)) continue
             val name = entry.name
-            val pointsTo =
-                try {
-                    Files.readSymbolicLink(entry)
-                } catch (_: Exception) {
-                    if (isJunction(entry, skillsDir.resolve(name))) result.add(name)
-                    continue
-                }
-            if (pointsTo == skillsDir.resolve(name)) {
+            if (readMarker(entry) == skillsDir.resolve(name)) {
                 result.add(name)
             }
         }
@@ -153,45 +138,38 @@ class SkillLibraryStore(
         return SkillEntry(name = name, description = description, skillDir = dir, category = category)
     }
 
-    private fun isJunction(
-        link: Path,
-        expectedTarget: Path,
-    ): Boolean {
-        return try {
-            val attr = Files.readAttributes(link, java.nio.file.attribute.BasicFileAttributes::class.java)
-            if (!attr.isOther) return false
-            val proc =
-                ProcessBuilder("cmd", "/c", "fsutil", "reparsepoint", "query", link.toString())
-                    .redirectErrorStream(true)
-                    .start()
-            val output = proc.inputStream.bufferedReader().readText()
-            proc.waitFor()
-            output.contains(expectedTarget.toString().replace('/', '\\'))
-        } catch (_: Exception) {
-            false
+    private fun copyDir(
+        source: Path,
+        target: Path,
+    ) {
+        Files.createDirectories(target)
+        Files.walk(source).use { stream ->
+            stream.forEach { src ->
+                val dst = target.resolve(source.relativize(src))
+                if (Files.isDirectory(src)) {
+                    Files.createDirectories(dst)
+                } else {
+                    Files.copy(src, dst, StandardCopyOption.REPLACE_EXISTING)
+                }
+            }
         }
     }
 
-    private fun createJunction(
-        link: Path,
-        target: Path,
+    private fun writeMarker(
+        deployed: Path,
+        source: Path,
     ) {
-        val proc =
-            ProcessBuilder("cmd", "/c", "mklink", "/J", link.toString(), target.toString())
-                .redirectErrorStream(true)
-                .start()
-        proc.inputStream.bufferedReader().readText()
-        val exit = proc.waitFor()
-        if (exit != 0) throw RuntimeException("Failed to create junction: $link -> $target (exit=$exit)")
+        Files.writeString(deployed.resolve(DEPLOY_MARKER), source.toAbsolutePath().toString())
     }
 
-    private fun deleteJunction(link: Path) {
-        val proc =
-            ProcessBuilder("cmd", "/c", "rmdir", link.toString())
-                .redirectErrorStream(true)
-                .start()
-        proc.inputStream.bufferedReader().readText()
-        proc.waitFor()
+    private fun readMarker(deployed: Path): Path? {
+        val marker = deployed.resolve(DEPLOY_MARKER)
+        if (!Files.isRegularFile(marker)) return null
+        return try {
+            Path.of(Files.readString(marker).trim())
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun cleanupEmptyTarget(target: Path) {

@@ -8,15 +8,31 @@ import java.awt.event.MouseEvent
 import javax.swing.JComponent
 import javax.swing.JScrollPane
 
+internal data class ChangeBlock(
+    val startLine: Int,
+    val endLine: Int,
+    val type: DiffLineType,
+)
+
+internal fun groupChangeBlocks(lines: List<DiffLine>): List<ChangeBlock> {
+    val blocks = mutableListOf<ChangeBlock>()
+    var i = 0
+    while (i < lines.size) {
+        if (lines[i].type != DiffLineType.CONTEXT) {
+            val start = i
+            val type = lines[i].type
+            while (i < lines.size && lines[i].type == type) i++
+            blocks.add(ChangeBlock(start, i, type))
+        } else {
+            i++
+        }
+    }
+    return blocks
+}
+
 class DiffOverviewBar(
     private val scrollPane: JScrollPane,
 ) : JComponent() {
-    private data class ChangeBlock(
-        val startLine: Int,
-        val endLine: Int,
-        val type: DiffLineType,
-    )
-
     private var totalLines: Int = 0
     private var changeBlocks = listOf<ChangeBlock>()
 
@@ -36,19 +52,7 @@ class DiffOverviewBar(
 
     fun setDiffData(lines: List<DiffLine>) {
         totalLines = lines.size
-        val blocks = mutableListOf<ChangeBlock>()
-        var i = 0
-        while (i < lines.size) {
-            if (lines[i].type != DiffLineType.CONTEXT) {
-                val start = i
-                val type = lines[i].type
-                while (i < lines.size && lines[i].type == type) i++
-                blocks.add(ChangeBlock(start, i, type))
-            } else {
-                i++
-            }
-        }
-        changeBlocks = blocks
+        changeBlocks = groupChangeBlocks(lines)
         repaint()
     }
 

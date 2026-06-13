@@ -29,20 +29,20 @@ class ElixirProjectScanner : ProjectScanner {
         val isPhoenix = ":phoenix" in content
 
         val commands = mutableListOf<CommandDescriptor>()
-        commands += cmd("mix compile", directory, "mix", "compile")
-        commands += cmd("mix test", directory, "mix", "test")
-        commands += cmd("mix deps.get", directory, "mix", "deps.get")
-        commands += cmd("mix deps.update --all", directory, "mix", "deps.update", "--all")
-        commands += cmd("mix format", directory, "mix", "format")
+        commands += scannerCmd("mix compile", directory, BuildTool.MIX, "mix", "compile")
+        commands += scannerCmd("mix test", directory, BuildTool.MIX, "mix", "test")
+        commands += scannerCmd("mix deps.get", directory, BuildTool.MIX, "mix", "deps.get")
+        commands += scannerCmd("mix deps.update --all", directory, BuildTool.MIX, "mix", "deps.update", "--all")
+        commands += scannerCmd("mix format", directory, BuildTool.MIX, "mix", "format")
 
         if (isPhoenix) {
-            commands += cmd("mix phx.server", directory, "mix", "phx.server")
-            commands += cmd("mix ecto.migrate", directory, "mix", "ecto.migrate")
-            commands += cmd("mix phx.routes", directory, "mix", "phx.routes")
+            commands += scannerCmd("mix phx.server", directory, BuildTool.MIX, "mix", "phx.server")
+            commands += scannerCmd("mix ecto.migrate", directory, BuildTool.MIX, "mix", "ecto.migrate")
+            commands += scannerCmd("mix phx.routes", directory, BuildTool.MIX, "mix", "phx.routes")
         }
 
-        commands += cmd("mix clean", directory, "mix", "clean")
-        commands += cmd("iex -S mix", directory, "iex", "-S", "mix")
+        commands += scannerCmd("mix clean", directory, BuildTool.MIX, "mix", "clean")
+        commands += scannerCmd("iex -S mix", directory, BuildTool.MIX, "iex", "-S", "mix")
 
         return DetectedProject(
             directory = directory,
@@ -50,16 +50,4 @@ class ElixirProjectScanner : ProjectScanner {
             commands = commands,
         )
     }
-
-    private fun cmd(
-        label: String,
-        dir: ProjectDirectory,
-        vararg args: String,
-    ): CommandDescriptor =
-        CommandDescriptor(
-            label,
-            BuildTool.MIX,
-            if (IS_WINDOWS) listOf("cmd", "/c") + args else args.toList(),
-            dir.path,
-        )
 }

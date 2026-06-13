@@ -4,6 +4,7 @@ import io.github.rygel.needlecast.AppContext
 import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.ui.RemixIcons
 import io.github.rygel.needlecast.ui.util.DesktopUtils
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
@@ -33,6 +34,7 @@ import javax.swing.table.DefaultTableCellRenderer
 class ExplorerPanel(
     private val ctx: AppContext,
 ) : JPanel(BorderLayout()) {
+    private val logger = LoggerFactory.getLogger(ExplorerPanel::class.java)
     private var currentDir: File = File(System.getProperty("user.home"))
     private val fileOps =
         ExplorerFileOps(
@@ -314,7 +316,8 @@ class ExplorerPanel(
         val key =
             try {
                 file.canonicalPath
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to resolve canonical path", e)
                 file.absolutePath
             }
         val existing = openFiles[key]
@@ -393,7 +396,8 @@ class ExplorerPanel(
                 val entries =
                     try {
                         get()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        logger.warn("Failed to load directory listing", e)
                         return
                     }
                 tableModel.setEntries(entries)
@@ -446,7 +450,8 @@ class ExplorerPanel(
         val key =
             try {
                 file.canonicalPath
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to resolve canonical path for tab", e)
                 file.absolutePath
             }
         val existing = openFiles[key]

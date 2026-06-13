@@ -9,6 +9,8 @@ import io.github.rygel.needlecast.model.ProjectTreeEntry
 import io.github.rygel.needlecast.ui.components.BannerNotification
 import io.github.rygel.needlecast.ui.components.TourOverlay
 import io.github.rygel.needlecast.ui.components.TourStep
+import io.github.rygel.needlecast.ui.diagnostics.EdtStallMonitor
+import io.github.rygel.needlecast.ui.update.UpdateCheckController
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Dimension
@@ -17,7 +19,6 @@ import java.awt.GraphicsEnvironment
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
-import java.net.URI
 import javax.swing.JComponent
 import javax.swing.JFileChooser
 import javax.swing.JFrame
@@ -27,25 +28,6 @@ import javax.swing.SwingUtilities
 import javax.swing.UIManager
 import javax.swing.filechooser.FileNameExtensionFilter
 import javax.swing.plaf.FontUIResource
-
-private const val APPCAST_URL = "https://github.com/rygel/needlecast/releases/latest/download/appcast.xml"
-
-internal fun buildSparkle4jInstance(
-    version: String,
-    intervalHours: Int,
-    parentComponent: Component? = null,
-): io.github.rygel.sparkle4j.Sparkle4jInstance {
-    val builder =
-        io.github.rygel.sparkle4j.Sparkle4j
-            .builder()
-            .appcastUrl(APPCAST_URL)
-            .currentVersion(version)
-            .allowUnsignedUpdates()
-            .appName("Needlecast")
-            .checkIntervalHours(intervalHours)
-    if (parentComponent != null) builder.parentComponent(parentComponent)
-    return builder.build()
-}
 
 class MainWindow(
     private val ctx: AppContext,
@@ -68,20 +50,23 @@ class MainWindow(
             }.apply { isRepeats = false }
 
     private val statusBar = registry.statusBar
-    private val terminalPanel = registry.terminalPanel
+    internal val terminalPanel = registry.terminalPanel
     private val explorerPanel = registry.explorerPanel
     private val logViewerPanel = registry.logViewerPanel
     private val searchPanel = registry.searchPanel
     private lateinit var projectTreePanel: ProjectTreePanel
     private val projectTreePanelAccessor get() = projectTreePanel
 
+    private val uiLogger = org.slf4j.LoggerFactory.getLogger("needlecast.ui")
+
     private val edtTraceForced =
         System.getProperty("needlecast.edt.trace")?.equals("true", ignoreCase = true) == true ||
             (System.getenv("NEEDLECAST_EDT_TRACE")?.equals("true", ignoreCase = true) == true) ||
             (System.getenv("NEEDLECAST_EDT_TRACE") == "1")
 
-    @Volatile private var edtMonitorRunning = false
-    private var edtMonitorThread: Thread? = null
+    private val edtMonitor = EdtStallMonitor(uiLogger)
+
+    private val updateCheck = UpdateCheckController(this, statusBar) { currentVersion() }
 
     private val baseUiFont: Font =
         UIManager.getFont("defaultFont")
@@ -145,7 +130,7 @@ class MainWindow(
                 MenuBarBuilder.MenuBarCallbacks(
                     reloadShortcuts = { reloadShortcuts() },
                     applyUiFont = { applyUiFontFromConfig() },
-                    checkForUpdatesManual = { checkForUpdatesManual() },
+                    checkForUpdatesManual = { updateCheck.checkForUpdatesManual() },
                     importConfig = { importConfig() },
                     exportConfig = { exportConfig() },
                     importWorkspace = { importWorkspace() },
@@ -173,7 +158,7 @@ class MainWindow(
                         SwingUtilities.invokeLater { projectTreePanel.invalidateTreeLayout() }
                     }
                     applyTheme(ThemeRegistry.isDark(ctx.config.theme))
-                    updateTimer.start()
+                    updateCheck.updateTimer.start()
                     updateDiagnosticSettings(ctx.config)
                 }
 
@@ -190,11 +175,11 @@ class MainWindow(
                         AppState.setAutoPersist(false)
                         AppState.setPaused(true)
                         ctx.disposeAll()
-                        updateTimer.stop()
+                        updateCheck.updateTimer.stop()
                         logViewerPanel.dispose()
                         terminalPanel.dispose()
                         coordinator.dispose()
-                        edtMonitorRunning = false
+                        edtMonitor.stop()
                         dispose()
                     } finally {
                         System.exit(0)
@@ -533,214 +518,13 @@ class MainWindow(
 
     // ── Diagnostics ──────────────────────────────────────────────────────────
 
-    private val updateLogger = org.slf4j.LoggerFactory.getLogger("needlecast.update")
-    private val uiLogger = org.slf4j.LoggerFactory.getLogger("needlecast.ui")
-
     private fun updateDiagnosticSettings(cfg: io.github.rygel.needlecast.model.AppConfig) {
         val shouldRun = edtTraceForced || cfg.edtStallTraceEnabled
-        if (shouldRun && !edtMonitorRunning) {
-            startEdtStallMonitor()
-        } else if (!shouldRun && edtMonitorRunning && !edtTraceForced) {
-            stopEdtStallMonitor()
+        if (shouldRun && !edtMonitor.isRunning) {
+            edtMonitor.start()
+        } else if (!shouldRun && edtMonitor.isRunning && !edtTraceForced) {
+            edtMonitor.stop()
         }
-    }
-
-    private fun startEdtStallMonitor() {
-        if (edtMonitorRunning) return
-        edtMonitorRunning = true
-        val periodMs = 50L
-        val thresholdMs = 200L
-        val throttleMs = 2_000L
-        edtMonitorThread =
-            Thread({
-                var lastReportAt = 0L
-                while (edtMonitorRunning) {
-                    val latch = java.util.concurrent.CountDownLatch(1)
-                    val scheduledAt = System.nanoTime()
-                    SwingUtilities.invokeLater { latch.countDown() }
-                    val ok =
-                        try {
-                            latch.await(thresholdMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-                        } catch (_: InterruptedException) {
-                            true
-                        }
-                    if (!ok) {
-                        val nowMs = System.currentTimeMillis()
-                        if (nowMs - lastReportAt >= throttleMs) {
-                            lastReportAt = nowMs
-                            val delayMs = (System.nanoTime() - scheduledAt) / 1_000_000
-                            val edt = Thread.getAllStackTraces().keys.firstOrNull { it.name.startsWith("AWT-EventQueue") }
-                            if (edt != null) {
-                                val stack =
-                                    Thread
-                                        .getAllStackTraces()[edt]
-                                        ?.joinToString("\n") { "    at ${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})" }
-                                        ?: "(stack unavailable)"
-                                uiLogger.warn("EDT stall detected: {} ms\n{}", delayMs, stack)
-                            } else {
-                                uiLogger.warn("EDT stall detected: {} ms (EDT thread not found)", delayMs)
-                            }
-                        }
-                    }
-                    try {
-                        Thread.sleep(periodMs)
-                    } catch (_: InterruptedException) {
-                    }
-                }
-            }, "edt-stall-monitor").apply {
-                isDaemon = true
-                start()
-            }
-    }
-
-    private fun stopEdtStallMonitor() {
-        edtMonitorRunning = false
-        edtMonitorThread?.interrupt()
-        edtMonitorThread = null
-    }
-
-    // ── Update checker ──────────────────────────────────────────────────────
-
-    private fun buildSparkle4j(intervalHours: Int = 24): io.github.rygel.sparkle4j.Sparkle4jInstance? {
-        val version =
-            currentVersion() ?: run {
-                updateLogger.warn("Cannot determine app version — update check skipped")
-                return null
-            }
-        updateLogger.info("Building sparkle4j instance: version={}, interval={}h", version, intervalHours)
-        return try {
-            buildSparkle4jInstance(
-                version = version,
-                intervalHours = intervalHours,
-                parentComponent = this@MainWindow,
-            )
-        } catch (e: Exception) {
-            updateLogger.error("Failed to configure update checker", e)
-            null
-        }
-    }
-
-    private var updateCheckFailures = 0
-    private val updateCheckFailureThreshold = 3
-
-    private val updateTimer =
-        javax.swing.Timer(15 * 60 * 1000) { checkForUpdates() }.apply {
-            isRepeats = true
-            initialDelay = 30_000
-        }
-
-    private fun checkForUpdates() {
-        Thread {
-            try {
-                updateLogger.info("Periodic update check")
-                val item = buildSparkle4j(0)?.checkNow()?.orElse(null)
-                updateCheckFailures = 0
-                SwingUtilities.invokeLater { statusBar.hideUpdateCheckWarning() }
-                if (item != null) {
-                    updateLogger.info("Update available: {}", item.version())
-                    SwingUtilities.invokeLater {
-                        statusBar.showUpdateAvailable(item.version()) { openReleasesPage() }
-                    }
-                }
-            } catch (e: Exception) {
-                logUpdateCheckFailure("Periodic update check", e)
-                updateCheckFailures++
-                if (updateCheckFailures >= updateCheckFailureThreshold) {
-                    updateLogger.warn("Update checks have failed {} consecutive times", updateCheckFailures)
-                    SwingUtilities.invokeLater { statusBar.showUpdateCheckWarning() }
-                }
-            }
-        }.also {
-            it.isDaemon = true
-            it.name = "update-check"
-        }.start()
-    }
-
-    private fun openReleasesPage() {
-        try {
-            java.awt.Desktop
-                .getDesktop()
-                .browse(java.net.URI("https://github.com/rygel/needlecast/releases/latest"))
-        } catch (e: Exception) {
-            updateLogger.warn("Could not open releases page", e)
-        }
-    }
-
-    private fun checkForUpdatesManual() {
-        val instance = buildSparkle4j(0)
-        if (instance == null) {
-            JOptionPane.showMessageDialog(
-                this,
-                "Update checking is not available (version unknown).",
-                "Check for Updates",
-                JOptionPane.WARNING_MESSAGE,
-            )
-            return
-        }
-        statusBar.setStatus("Checking for updates\u2026")
-        Thread({
-            try {
-                updateLogger.info("Manual update check")
-                val item = instance.checkNow().orElse(null)
-                SwingUtilities.invokeLater {
-                    if (item == null) {
-                        updateLogger.info("No update found — already on latest version")
-                        statusBar.setStatus("You are running the latest version.")
-                        JOptionPane.showMessageDialog(
-                            this@MainWindow,
-                            "You are running the latest version of Needlecast.",
-                            "Check for Updates",
-                            JOptionPane.INFORMATION_MESSAGE,
-                        )
-                    } else {
-                        updateLogger.info("Update found: {}", item.version())
-                        statusBar.showUpdateAvailable(item.version()) { openReleasesPage() }
-                        openReleasesPage()
-                    }
-                }
-            } catch (e: Exception) {
-                logUpdateCheckFailure("Manual update check", e)
-                val details = UpdateCheckErrors.details(e)
-                SwingUtilities.invokeLater {
-                    JOptionPane.showMessageDialog(
-                        this@MainWindow,
-                        details.userMessage,
-                        "Check for Updates",
-                        JOptionPane.ERROR_MESSAGE,
-                    )
-                }
-            }
-        }, "update-check-manual").apply {
-            isDaemon = true
-            start()
-        }
-    }
-
-    private fun logUpdateCheckFailure(
-        context: String,
-        error: Throwable,
-    ) {
-        val details = UpdateCheckErrors.details(error)
-        val root = details.root
-        val category = details.category
-        val appcastHost = runCatching { URI(APPCAST_URL).host }.getOrNull() ?: "unknown"
-        updateLogger.warn(
-            "{} failed: category={}, appcastHost={}, exceptionType={}, message={}, rootType={}, rootMessage={}",
-            context,
-            category,
-            appcastHost,
-            error::class.java.name,
-            UpdateCheckErrors.sanitizeLogField(error.message),
-            root::class.java.name,
-            UpdateCheckErrors.sanitizeLogField(root.message),
-        )
-        if (category.startsWith("tls")) {
-            updateLogger.warn(
-                "{} TLS hint: verify corporate proxy/SSL interception trust chain and JVM trust store",
-                context,
-            )
-        }
-        updateLogger.debug("{} stacktrace", context, error)
     }
 
     companion object {

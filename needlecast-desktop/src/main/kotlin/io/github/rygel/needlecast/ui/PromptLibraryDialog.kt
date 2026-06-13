@@ -299,12 +299,12 @@ class PromptLibraryDialog(
     // ─────────────────────────────────────────────────────────────────────
 
     /** Returns distinct placeholder names found in [text], e.g. `{projectName}` → `"projectName"`. */
-    private fun extractVariables(text: String): List<String> =
-        Regex("""\{(\w+)}""")
-            .findAll(text)
-            .map { it.groupValues[1] }
-            .distinct()
-            .toList()
+    private fun extractVariables(text: String): List<String> = extractTemplateVariables(text)
+
+    private fun applySubstitutions(
+        body: String,
+        values: Map<String, String>,
+    ): String = applyTemplateSubstitutions(body, values)
 
     /**
      * Opens [VariableResolutionDialog] for the given [vars].
@@ -314,15 +314,6 @@ class PromptLibraryDialog(
         var result: Map<String, String>? = null
         VariableResolutionDialog(this, vars) { result = it }.isVisible = true
         return result
-    }
-
-    private fun applySubstitutions(
-        body: String,
-        values: Map<String, String>,
-    ): String {
-        var out = body
-        values.forEach { (k, v) -> out = out.replace("{$k}", v) }
-        return out
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -395,4 +386,20 @@ class PromptLibraryDialog(
             return panel
         }
     }
+}
+
+internal fun extractTemplateVariables(text: String): List<String> =
+    Regex("""\{(\w+)}""")
+        .findAll(text)
+        .map { it.groupValues[1] }
+        .distinct()
+        .toList()
+
+internal fun applyTemplateSubstitutions(
+    body: String,
+    values: Map<String, String>,
+): String {
+    var out = body
+    values.forEach { (k, v) -> out = out.replace("{$k}", v) }
+    return out
 }

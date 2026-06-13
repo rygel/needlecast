@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui.diff
 
+import org.slf4j.LoggerFactory
 import java.awt.Font
 import java.awt.Insets
 import java.awt.Rectangle
@@ -13,6 +14,8 @@ import javax.swing.text.StyledDocument
 class DiffEditorPane(
     val side: Side,
 ) : JTextPane() {
+    private val logger = LoggerFactory.getLogger(DiffEditorPane::class.java)
+
     enum class Side { OLD, NEW, UNIFIED }
 
     private val lineTypes = mutableListOf<DiffLineType>()
@@ -62,14 +65,16 @@ class DiffEditorPane(
             } else {
                 try {
                     doc.insertString(doc.length, line.content, lineAttrs)
-                } catch (_: BadLocationException) {
+                } catch (e: BadLocationException) {
+                    logger.debug("BadLocation inserting line content", e)
                 }
             }
 
             if (index < lines.size - 1) {
                 try {
                     doc.insertString(doc.length, "\n", attrs)
-                } catch (_: BadLocationException) {
+                } catch (e: BadLocationException) {
+                    logger.debug("BadLocation inserting newline", e)
                 }
             }
         }
@@ -101,7 +106,8 @@ class DiffEditorPane(
             }
             try {
                 doc.insertString(doc.length, sb.toString(), baseAttrs)
-            } catch (_: BadLocationException) {
+            } catch (e: BadLocationException) {
+                logger.debug("BadLocation inserting pre-diff text", e)
             }
             sb.clear()
 
@@ -110,7 +116,8 @@ class DiffEditorPane(
 
             try {
                 doc.insertString(doc.length, diffTexts[diffIdx], diffAttrs)
-            } catch (_: BadLocationException) {
+            } catch (e: BadLocationException) {
+                logger.debug("BadLocation inserting diff text", e)
             }
 
             pos = nextDiff + diffTexts[diffIdx].length
@@ -123,7 +130,8 @@ class DiffEditorPane(
         if (sb.isNotEmpty()) {
             try {
                 doc.insertString(doc.length, sb.toString(), baseAttrs)
-            } catch (_: BadLocationException) {
+            } catch (e: BadLocationException) {
+                logger.debug("BadLocation inserting trailing text", e)
             }
         }
     }
@@ -135,7 +143,8 @@ class DiffEditorPane(
             if (lineIndex >= root.elementCount) return null
             val elem = root.getElement(lineIndex)
             modelToView(elem.startOffset)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to get line bounds", e)
             null
         }
     }

@@ -10,7 +10,6 @@ import io.github.rygel.needlecast.git.GitAutoSync
 import io.github.rygel.needlecast.git.GitService
 import io.github.rygel.needlecast.git.ProcessGitService
 import io.github.rygel.needlecast.model.AppConfig
-import io.github.rygel.needlecast.process.CommandRunner
 import io.github.rygel.needlecast.process.ProcessCommandRunner
 import io.github.rygel.needlecast.scanner.CompositeProjectScanner
 import io.github.rygel.needlecast.scanner.ProjectScanner
@@ -27,7 +26,7 @@ interface Disposable {
 class AppContext(
     val configStore: ConfigStore = JsonConfigStore(),
     val scanner: ProjectScanner = CompositeProjectScanner(),
-    val commandRunner: CommandRunner = ProcessCommandRunner(),
+    val commandRunner: ProcessCommandRunner = ProcessCommandRunner(),
     val gitService: GitService = ProcessGitService(),
     val promptLibraryStore: PromptLibraryStore =
         PromptLibraryStore(

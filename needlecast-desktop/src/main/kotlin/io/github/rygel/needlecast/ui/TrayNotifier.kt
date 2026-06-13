@@ -1,8 +1,11 @@
 package io.github.rygel.needlecast.ui
 
+import org.slf4j.LoggerFactory
 import java.awt.SystemTray
 import java.awt.TrayIcon
 import java.awt.image.BufferedImage
+
+private val logger = LoggerFactory.getLogger(TrayNotifier::class.java)
 
 internal object TrayNotifier {
     private val trayIcon: TrayIcon? by lazy {
@@ -20,7 +23,8 @@ internal object TrayNotifier {
             val icon = TrayIcon(img, "Needlecast")
             SystemTray.getSystemTray().add(icon)
             icon
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.debug("Failed to create system tray icon", e)
             null
         }
     }
@@ -32,7 +36,8 @@ internal object TrayNotifier {
     ) {
         try {
             trayIcon?.displayMessage(caption, text, type)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.debug("Failed to display tray notification", e)
         }
     }
 }

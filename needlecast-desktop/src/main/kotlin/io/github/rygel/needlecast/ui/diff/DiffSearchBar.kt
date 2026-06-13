@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui.diff
 
+import org.slf4j.LoggerFactory
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.FlowLayout
@@ -13,6 +14,7 @@ import javax.swing.JTextField
 import javax.swing.text.DefaultHighlighter
 
 class DiffSearchBar : JPanel(BorderLayout()) {
+    private val logger = LoggerFactory.getLogger(DiffSearchBar::class.java)
     private val searchField =
         JTextField().apply {
             preferredSize = Dimension(200, 28)
@@ -125,7 +127,8 @@ class DiffSearchBar : JPanel(BorderLayout()) {
                     pane.highlighter.addHighlight(idx, idx + query.length, painter)
                     paneHighlights.add(idx to (idx + query.length))
                     totalMatches++
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Failed to add search highlight", e)
                 }
                 pos = idx + 1
             }
@@ -169,7 +172,8 @@ class DiffSearchBar : JPanel(BorderLayout()) {
                 try {
                     val rect = targetPanes[paneIdx].modelToView(start)
                     if (rect != null) targetPanes[paneIdx].scrollRectToVisible(rect)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Failed to scroll to search match", e)
                 }
                 return
             }

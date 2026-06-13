@@ -1,5 +1,6 @@
 package io.github.rygel.needlecast.ui.explorer
 
+import org.slf4j.LoggerFactory
 import java.awt.datatransfer.DataFlavor
 import java.io.File
 import java.net.URI
@@ -15,28 +16,33 @@ class ExplorerDropHandler(
     private val table: JTable,
     private val tabs: JTabbedPane,
 ) : TransferHandler() {
+    private val logger = LoggerFactory.getLogger(ExplorerDropHandler::class.java)
     private val uriListFlavor: DataFlavor? =
         try {
             DataFlavor("text/uri-list;class=java.lang.String")
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to create URI list flavor (string)", e)
             null
         }
     private val uriListReaderFlavor: DataFlavor? =
         try {
             DataFlavor("text/uri-list;class=java.io.Reader")
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to create URI list flavor (reader)", e)
             null
         }
     private val uriListInputFlavor: DataFlavor? =
         try {
             DataFlavor("text/uri-list;class=java.io.InputStream")
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to create URI list flavor (input stream)", e)
             null
         }
     private val urlFlavor: DataFlavor? =
         try {
             DataFlavor("application/x-java-url;class=java.net.URL")
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to create URL flavor", e)
             null
         }
 
@@ -75,7 +81,8 @@ class ExplorerDropHandler(
                     (support.transferable.getTransferData(DataFlavor.javaFileListFlavor) as? List<*>)
                         ?.filterIsInstance<File>()
                         ?: emptyList()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    logger.warn("Failed to read file list from transferable", e)
                     emptyList()
                 }
             return items.filter { it.isDirectory } to items.filter { it.isFile }
@@ -87,7 +94,8 @@ class ExplorerDropHandler(
                 val dirs = if (file != null && file.isDirectory) listOf(file) else emptyList()
                 val files = if (file != null && file.isFile) listOf(file) else emptyList()
                 dirs to files
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                logger.warn("Failed to extract URL from transferable", e)
                 emptyList<File>() to emptyList()
             }
         }
@@ -117,7 +125,8 @@ class ExplorerDropHandler(
                     null
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn("Failed to read URI list text from transferable", e)
             null
         }
 }

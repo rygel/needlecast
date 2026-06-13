@@ -77,7 +77,6 @@ data class AppConfig(
     val tabsOnTop: Boolean = true,
     val panelHoverHighlight: Boolean = false,
     val dockingActiveHighlight: Boolean = false,
-    val treeClickTraceEnabled: Boolean = false,
     val edtStallTraceEnabled: Boolean = false,
     val defaultShell: String? = null,
     val syntaxTheme: String = "auto",
