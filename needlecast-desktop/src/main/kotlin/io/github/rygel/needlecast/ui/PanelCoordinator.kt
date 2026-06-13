@@ -10,6 +10,12 @@ import java.io.File
 import java.nio.charset.Charset
 import javax.swing.Timer
 
+internal fun buildCommandsKey(project: DetectedProject): String =
+    project.commands.joinToString(separator = "|") { cmd ->
+        val argv = cmd.argv.joinToString(separator = "\u0000")
+        "${cmd.label}\u0000$argv\u0000${cmd.workingDirectory}"
+    }
+
 class PanelCoordinator(
     private val registry: PanelRegistry,
     private val docking: DockingController,
@@ -192,10 +198,4 @@ class PanelCoordinator(
     fun resetLastSelectedCommandsKey() {
         lastSelectedCommandsKey = null
     }
-
-    private fun buildCommandsKey(project: DetectedProject): String =
-        project.commands.joinToString(separator = "|") { cmd ->
-            val argv = cmd.argv.joinToString(separator = "\u0000")
-            "${cmd.label}\u0000$argv\u0000${cmd.workingDirectory}"
-        }
 }
