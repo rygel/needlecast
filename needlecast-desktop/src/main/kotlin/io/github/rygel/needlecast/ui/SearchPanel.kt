@@ -512,22 +512,7 @@ class SearchPanel(
             false
         }
 
-    private fun isBinary(file: Path): Boolean {
-        return try {
-            Files.newInputStream(file).use { stream ->
-                val buf = ByteArray(4096)
-                val read = stream.read(buf)
-                if (read <= 0) return false
-                for (i in 0 until read) {
-                    if (buf[i].toInt() == 0) return true
-                }
-                false
-            }
-        } catch (e: Exception) {
-            searchPanelLogger.warn("Failed to check if file is binary", e)
-            true
-        }
-    }
+    private fun isBinary(file: Path): Boolean = isBinaryFile(file)
 
     private class ResultCellRenderer(
         private val root: () -> File?,
@@ -611,3 +596,18 @@ class SearchPanel(
             }
     }
 }
+
+internal fun isBinaryFile(file: Path): Boolean =
+    try {
+        Files.newInputStream(file).use { stream ->
+            val buf = ByteArray(4096)
+            val read = stream.read(buf)
+            if (read <= 0) return false
+            for (i in 0 until read) {
+                if (buf[i].toInt() == 0) return true
+            }
+            false
+        }
+    } catch (_: Exception) {
+        true
+    }
