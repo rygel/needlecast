@@ -22,6 +22,17 @@ import javax.swing.SwingUtilities
 
 private const val CARD_EMPTY = "__empty__"
 
+internal fun matchProjectPath(
+    cwd: String,
+    paths: Set<String>,
+): String? {
+    val normalised = cwd.replace('\\', '/')
+    return paths.firstOrNull { p ->
+        val np = p.replace('\\', '/')
+        normalised == np || normalised.startsWith("$np/")
+    }
+}
+
 /**
  * Manages one [ProjectTerminalPane] per project path.
  *
@@ -60,13 +71,7 @@ class TerminalManager(
         cwd: String,
         status: AgentStatus,
     ) {
-        val normalised = cwd.replace('\\', '/')
-        // Find the project path that is a prefix of (or equal to) the hook cwd
-        val path =
-            terminals.keys.firstOrNull { p ->
-                val np = p.replace('\\', '/')
-                normalised == np || normalised.startsWith("$np/")
-            } ?: return
+        val path = matchProjectPath(cwd, terminals.keys) ?: return
         terminals[path]?.forceStatusOnClaudeTabs(status)
     }
 
