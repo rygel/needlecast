@@ -34,10 +34,125 @@ import javax.swing.table.DefaultTableCellRenderer
  * Scans for outdated dependencies, shows results in a table with checkboxes,
  * and applies selected updates by replacing version strings in project files.
  */
+internal data class RenovateDepUpdate(
+    val manager: String,
+    val packageFile: String,
+    val depName: String,
+    val currentValue: String,
+    val newValue: String,
+    val updateType: String,
+    val sharedVariableName: String,
+    val fileReplacePosition: Int,
+    val replaceString: String,
+    val autoReplaceTemplate: String,
+    val newDigest: String,
+)
+
+internal fun parseRenovateReport(reportFile: File): List<RenovateDepUpdate> {
+    val mapper = ObjectMapper()
+    val root = mapper.readTree(reportFile)
+    val repo = root.path("repositories").path("local")
+    val packageFiles = repo.path("packageFiles")
+    if (packageFiles.isMissingNode) return emptyList()
+
+    val result = mutableListOf<RenovateDepUpdate>()
+    val fields = packageFiles.fields()
+    while (fields.hasNext()) {
+        val (manager, files) = fields.next()
+        for (file in files) {
+            val pkgFile = file.path("packageFile").asText("")
+            for (dep in file.path("deps")) {
+                val depUpdates = dep.path("updates")
+                if (depUpdates.isEmpty) continue
+                val depName = dep.path("depName").asText("")
+                val currentValue =
+                    dep.path("currentValue").asText(
+                        dep.path("currentVersion").asText("?"),
+                    )
+                val sharedVar = dep.path("sharedVariableName").asText("")
+                val frp = dep.path("fileReplacePosition").asInt(-1)
+                val replaceStr = dep.path("replaceString").asText("")
+                val autoReplace = dep.path("autoReplaceStringTemplate").asText("")
+
+                for (update in depUpdates) {
+                    val newValue =
+                        update.path("newValue").asText(
+                            update.path("newVersion").asText("?"),
+                        )
+                    val updateType = update.path("updateType").asText("?")
+                    val newDigest = update.path("newDigest").asText("")
+                    result +=
+                        RenovateDepUpdate(
+                            manager = manager,
+                            packageFile = pkgFile,
+                            depName = depName,
+                            currentValue = currentValue,
+                            newValue = newValue,
+                            updateType = updateType,
+                            sharedVariableName = sharedVar,
+                            fileReplacePosition = frp,
+                            replaceString = replaceStr,
+                            autoReplaceTemplate = autoReplace,
+                            newDigest = newDigest,
+                        )
+                }
+            }
+        }
+    }
+    val typeOrder = mapOf("major" to 0, "minor" to 1, "patch" to 2)
+    result.sortWith(compareBy<RenovateDepUpdate> { typeOrder[it.updateType] ?: 3 }.thenBy { it.depName })
+    return result
+}
+
+internal fun buildRenovateReplacements(
+    projectDir: String,
+    selected: List<RenovateDepUpdate>,
+): Map<String, List<Pair<String, String>>> {
+    val result = mutableMapOf<String, MutableList<Pair<String, String>>>()
+    val appliedProperties = mutableSetOf<String>()
+
+    for (update in selected) {
+        val filePath = File(projectDir, update.packageFile).absolutePath
+
+        if (update.sharedVariableName.isNotEmpty()) {
+            val key = "${update.packageFile}:${update.sharedVariableName}"
+            if (key in appliedProperties) continue
+            appliedProperties += key
+            val oldTag = ">${update.currentValue}</${update.sharedVariableName}>"
+            val newTag = ">${update.newValue}</${update.sharedVariableName}>"
+            result.getOrPut(filePath) { mutableListOf() } += oldTag to newTag
+            continue
+        }
+
+        if (update.replaceString.isNotEmpty()) {
+            val oldStr = update.replaceString
+            val newStr =
+                if (update.autoReplaceTemplate.isNotEmpty() && update.newDigest.isNotEmpty()) {
+                    update.autoReplaceTemplate
+                        .replace("{{depName}}", update.depName)
+                        .replace("{{newValue}}", update.newValue)
+                        .replace("{{newDigest}}", update.newDigest)
+                } else if (update.newValue != "?" && update.currentValue != update.newValue) {
+                    oldStr.replace(update.currentValue, update.newValue)
+                } else {
+                    continue
+                }
+            result.getOrPut(filePath) { mutableListOf() } += oldStr to newStr
+            continue
+        }
+
+        if (update.currentValue.isNotEmpty() && update.newValue != "?") {
+            val oldVer = ">${update.currentValue}<"
+            val newVer = ">${update.newValue}<"
+            result.getOrPut(filePath) { mutableListOf() } += oldVer to newVer
+        }
+    }
+    return result
+}
+
 class RenovatePanel(
     private val ctx: AppContext,
 ) : JPanel(BorderLayout()) {
-    /** One row in the updates table. Carries everything needed to apply the update. */
     private data class DepUpdate(
         val manager: String,
         val packageFile: String,
@@ -45,15 +160,10 @@ class RenovatePanel(
         val currentValue: String,
         val newValue: String,
         val updateType: String,
-        /** Maven property name, e.g. "jackson.version". Empty for non-shared deps. */
         val sharedVariableName: String,
-        /** Byte offset in the file where the version string lives. -1 if unavailable. */
         val fileReplacePosition: Int,
-        /** For Dockerfiles: the full string to search/replace (e.g. "maven:3.9-temurin"). */
         val replaceString: String,
-        /** The template for generating the new replace string. */
         val autoReplaceTemplate: String,
-        /** New digest for pinDigest updates. */
         val newDigest: String,
         var selected: Boolean = true,
     )
@@ -473,114 +583,44 @@ class RenovatePanel(
     private fun buildReplacements(
         projectDir: String,
         selected: List<DepUpdate>,
-    ): Map<String, List<Pair<String, String>>> {
-        val result = mutableMapOf<String, MutableList<Pair<String, String>>>()
-        val appliedProperties = mutableSetOf<String>() // "file:propertyName" dedup key
-
-        for (update in selected) {
-            val filePath = File(projectDir, update.packageFile).absolutePath
-
-            // Dedup shared Maven properties — e.g. jackson-module-kotlin and jackson-databind
-            // both point to <jackson.version>2.17.2</jackson.version>
-            if (update.sharedVariableName.isNotEmpty()) {
-                val key = "${update.packageFile}:${update.sharedVariableName}"
-                if (key in appliedProperties) continue
-                appliedProperties += key
-                // Replace the property value: >currentValue< → >newValue<
-                val oldTag = ">${update.currentValue}</${update.sharedVariableName}>"
-                val newTag = ">${update.newValue}</${update.sharedVariableName}>"
-                result.getOrPut(filePath) { mutableListOf() } += oldTag to newTag
-                continue
-            }
-
-            // Dockerfile: replace the full image string
-            if (update.replaceString.isNotEmpty()) {
-                val oldStr = update.replaceString
-                val newStr =
-                    if (update.autoReplaceTemplate.isNotEmpty() && update.newDigest.isNotEmpty()) {
-                        // Pin digest: image:tag@sha256:digest
-                        update.autoReplaceTemplate
-                            .replace("{{depName}}", update.depName)
-                            .replace("{{newValue}}", update.newValue)
-                            .replace("{{newDigest}}", update.newDigest)
-                    } else if (update.newValue != "?" && update.currentValue != update.newValue) {
-                        oldStr.replace(update.currentValue, update.newValue)
-                    } else {
-                        continue
-                    }
-                result.getOrPut(filePath) { mutableListOf() } += oldStr to newStr
-                continue
-            }
-
-            // Direct version replacement (non-shared Maven dep, or inline version)
-            if (update.currentValue.isNotEmpty() && update.newValue != "?") {
-                // For Maven: replace >currentValue</artifactId-related-tag> patterns
-                // Use a targeted replacement: >oldVersion< to >newVersion< near the dep
-                val oldVer = ">${update.currentValue}<"
-                val newVer = ">${update.newValue}<"
-                result.getOrPut(filePath) { mutableListOf() } += oldVer to newVer
-            }
-        }
-        return result
-    }
+    ): Map<String, List<Pair<String, String>>> =
+        buildRenovateReplacements(
+            projectDir,
+            selected.map {
+                RenovateDepUpdate(
+                    manager = it.manager,
+                    packageFile = it.packageFile,
+                    depName = it.depName,
+                    currentValue = it.currentValue,
+                    newValue = it.newValue,
+                    updateType = it.updateType,
+                    sharedVariableName = it.sharedVariableName,
+                    fileReplacePosition = it.fileReplacePosition,
+                    replaceString = it.replaceString,
+                    autoReplaceTemplate = it.autoReplaceTemplate,
+                    newDigest = it.newDigest,
+                )
+            },
+        )
 
     // ── Report parsing ───────────────────────────────────────────────────
 
-    private fun parseReport(reportFile: File): List<DepUpdate> {
-        val mapper = ObjectMapper()
-        val root = mapper.readTree(reportFile)
-        val repo = root.path("repositories").path("local")
-        val packageFiles = repo.path("packageFiles")
-        if (packageFiles.isMissingNode) return emptyList()
-
-        val result = mutableListOf<DepUpdate>()
-        val fields = packageFiles.fields()
-        while (fields.hasNext()) {
-            val (manager, files) = fields.next()
-            for (file in files) {
-                val pkgFile = file.path("packageFile").asText("")
-                for (dep in file.path("deps")) {
-                    val depUpdates = dep.path("updates")
-                    if (depUpdates.isEmpty) continue
-                    val depName = dep.path("depName").asText("")
-                    val currentValue =
-                        dep.path("currentValue").asText(
-                            dep.path("currentVersion").asText("?"),
-                        )
-                    val sharedVar = dep.path("sharedVariableName").asText("")
-                    val frp = dep.path("fileReplacePosition").asInt(-1)
-                    val replaceStr = dep.path("replaceString").asText("")
-                    val autoReplace = dep.path("autoReplaceStringTemplate").asText("")
-
-                    for (update in depUpdates) {
-                        val newValue =
-                            update.path("newValue").asText(
-                                update.path("newVersion").asText("?"),
-                            )
-                        val updateType = update.path("updateType").asText("?")
-                        val newDigest = update.path("newDigest").asText("")
-                        result +=
-                            DepUpdate(
-                                manager = manager,
-                                packageFile = pkgFile,
-                                depName = depName,
-                                currentValue = currentValue,
-                                newValue = newValue,
-                                updateType = updateType,
-                                sharedVariableName = sharedVar,
-                                fileReplacePosition = frp,
-                                replaceString = replaceStr,
-                                autoReplaceTemplate = autoReplace,
-                                newDigest = newDigest,
-                            )
-                    }
-                }
-            }
+    private fun parseReport(reportFile: File): List<DepUpdate> =
+        parseRenovateReport(reportFile).map {
+            DepUpdate(
+                manager = it.manager,
+                packageFile = it.packageFile,
+                depName = it.depName,
+                currentValue = it.currentValue,
+                newValue = it.newValue,
+                updateType = it.updateType,
+                sharedVariableName = it.sharedVariableName,
+                fileReplacePosition = it.fileReplacePosition,
+                replaceString = it.replaceString,
+                autoReplaceTemplate = it.autoReplaceTemplate,
+                newDigest = it.newDigest,
+            )
         }
-        val typeOrder = mapOf("major" to 0, "minor" to 1, "patch" to 2)
-        result.sortWith(compareBy<DepUpdate> { typeOrder[it.updateType] ?: 3 }.thenBy { it.depName })
-        return result
-    }
 
     // ── Status check ─────────────────────────────────────────────────────
 
