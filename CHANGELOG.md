@@ -1,75 +1,49 @@
-
-## v0.11.0-beta.1 — 2026-06-08
-
-- 97daa31 feat: Cycle 4 — code quality and tooling improvements
-- 8b470a4 docs: update auto-generated screenshots
-- f6543b8 docs: add v0.10.0-beta.1 changelog entries
-
-## v0.10.0-beta.1 — 2026-06-08
-
-- 53f2498 Merge pull request #214 from rygel/feat/cycle-3-core
-- bf19acf docs: update auto-generated screenshots
-- 8f8a2ac Merge remote-tracking branch 'origin/develop' into feat/cycle-3-core
-- cc87bf4 Merge pull request #215 from rygel/feat/cycle-3-ui
-- c4354aa test: expand settings panel test coverage
-- 90b1ae5 feat: project tree filter with clear button and path matching
-- f744225 test: add icon loading regression tests for RemixIcons
-- 73c8a9a fix: auto-restart shell when terminal child process exits
-- 4150976 style: apply ktlint auto-format to all Kotlin source files
-- 4a90824 docs: update auto-generated screenshots
-- ba2ffd0 docs: add v0.9.0-beta.1 changelog entries
-
 # Changelog
 
 All notable changes to Needlecast are documented here.
 
+## [0.9.2-beta.2] — 2026-06-13
 
-## v0.9.0-beta.1 — 2026-06-08
+### Changed
+- **Terminal architecture** — terminal pane extracted into a dedicated component for stability under rapid tab switching
+- **Main window** — update checker and EDT stall monitor extracted into separate components
+- **Directory panel** — settings dialog and project directory renderer split into separate components
 
-- ee2c2bd Merge pull request #213 from rygel/develop
-- 09a7c02 docs: update auto-generated screenshots
-- 08dd34b Merge pull request #212 from rygel/feat/cycle-2-infra
-- e70a2d8 Merge pull request #211 from rygel/develop
-- 057f7a8 ci: add .editorconfig for consistent code formatting
-- 818d362 docs: update auto-generated screenshots
-- f777edc ci: switch release-pr workflow to manual trigger only
-- f25eb15 Merge branch 'develop' of https://github.com/rygel/needlecast into develop
-- db6b07d docs: update auto-generated screenshots
-- d3409cf Merge pull request #210 from rygel/feat/cycle-2-tests
-- c6a7f8d test: expand DocRegistry and CommandHistoryManager tests
-- ada6a5d docs: update auto-generated screenshots
-- 3d595c1 Merge pull request #209 from rygel/feat/cycle-2-ui
-- fd19327 test: add ProcessCommandRunner and RunningProcess unit tests
-- 7a8eb38 Merge pull request #208 from rygel/develop
-- 92f2e29 fix: disable ImageIO disk cache to avoid Windows AccessDeniedException
-- 49c2557 docs: add mainwindow decomposition implementation plan
-- e259e42 docs: add CLAUDE.md with build commands, conventions, and project rules
-- b6b9f3f docs: update auto-generated screenshots
-- c88e26f Merge pull request #207 from rygel/ci/trim-release-pr-workflow
-- a062617 ci: remove back-merge and add paths-ignore to release-pr workflow
-- 59dbfb3 Merge pull request #205 from rygel/develop
-- 0c1e148 docs: update auto-generated screenshots
-- db87d3e Merge pull request #206 from rygel/refactor/extract-prompt-defaults
-- 9db1c02 refactor: move prompt/command defaults out of AppConfig model
-- f4d579d docs: update auto-generated screenshots
-- 8b6aa97 Merge pull request #204 from rygel/refactor/project-tree-decomposition
-- c04fc7d Merge pull request #203 from rygel/develop
-- 4f74823 refactor: decompose ProjectTreePanel into 4 extracted classes
-- 651c40f docs: update auto-generated screenshots
-- d8adbe1 Merge pull request #202 from rygel/chore/dependency-updates
-- d7da9f2 docs: update auto-generated screenshots
-- 6a8e44e Merge pull request #201 from rygel/refactor/extract-frontmatter-parser
-- ad09593 Merge pull request #200 from rygel/refactor/gitstatus-model-purity
-- b82eb24 chore: update stable Maven dependencies
-- 42d3c51 fix: log exception instead of silently swallowing in readStatus
-- 17354e2 refactor: extract shared FrontmatterParser from duplicated store code
-- cc0e15e Merge pull request #199 from rygel/develop
-- 964e189 refactor: move GitStatus.read() to ProcessGitService
-- dd7afed docs: update auto-generated screenshots
-- ea73ae0 Merge pull request #198 from rygel/refactor/mainwindow-decomposition
-- cbcef8b Merge pull request #197 from rygel/develop
-- 06f0a05 refactor: decompose MainWindow into PanelRegistry, DockingController, PanelCoordinator, MenuBarBuilder
-- 53f8c8b docs: update auto-generated screenshots
+## [0.9.2-beta.1] — 2026-06-11
+
+### Added
+- **Project tree active-only filter** — toggle to show only active projects
+- **Scan coordinator** — background scanning no longer blocks the project tree
+
+### Fixed
+- **Terminal TUI rendering** — BEL characters no longer stripped from PTY output, restoring proper rendering in TUI apps
+- **Config version sync** — default config version now matches the migrator
+
+### Changed
+- **Explorer panel** — file operations, drop handling, and table model split into separate components
+- **Command panel** — override manager, cell renderers, and edit dialog extracted from CommandPanel
+
+## [0.9.1-beta.1] — 2026-06-08
+
+### Added
+- **Keyboard shortcuts** — 16 configurable shortcuts including terminal tab management, zoom, sidebar toggle, and panel focus; all editable in Settings > Shortcuts with conflict detection
+- **CSI-u modified Enter** — Ctrl+Enter and Shift+Enter send kitty keyboard protocol sequences in Claude Code sessions
+- **Window title** — shows selected project name in brackets
+- **Terminal improvements** — dynamic tab titles from shell, encoding selector dropdown, bell as visual flash instead of system beep
+- **Build tool badges** — detected build tools shown as badges in the command list
+- **Open in Finder/Explorer** — context menu action in the file explorer
+- **Command reset** — reset overridden commands back to default
+- **Skills categories** — skills panel groups by category
+- **Active project persistence** — active projects persist across restarts
+
+### Fixed
+- **Terminal font size** — changes now take effect immediately
+- **First-run tour** — no longer freezes when targeting a panel hidden behind a tab
+- **Project tree filter** — auto-expands all nodes when filtering
+- **Error logging** — silent exception catches replaced with SLF4J logging
+
+### Changed
+- **Search and project tree** — search logic and tree dialogs extracted into separate components
 
 ## [0.8.0] — 2026-05-20
 
