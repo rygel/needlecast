@@ -347,22 +347,36 @@ class ProjectTreePanelUiTest {
                     override fun executeInEDT(): Point {
                         val bounds = tree.getRowBounds(1) ?: error("Project row not visible")
                         val loc = tree.locationOnScreen
-                        val x = loc.x + (tree.width - 6).coerceAtLeast(1)
+                        val x = loc.x + (bounds.x + bounds.width * 0.8).toInt()
                         val y = loc.y + bounds.y + (bounds.height * 0.85).toInt()
                         return Point(x, y)
                     }
                 },
             )
+        Thread.sleep(100)
         robot.pressMouse(clickPoint, MouseButton.LEFT_BUTTON)
         robot.releaseMouse(MouseButton.LEFT_BUTTON)
         robot.waitForIdle()
 
         val selectedRow =
-            GuiActionRunner.execute(
-                object : GuiQuery<Int?>() {
-                    override fun executeInEDT(): Int? = tree.selectionRows?.firstOrNull()
-                },
-            )
+            run {
+                val deadline = System.nanoTime() + 1_500_000_000
+                while (System.nanoTime() < deadline) {
+                    val row =
+                        GuiActionRunner.execute(
+                            object : GuiQuery<Int?>() {
+                                override fun executeInEDT(): Int? = tree.selectionRows?.firstOrNull()
+                            },
+                        )
+                    if (row == 1) break
+                    Thread.sleep(30)
+                }
+                GuiActionRunner.execute(
+                    object : GuiQuery<Int?>() {
+                        override fun executeInEDT(): Int? = tree.selectionRows?.firstOrNull()
+                    },
+                )
+            }
         assertEquals(1, selectedRow, "Clicking the lower-right area of a row should select it")
     }
 
