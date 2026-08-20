@@ -272,12 +272,7 @@ class PromptInputPanel(
 
     private fun doSend() {
         val body = textArea.text.takeIf { it.isNotBlank() } ?: return
-        val vars =
-            Regex("""\{(\w+)}""")
-                .findAll(body)
-                .map { it.groupValues[1] }
-                .distinct()
-                .toList()
+        val vars = extractTemplateVariables(body)
         val resolved =
             if (vars.isEmpty()) {
                 body
@@ -286,9 +281,7 @@ class PromptInputPanel(
                 var result: Map<String, String>? = null
                 VariableResolutionDialog(owner, vars) { result = it }.isVisible = true
                 val substitutions = result ?: return
-                var out = body
-                substitutions.forEach { (k, v) -> out = out.replace("{$k}", v) }
-                out
+                applyTemplateSubstitutions(body, substitutions)
             }
         sendToTerminal(resolved)
     }

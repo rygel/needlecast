@@ -245,16 +245,9 @@ private class ConsoleSearchBar(
             textArea.toolTipText = null
             return
         }
-        val text = textArea.text.lowercase()
-        val q = query.lowercase()
-        val found = mutableListOf<Pair<Int, Int>>()
-        var idx = 0
-        while (true) {
-            val pos = text.indexOf(q, idx)
-            if (pos < 0) break
-            found += pos to (pos + q.length)
-            textArea.highlighter.addHighlight(pos, pos + q.length, matchPainter)
-            idx = pos + 1
+        val found = findAllCaseInsensitiveMatches(textArea.text, query)
+        for ((s, e) in found) {
+            textArea.highlighter.addHighlight(s, e, matchPainter)
         }
         matches = found
         currentMatch = -1
@@ -289,4 +282,22 @@ private class ConsoleSearchBar(
         statusLabel.text = "${currentMatch + 1} / ${matches.size}"
         textArea.toolTipText = "Search match ${currentMatch + 1} of ${matches.size}"
     }
+}
+
+internal fun findAllCaseInsensitiveMatches(
+    text: String,
+    query: String,
+): List<Pair<Int, Int>> {
+    if (query.isEmpty()) return emptyList()
+    val lower = text.lowercase()
+    val q = query.lowercase()
+    val found = mutableListOf<Pair<Int, Int>>()
+    var idx = 0
+    while (true) {
+        val pos = lower.indexOf(q, idx)
+        if (pos < 0) break
+        found += pos to (pos + q.length)
+        idx = pos + 1
+    }
+    return found
 }
